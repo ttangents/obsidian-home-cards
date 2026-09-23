@@ -1,0 +1,88 @@
+/* --- Backgrounds ------------------------------------------
+   The CSS half of BACKGROUNDS in src/settings/schema.ts. Each
+   pattern is a pair of seamless 400px tiles carried on one
+   custom property per pattern id, declared only on the page
+   and settings roots that paint them: the light tile by
+   default, the dark tile under .theme-dark. The view and the
+   settings swatches resolve the same property, so a preview
+   always shows exactly what the page will paint. Plain sets no attribute
+   and no rule here fires. Cards sit on an 85% underlay of the
+   theme's primary background so patterns stay behind the
+   content even when a theme's surfaces are translucent.
+   ---------------------------------------------------------- */
+
+/* Some themes (Minimal among them) pad .view-content, which
+   would frame the pattern in bare background color; the
+   pattern runs to the leaf's edges and .hc-wrap supplies the
+   reading margins. Scoped to this plugin's own view type. */
+.workspace-leaf-content[data-type="home-cards-view"] .view-content {
+  padding: 0;
+}
+
+/* Scoped to the two roots that paint tiles, so some 300 KB of
+   inline images never enter the cascade of every other element. */
+.home-cards,
+.home-cards-settings {
+  --hc-bg-hearts: url("@tile:hearts-light@");
+  --hc-bg-leaves: url("@tile:leaves-light@");
+  --hc-bg-suns: url("@tile:suns-light@");
+  --hc-bg-waves: url("@tile:waves-light@");
+  --hc-bg-interlace: url("@tile:interlace-light@");
+  --hc-bg-regal: url("@tile:regal-light@");
+  --hc-bg-crosses: url("@tile:crosses-light@");
+}
+.theme-dark .home-cards,
+.theme-dark .home-cards-settings {
+  --hc-bg-hearts: url("@tile:hearts-dark@");
+  --hc-bg-leaves: url("@tile:leaves-dark@");
+  --hc-bg-suns: url("@tile:suns-dark@");
+  --hc-bg-waves: url("@tile:waves-dark@");
+  --hc-bg-interlace: url("@tile:interlace-dark@");
+  --hc-bg-regal: url("@tile:regal-dark@");
+  --hc-bg-crosses: url("@tile:crosses-dark@");
+}
+
+.home-cards[data-pattern="hearts"],
+.home-cards-settings .hc-swatch[data-pattern="hearts"] {
+  background-image: var(--hc-bg-hearts);
+}
+.home-cards[data-pattern="leaves"],
+.home-cards-settings .hc-swatch[data-pattern="leaves"] {
+  background-image: var(--hc-bg-leaves);
+}
+.home-cards[data-pattern="suns"],
+.home-cards-settings .hc-swatch[data-pattern="suns"] {
+  background-image: var(--hc-bg-suns);
+}
+.home-cards[data-pattern="waves"],
+.home-cards-settings .hc-swatch[data-pattern="waves"] {
+  background-image: var(--hc-bg-waves);
+}
+
+.home-cards[data-pattern="interlace"],
+.home-cards-settings .hc-swatch[data-pattern="interlace"] {
+  background-image: var(--hc-bg-interlace);
+}
+.home-cards[data-pattern="regal"],
+.home-cards-settings .hc-swatch[data-pattern="regal"] {
+  background-image: var(--hc-bg-regal);
+}
+.home-cards[data-pattern="crosses"],
+.home-cards-settings .hc-swatch[data-pattern="crosses"] {
+  background-image: var(--hc-bg-crosses);
+}
+
+.home-cards[data-pattern] {
+  background-size: 400px 400px;
+  background-repeat: repeat;
+}
+
+.home-cards[data-pattern][data-surface="flat"]:not([data-view="rows"]) .hc-card {
+  background:
+    linear-gradient(var(--hc-surface), var(--hc-surface)),
+    linear-gradient(
+      color-mix(in srgb, var(--background-primary) 85%, transparent),
+      color-mix(in srgb, var(--background-primary) 85%, transparent)
+    );
+}
+

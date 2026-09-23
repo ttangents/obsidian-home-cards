@@ -1,0 +1,9 @@
+/* --- States ---------------------------------------------- */
+
+.hc-empty,
+.hc-loading {
+  color: var(--text-faint);
+  font-size: var(--font-ui-small);
+  padding: var(--size-4-4) 0;
+}
+

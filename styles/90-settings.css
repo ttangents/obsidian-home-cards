@@ -1,0 +1,131 @@
+/* --- Settings ---------------------------------------------
+   Rows go inside Obsidian's `.setting-group > .setting-items`
+   container so the theme draws one card with hairline dividers,
+   exactly as it does for every other plugin. The rules below are
+   a zero-specificity fallback for themes that leave the group
+   unstyled; a theme that styles it wins automatically.
+   ---------------------------------------------------------- */
+
+.home-cards-settings .hc-tabs {
+  display: flex;
+  gap: var(--size-2-1);
+  background: var(--background-modifier-hover);
+  border-radius: var(--radius-m);
+  padding: var(--size-2-1);
+  margin-bottom: var(--size-4-4);
+}
+.home-cards-settings .hc-tabs button {
+  flex: 1;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.home-cards-settings .hc-tabs button:hover { color: var(--text-normal); }
+.home-cards-settings .hc-tabs button.is-active {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-shadow: var(--shadow-s);
+}
+
+.home-cards-settings .hc-hint {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  margin: 0 0 var(--size-4-3);
+}
+
+:where(.home-cards-settings .setting-group) {
+  margin-bottom: var(--size-4-6);
+}
+:where(.home-cards-settings .setting-items) {
+  border: var(--border-width) solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  padding: 0 var(--size-4-4);
+  background: var(--background-secondary);
+}
+:where(.home-cards-settings .setting-items .setting-item) {
+  background: transparent;
+  border-radius: 0;
+  border-top: var(--border-width) solid var(--background-modifier-border);
+}
+:where(.home-cards-settings .setting-items > .setting-item:first-child) {
+  border-top: none;
+}
+
+/* Section rows -------------------------------------------- */
+
+.home-cards-settings .hc-sec-head { cursor: default; }
+.home-cards-settings .hc-sec-head.is-off { opacity: 0.5; }
+.home-cards-settings .hc-sec-head .hc-sec-label { cursor: pointer; }
+.home-cards-settings .hc-sec-head .setting-item-name.is-derived {
+  color: var(--text-muted);
+}
+.home-cards-settings .hc-twisty { flex: none; margin-inline-end: var(--size-4-2); }
+
+/* Rows belonging to an expanded section, marked rather than boxed. */
+.home-cards-settings .setting-item.hc-subrow {
+  padding-inline-start: var(--size-4-6);
+  position: relative;
+}
+.home-cards-settings .setting-item.hc-subrow::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--size-4-2);
+  width: var(--border-width);
+  background: var(--background-modifier-border);
+}
+/* Sections are a list of boxes, so they sit closer than unrelated groups. */
+:where(.home-cards-settings .setting-group.hc-sec-group) {
+  margin-bottom: var(--size-2-2);
+}
+.home-cards-settings .hc-addrow {
+  display: flex;
+  justify-content: flex-end;
+  margin: var(--size-4-3) 0 var(--size-4-6);
+}
+
+/* Background swatch gallery ------------------------------- */
+
+.home-cards-settings .hc-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-4);
+  padding: var(--size-4-3) 0 var(--size-4-4);
+}
+.home-cards-settings .hc-swatch-item {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-2-2);
+  cursor: pointer;
+}
+.home-cards-settings .hc-swatch {
+  width: 108px;
+  height: 72px;
+  border-radius: var(--radius-m);
+  border: var(--border-width) solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  background-size: 200px 200px;
+  background-position: center;
+}
+.home-cards-settings .hc-swatch-item:hover .hc-swatch {
+  border-color: var(--background-modifier-border-hover);
+}
+.home-cards-settings .hc-swatch-item.is-selected .hc-swatch {
+  border: 2px solid var(--interactive-accent);
+}
+.home-cards-settings .hc-swatch-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.home-cards-settings .hc-swatch-item.is-selected .hc-swatch-label {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}
+

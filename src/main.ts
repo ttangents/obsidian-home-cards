@@ -1,0 +1,132 @@
+/**
+ * Plugin lifecycle and nothing else: load settings, register views and
+ * commands, persist edits, and tell open views to redraw.
+ *
+ * Layers, each importing only from those above it (a type-only import of
+ * this class, for the plugin handle, is the one exception):
+ *
+ *   settings/      schema, defaults, and the normalizer for stored data
+ *   compose/       vault queries and card models; no DOM
+ *   render/        the Home view and the Bases view
+ *   settings-tab/  the settings UI
+ *   main.ts        wiring
+ */
+
+import { debounce, Plugin } from "obsidian";
+import { DekCache } from "./compose/dek-cache";
+import { registerBasesView, type Redrawable } from "./render/bases-view";
+import { HomeView, VIEW_TYPE_HOME } from "./render/home-view";
+import { normalizeSettings } from "./settings/normalize";
+import { defaultSettings, type HomeCardsSettings } from "./settings/schema";
+import { HomeCardsSettingTab } from "./settings-tab/tab";
+
+/** Quiet period after the last keystroke before an edit is written. */
+const SAVE_DELAY_MS = 400;
+/** Quiet period after the metadata cache settles before views recompose. */
+const RESOLVE_DELAY_MS = 1500;
+
+export default class HomeCardsPlugin extends Plugin {
+  settings: HomeCardsSettings = defaultSettings();
+
+  /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
+  readonly dekCache = new DekCache();
+
+  /** Bases views currently mounted; each adds and removes itself. */
+  readonly basesViews = new Set<Redrawable>();
+
+  /** True while an edit sits in memory that data.json does not have. */
+  private dirty = false;
+  private readonly flushSoon = debounce(() => void this.flush(), SAVE_DELAY_MS, true);
+
+  async onload(): Promise<void> {
+    await this.loadSettings();
+
+    this.registerView(VIEW_TYPE_HOME, (leaf) => new HomeView(leaf, this));
+    registerBasesView(this);
+    this.addSettingTab(new HomeCardsSettingTab(this));
+
+    this.addRibbonIcon("layout-grid", "Open Home Cards", () => void this.activateView());
+    this.addCommand({ id: "open", name: "Open", callback: () => void this.activateView() });
+    this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
+
+    // "resolved" fires after every batch of metadata changes; one redraw
+    // per burst is plenty.
+    const settle = debounce(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
+    this.registerEvent(this.app.metadataCache.on("resolved", settle));
+
+    if (this.settings.openOnStartup) {
+      this.app.workspace.onLayoutReady(() => void this.activateView());
+    }
+  }
+
+  onunload(): void {
+    // Views are closing; write the pending edit without redrawing them.
+    void this.write();
+  }
+
+  // ------------------------------------------------------------ persistence
+
+  /** Record an edit; write once the edits stop. For keystrokes and sliders. */
+  touch(): void {
+    this.dirty = true;
+    this.flushSoon();
+  }
+
+  /** Record an edit and write it now. For structural changes. */
+  async commit(): Promise<void> {
+    this.dirty = true;
+    await this.flush();
+  }
+
+  /** Write a pending edit, if any, and redraw the views that show it. */
+  async flush(): Promise<void> {
+    if (await this.write()) this.refreshViews();
+  }
+
+  /** Write a pending edit. Resolves true when there was one. */
+  private async write(): Promise<boolean> {
+    this.flushSoon.cancel();
+    if (!this.dirty) return false;
+    this.dirty = false;
+    try {
+      await this.saveData(this.settings);
+    } catch (err) {
+      // Keep the edit pending, so the next touch, commit or close retries.
+      this.dirty = true;
+      console.error("Home Cards: could not save settings", err);
+    }
+    return true;
+  }
+
+  private async loadSettings(): Promise<void> {
+    let stored: unknown = null;
+    try {
+      stored = await this.loadData();
+    } catch (err) {
+      console.error("Home Cards: settings unreadable, using defaults", err);
+    }
+    this.settings = normalizeSettings(stored);
+  }
+
+  // ------------------------------------------------------------------ views
+
+  /** Reveal the Home view, opening it in a new tab if none exists. */
+  async activateView(): Promise<void> {
+    const { workspace } = this.app;
+    const existing = workspace.getLeavesOfType(VIEW_TYPE_HOME)[0];
+    if (existing) {
+      await workspace.revealLeaf(existing);
+      return;
+    }
+    const leaf = workspace.getLeaf("tab");
+    await leaf.setViewState({ type: VIEW_TYPE_HOME, active: true });
+    await workspace.revealLeaf(leaf);
+  }
+
+  refreshViews(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_HOME)) {
+      if (leaf.view instanceof HomeView) void leaf.view.refresh();
+    }
+    for (const view of this.basesViews) view.redraw();
+  }
+}

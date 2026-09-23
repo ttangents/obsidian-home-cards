@@ -1,0 +1,32 @@
+/* ============================================================
+   Home Cards
+
+   Built from the partials in styles/ by scripts/build-css.mjs;
+   edit those, never styles.css.
+
+   Every typeface, size, weight, color and radius here resolves
+   to an Obsidian variable, so the active theme decides how the
+   page looks. The plugin adds only what a user elects in
+   settings: a background pattern, a card surface (Frosted
+   blurs what lies behind the card), and two custom properties
+   the views set, --hc-card-min and --hc-dek-lines.
+   ============================================================ */
+
+.home-cards {
+  --hc-card-min: 262px;
+  --hc-dek-lines: 3;
+  --hc-gap: var(--size-4-3);
+  --hc-surface: var(--background-secondary);
+  --hc-hair: var(--background-modifier-border);
+
+  /* Anchor to the theme's own reading size so its em-based heading
+     scale lands here exactly as it does inside a note. */
+  font-size: var(--font-text-size);
+  font-family: var(--font-interface);
+  overflow-y: auto;
+  /* clip, not hidden: no horizontal scroll mechanism exists at all, so
+     an over-wide child can never pan the page sideways on touch. */
+  overflow-x: clip;
+  height: 100%;
+}
+

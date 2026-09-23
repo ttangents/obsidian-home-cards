@@ -1,0 +1,58 @@
+/* --- Pills (type badge + tags) ---------------------------
+   Type and tags are one wrapping row of the same pill. The
+   type pill is filled: with the accent, or with muted text
+   when "Type labels in accent color" is off. Tag pills are
+   the theme's own tag. Both share the tag metrics, so they
+   line up whatever the theme sets.
+   ---------------------------------------------------------- */
+
+.hc-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-2);
+}
+.hc-pill {
+  font-size: var(--tag-size);
+  font-weight: var(--tag-weight);
+  line-height: var(--line-height-tight);
+  border-radius: var(--tag-radius);
+  padding: var(--tag-padding-y) var(--tag-padding-x);
+  border: var(--tag-border-width) solid transparent;
+  white-space: nowrap;
+}
+.hc-pill.is-type {
+  background: var(--text-accent);
+  color: var(--text-on-accent);
+}
+/* Zero-specificity scope, so the Rows treatment still wins. */
+:where(.home-cards:not(.hc-accent-rubrics)) .hc-pill.is-type {
+  background: var(--text-muted);
+  color: var(--background-primary);
+}
+.hc-pill.is-tag {
+  color: var(--tag-color);
+  background: var(--tag-background);
+  border-color: var(--tag-border-color);
+}
+
+.hc-dek {
+  font-family: var(--font-text);
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-tight);
+  color: var(--text-muted);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: var(--hc-dek-lines);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.hc-dek.is-empty { color: var(--text-faint); }
+
+.hc-foot {
+  margin-top: auto;
+  padding-top: var(--size-4-2);
+  border-top: var(--divider-width) solid var(--hc-hair);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+

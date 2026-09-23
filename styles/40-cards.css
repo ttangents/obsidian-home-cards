@@ -1,0 +1,82 @@
+/* --- Grid ------------------------------------------------ */
+
+.hc-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(var(--hc-card-min), 100%), 1fr)
+  );
+  gap: var(--hc-gap);
+}
+
+.hc-card {
+  background: var(--hc-surface);
+  border: var(--border-width) solid var(--hc-hair);
+  border-radius: var(--radius-m);
+  padding: var(--size-4-4);
+  display: flex;
+  flex-direction: column;
+  /* One rhythm governs the card: title, pill row and summary are all
+     separated by this gap, so the spacing reads as consistent. */
+  gap: var(--size-4-3);
+  cursor: pointer;
+  outline: none;
+  transition:
+    border-color var(--anim-duration-fast) var(--anim-motion-smooth),
+    background var(--anim-duration-fast) var(--anim-motion-smooth);
+}
+.hc-card:hover {
+  border-color: var(--background-modifier-border-hover);
+  background: var(--background-modifier-hover);
+}
+.hc-card:focus-visible {
+  border-color: var(--background-modifier-border-focus);
+  box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border-focus);
+}
+.hc-card.is-hidden { display: none; }
+
+.hc-card-head {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: flex-start;
+}
+.hc-glyph {
+  flex: none;
+  width: 1.7em;
+  height: 1.7em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-s);
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-family: var(--h3-font);
+}
+.hc-glyph.has-icon { color: var(--icon-color); }
+.hc-glyph .svg-icon {
+  width: 1em;
+  height: 1em;
+}
+/* The headtext stacks the title over its pill row on the same card
+   rhythm; the head sits at the top of the card, so its gap to the
+   summary is the card's own gap. */
+.hc-card-headtext {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-3);
+}
+
+.hc-title {
+  font-family: var(--h3-font);
+  font-size: var(--h3-size);
+  font-weight: var(--h3-weight);
+  font-style: var(--h3-style);
+  font-variant: var(--h3-variant);
+  line-height: var(--h3-line-height);
+  color: var(--h3-color);
+  margin: 0;
+  text-wrap: balance;
+}
+

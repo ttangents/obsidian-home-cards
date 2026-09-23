@@ -1,0 +1,95 @@
+/* --- Page frame and header ------------------------------ */
+
+.hc-wrap {
+  padding: var(--size-4-6) var(--size-4-6) var(--size-4-12);
+}
+/* Obsidian marks phones on the body; tighten the frame to match. */
+body.is-phone .hc-wrap {
+  padding: var(--size-4-4) var(--size-4-4) var(--size-4-8);
+}
+
+.hc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-6);
+  flex-wrap: wrap;
+  padding-bottom: var(--size-4-4);
+}
+
+.hc-greeting {
+  font-family: var(--h1-font);
+  font-size: var(--h1-size);
+  font-weight: var(--h1-weight);
+  font-style: var(--h1-style);
+  font-variant: var(--h1-variant);
+  line-height: var(--h1-line-height);
+  color: var(--h1-color);
+  margin: 0;
+}
+
+.hc-masthead { min-width: 0; }
+
+.hc-dateline {
+  font-size: var(--font-ui-small);
+  color: var(--text-faint);
+  margin-top: var(--size-2-1);
+}
+
+.hc-controls {
+  /* Right-aligned beside the masthead; when the header wraps on a
+     narrow pane, the row takes the full width and the filter grows. */
+  flex: 1 1 20em;
+  justify-content: flex-end;
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  /* On narrow panes the row folds instead of overflowing. */
+  flex-wrap: wrap;
+}
+
+input.hc-search {
+  flex: 1 1 auto;
+  min-width: min(12em, 100%);
+  max-width: 24em;
+}
+
+.hc-seg {
+  display: flex;
+  gap: var(--size-2-1);
+  background: var(--background-modifier-hover);
+  border-radius: var(--radius-m);
+  padding: var(--size-2-1);
+}
+/* Buttons sit inside the track's padding, so the whole control
+   matches the filter box's height and the two read as one row. */
+.hc-seg button {
+  height: calc(var(--input-height) - 2 * var(--size-2-1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--size-2-2) var(--size-4-2);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.hc-seg .svg-icon {
+  width: var(--icon-s);
+  height: var(--icon-s);
+  stroke-width: var(--icon-s-stroke-width);
+}
+.hc-seg button:hover { color: var(--text-normal); }
+.hc-seg button.is-active {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  /* The control-sized shadow Obsidian gives its own buttons; the
+     card-sized --shadow-s spills a haze below a 26px button. */
+  box-shadow: var(--input-shadow);
+}
+.hc-seg .hc-reload {
+  margin-inline-start: var(--size-2-1);
+  border-inline-start: var(--border-width) solid var(--hc-hair);
+  border-radius: 0;
+}
+

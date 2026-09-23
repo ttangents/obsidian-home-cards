@@ -1,0 +1,23 @@
+{
+  "name": "home-cards",
+  "version": "1.20.0",
+  "description": "A configurable start page for your Obsidian vault.",
+  "private": true,
+  "type": "module",
+  "author": "Les Joseph",
+  "license": "UNLICENSED",
+  "scripts": {
+    "css": "node scripts/build-css.mjs",
+    "typecheck": "tsc -p .",
+    "bundle": "node esbuild.config.mjs",
+    "build": "npm run css && npm run typecheck && npm run bundle",
+    "dev": "npm run css && node esbuild.config.mjs watch",
+    "test": "tsc -p tsconfig.test.json && node scripts/test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.13.1",
+    "typescript": "^7.0.2"
+  }
+}

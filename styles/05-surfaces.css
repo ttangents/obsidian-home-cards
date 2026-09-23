@@ -1,0 +1,25 @@
+/* --- Card surfaces ----------------------------------------
+   Four distinct treatments, all theme-derived. Flat is the
+   default: the theme's secondary surface with a hairline.
+   Elevated sits on the primary background and the theme's own
+   shadow, borderless. Frosted is translucent and blurs what
+   lies behind the card — patterns especially. Outline drops
+   the fill entirely and keeps only the hairline.
+   ---------------------------------------------------------- */
+
+.home-cards[data-surface="elevated"] {
+  --hc-surface: var(--background-primary);
+}
+.home-cards[data-surface="elevated"] .hc-card {
+  border-color: transparent;
+  box-shadow: var(--shadow-s);
+}
+.home-cards[data-surface="frosted"] {
+  --hc-surface: color-mix(in srgb, var(--background-primary) 55%, transparent);
+}
+.home-cards[data-surface="frosted"] .hc-card {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.home-cards[data-surface="outline"] { --hc-surface: transparent; }
+

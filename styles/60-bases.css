@@ -1,0 +1,19 @@
+/* --- Inside a Bases view ---------------------------------
+   The container belongs to Bases, which owns scrolling and
+   sizing; the workspace-view shell rules must not apply. A
+   pending dek reserves its final height so the grid does not
+   reflow as text arrives on scroll.
+   ---------------------------------------------------------- */
+
+.home-cards.hc-in-bases {
+  height: auto;
+  overflow: visible;
+  padding: var(--size-4-2);
+}
+.home-cards.hc-in-bases .hc-section { margin-top: var(--size-4-4); }
+.home-cards.hc-in-bases .hc-section:first-child { margin-top: 0; }
+
+.hc-dek[data-hc-pending] {
+  min-height: calc(var(--hc-dek-lines) * var(--line-height-tight) * 1em);
+}
+

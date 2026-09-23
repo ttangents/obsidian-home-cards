@@ -1,0 +1,331 @@
+/**
+ * The settings tab: three panes behind a segmented switch.
+ *
+ * Every control writes through one of the plugin's two persistence verbs.
+ * `touch()` coalesces a burst of keystrokes or slider ticks into one
+ * write; `commit()` writes at once, and the pane redraws after it when
+ * the change shows or hides other controls.
+ */
+
+import { PluginSettingTab, Setting } from "obsidian";
+import type HomeCardsPlugin from "../main";
+import { BACKGROUNDS, isChoice, LIMITS, SURFACES, VIEW_MODES } from "../settings/schema";
+import { SectionsPane } from "./sections";
+import { addChoices, hint, settingGroup } from "./widgets";
+
+const PANES = [
+  { id: "sections", label: "Sections" },
+  { id: "cards", label: "Cards" },
+  { id: "layout", label: "Layout" },
+] as const;
+type PaneId = (typeof PANES)[number]["id"];
+
+export class HomeCardsSettingTab extends PluginSettingTab {
+  /** Which pane is showing. View state: never persisted. */
+  private pane: PaneId = "sections";
+  private readonly sections: SectionsPane;
+
+  constructor(private readonly plugin: HomeCardsPlugin) {
+    super(plugin.app, plugin);
+    this.sections = new SectionsPane(plugin, () => this.display());
+  }
+
+  display(): void {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.addClass("home-cards-settings");
+
+    const bar = containerEl.createDiv({ cls: "hc-tabs", attr: { role: "tablist" } });
+    for (const pane of PANES) {
+      const on = pane.id === this.pane;
+      const b = bar.createEl("button", {
+        text: pane.label,
+        attr: { role: "tab", "aria-selected": String(on) },
+      });
+      b.toggleClass("is-active", on);
+      b.addEventListener("click", () => {
+        this.pane = pane.id;
+        this.display();
+      });
+    }
+
+    const body = containerEl.createDiv({ cls: "hc-tabbody" });
+    switch (this.pane) {
+      case "sections":
+        this.sections.render(body);
+        break;
+      case "cards":
+        this.cardsPane(body);
+        break;
+      case "layout":
+        this.layoutPane(body);
+        break;
+    }
+  }
+
+  /** Obsidian calls this when the tab closes: write any pending edit. */
+  hide(): void {
+    this.sections.forget();
+    void this.plugin.flush();
+  }
+
+  /** Write now, then redraw so dependent controls appear or disappear. */
+  private async restructure(): Promise<void> {
+    await this.plugin.commit();
+    this.display();
+  }
+
+  // ------------------------------------------------------------------ cards
+
+  private cardsPane(root: HTMLElement): void {
+    const s = this.plugin.settings;
+    hint(root, "What each card carries, and where its text comes from.");
+
+    const content = settingGroup(root);
+    new Setting(content)
+      .setName("Glyph")
+      .setDesc("A mark in the corner of each card.")
+      .addDropdown((d) =>
+        d
+          .addOption("off", "None")
+          .addOption("letter", "Initial letter")
+          .addOption("typify", "Typify icon")
+          .setValue(!s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter")
+          .onChange((v) => {
+            s.showGlyph = v !== "off";
+            s.typifyIcons = v === "typify";
+            void this.restructure();
+          })
+      );
+    if (s.showGlyph && s.typifyIcons) {
+      hint(
+        content,
+        "Icons come from Typify's own settings, matched on a note's type. Types Typify does not cover keep the initial letter."
+      );
+    }
+
+    new Setting(content).setName("Type label").addToggle((t) =>
+      t.setValue(s.showRubric).onChange((v) => {
+        s.showRubric = v;
+        this.plugin.touch();
+      })
+    );
+
+    new Setting(content)
+      .setName("Tags")
+      .setDesc("Frontmatter tags first, then inline tags.")
+      .addToggle((t) =>
+        t.setValue(s.showTags).onChange((v) => {
+          s.showTags = v;
+          void this.restructure();
+        })
+      )
+      .addSlider((sl) =>
+        sl
+          .setLimits(LIMITS.maxTags.min, LIMITS.maxTags.max, 1)
+          .setValue(s.maxTags)
+          .setDynamicTooltip()
+          .setDisabled(!s.showTags)
+          .onChange((v) => {
+            s.maxTags = v;
+            this.plugin.touch();
+          })
+      );
+
+    new Setting(content)
+      .setName("Opening sentence")
+      .setDesc("The first prose sentence, and how many lines it may run to.")
+      .addToggle((t) =>
+        t.setValue(s.showDeks).onChange((v) => {
+          s.showDeks = v;
+          void this.restructure();
+        })
+      )
+      .addSlider((sl) =>
+        sl
+          .setLimits(LIMITS.dekLines.min, LIMITS.dekLines.max, 1)
+          .setValue(s.dekLines)
+          .setDynamicTooltip()
+          .setDisabled(!s.showDeks)
+          .onChange((v) => {
+            s.dekLines = v;
+            this.plugin.touch();
+          })
+      );
+
+    new Setting(content)
+      .setName("File size in the footer")
+      .setDesc("The footer always carries the value the section sorts on.")
+      .addToggle((t) =>
+        t.setValue(s.showFileSize).onChange((v) => {
+          s.showFileSize = v;
+          this.plugin.touch();
+        })
+      );
+
+    const text = settingGroup(root, "Text extraction");
+    new Setting(text)
+      .setName("Summary property")
+      .setDesc("When a note defines it, it wins over the first sentence.")
+      .addText((t) =>
+        t.setValue(s.summaryProperty).onChange((v) => {
+          s.summaryProperty = v.trim();
+          this.plugin.touch();
+        })
+      );
+    new Setting(text)
+      .setName("Skip openings beginning with")
+      .setDesc("Comma separated. Self-referential first sentences get passed over.")
+      .addTextArea((t) =>
+        t.setValue(s.boilerplateOpeners).onChange((v) => {
+          s.boilerplateOpeners = v;
+          this.plugin.touch();
+        })
+      );
+    new Setting(text)
+      .setName("Strip from headlines")
+      .setDesc("Comma separated title prefixes. The toggle also strips trailing date stamps.")
+      .addText((t) =>
+        t.setValue(s.titlePrefixes).onChange((v) => {
+          s.titlePrefixes = v;
+          this.plugin.touch();
+        })
+      )
+      .addToggle((t) =>
+        t
+          .setTooltip("Strip trailing dates")
+          .setValue(s.stripTrailingDates)
+          .onChange((v) => {
+            s.stripTrailingDates = v;
+            this.plugin.touch();
+          })
+      );
+  }
+
+  // ----------------------------------------------------------------- layout
+
+  private layoutPane(root: HTMLElement): void {
+    const s = this.plugin.settings;
+    hint(
+      root,
+      "Color, type and spacing come from your active theme. These settings choose the surface cards sit on and how the grid reflows."
+    );
+
+    const page = settingGroup(root);
+    new Setting(page).setName("Default view").addDropdown((d) =>
+      addChoices(d, VIEW_MODES)
+        .setValue(s.defaultView)
+        .onChange((v) => {
+          if (!isChoice(VIEW_MODES, v)) return;
+          s.defaultView = v;
+          this.plugin.touch();
+        })
+    );
+    new Setting(page)
+      .setName("Minimum card width")
+      .setDesc("Cards reflow to fill the pane; this sets how narrow they may get.")
+      .addSlider((sl) =>
+        sl
+          .setLimits(LIMITS.cardMinWidth.min, LIMITS.cardMinWidth.max, 2)
+          .setValue(s.cardMinWidth)
+          .setDynamicTooltip()
+          .onChange((v) => {
+            s.cardMinWidth = v;
+            this.plugin.touch();
+          })
+      );
+    new Setting(page)
+      .setName("Card surface")
+      .setDesc(
+        "Flat sits on the theme surface; Elevated lifts on a shadow; Frosted blurs whatever lies behind the card; Outline keeps only the border."
+      )
+      .addDropdown((d) =>
+        addChoices(d, SURFACES)
+          .setValue(s.cardSurface)
+          .onChange((v) => {
+            if (!isChoice(SURFACES, v)) return;
+            s.cardSurface = v;
+            this.plugin.touch();
+          })
+      );
+    new Setting(page)
+      .setName("Type labels in accent color")
+      .setDesc("Off uses the theme's muted text color.")
+      .addToggle((t) =>
+        t.setValue(s.accentRubrics).onChange((v) => {
+          s.accentRubrics = v;
+          this.plugin.touch();
+        })
+      );
+
+    const background = settingGroup(root, "Background");
+    new Setting(background)
+      .setName("Pattern")
+      .setDesc("Plain follows the theme. Each pattern switches between a light and a dark tile with the theme's mode.");
+    this.swatchGallery(background);
+
+    const header = settingGroup(root, "Header");
+    new Setting(header)
+      .setName("Greeting")
+      .setDesc("Follows the time of day and the calendar, with a word from another language now and then. Add a name to be greeted by it.")
+      .addText((t) =>
+        t
+          .setPlaceholder("Your name")
+          .setValue(s.greetingName)
+          .setDisabled(!s.greetingEnabled)
+          .onChange((v) => {
+            s.greetingName = v;
+            this.plugin.touch();
+          })
+      )
+      .addToggle((t) =>
+        t.setValue(s.greetingEnabled).onChange((v) => {
+          s.greetingEnabled = v;
+          void this.restructure();
+        })
+      );
+    new Setting(header).setName("Show note count").addToggle((t) =>
+      t.setValue(s.showNoteCount).onChange((v) => {
+        s.showNoteCount = v;
+        this.plugin.touch();
+      })
+    );
+    new Setting(header).setName("Open on startup").addToggle((t) =>
+      t.setValue(s.openOnStartup).onChange((v) => {
+        s.openOnStartup = v;
+        this.plugin.touch();
+      })
+    );
+  }
+
+  /**
+   * One swatch per background, each painted with the same custom property
+   * the page uses, so a preview cannot drift from the real background.
+   * Selection repaints in place; the pane keeps its scroll position.
+   */
+  private swatchGallery(parent: HTMLElement): void {
+    const s = this.plugin.settings;
+    const grid = parent.createDiv({ cls: "hc-swatches", attr: { role: "radiogroup" } });
+    const items = BACKGROUNDS.map((bg) => {
+      const item = grid.createEl("button", { cls: "hc-swatch-item", attr: { role: "radio" } });
+      const face = item.createDiv({ cls: "hc-swatch" });
+      if (bg.id !== "plain") face.dataset.pattern = bg.id;
+      item.createDiv({ cls: "hc-swatch-label", text: bg.label });
+      item.addEventListener("click", () => {
+        if (s.background === bg.id) return;
+        s.background = bg.id;
+        paint();
+        void this.plugin.commit();
+      });
+      return { id: bg.id, item };
+    });
+    const paint = () => {
+      for (const { id, item } of items) {
+        const on = s.background === id;
+        item.toggleClass("is-selected", on);
+        item.setAttr("aria-checked", String(on));
+      }
+    };
+    paint();
+  }
+}

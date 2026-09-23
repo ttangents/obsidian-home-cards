@@ -1,0 +1,137 @@
+/* --- Rows -------------------------------------------------
+   The RowsView mock, faithfully: each note is two lines on a
+   three-track grid shared by the whole list — a narrow icon
+   track, the content track carrying the title with its type
+   label run in and the opening sentence beneath, and a date
+   track in tabular figures. Hover is a full-width band with
+   an accent bar on the leading edge. The track model lives in
+   one custom property; rows subgrid onto the list's tracks so
+   columns align even when a row has no date, and fall back to
+   identical per-row tracks where subgrid is unsupported.
+   ---------------------------------------------------------- */
+
+.home-cards[data-view="rows"] .hc-grid {
+  --hc-row-cols: max-content minmax(0, 1fr) max-content;
+  display: block;
+}
+body.is-phone .home-cards[data-view="rows"] .hc-grid {
+  --hc-row-cols: minmax(0, 1fr) max-content;
+}
+
+@supports (grid-template-columns: subgrid) {
+  .home-cards[data-view="rows"] .hc-grid {
+    display: grid;
+    grid-template-columns: var(--hc-row-cols);
+  }
+  .home-cards[data-view="rows"] .hc-card {
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
+}
+
+.home-cards[data-view="rows"] .hc-card {
+  display: grid;
+  grid-template-columns: var(--hc-row-cols);
+  align-items: start;
+  column-gap: var(--size-4-3);
+  row-gap: var(--size-2-1);
+  background: transparent;
+  border: none;
+  border-bottom: var(--divider-width) solid var(--hc-hair);
+  border-radius: 0;
+  padding: var(--size-4-3) var(--size-4-2);
+  box-shadow: inset 2px 0 0 transparent;
+  transition:
+    background var(--anim-duration-fast) var(--anim-motion-smooth),
+    box-shadow var(--anim-duration-fast) var(--anim-motion-smooth);
+}
+.home-cards[data-view="rows"] .hc-card:last-child { border-bottom: none; }
+.home-cards[data-view="rows"] .hc-card:hover {
+  background: var(--background-modifier-hover);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+
+/* The head dissolves so the glyph and the text place onto the
+   list's tracks directly; the glyph spans both lines, unboxed. */
+.home-cards[data-view="rows"] .hc-card-head { display: contents; }
+.home-cards[data-view="rows"] .hc-glyph {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  background: transparent;
+  width: auto;
+  height: auto;
+  margin-top: 0.2em;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.home-cards[data-view="rows"] .hc-card-headtext {
+  grid-column: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  min-width: 0;
+}
+/* In the index the pills collapse to run inline with the title: the
+   type becomes a plain label (its filled pill would be too loud on one
+   line) and the tags drop out entirely, as the mock has them. */
+.home-cards[data-view="rows"] .hc-pills { display: contents; }
+.home-cards[data-view="rows"] .hc-pill.is-tag { display: none; }
+.home-cards[data-view="rows"] .hc-pill.is-type {
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+.home-cards.hc-accent-rubrics[data-view="rows"] .hc-pill.is-type {
+  color: var(--text-accent);
+}
+/* With the glyph setting off, content claims the icon track too. */
+.home-cards[data-view="rows"] .hc-card:not(:has(.hc-glyph)) .hc-card-headtext,
+.home-cards[data-view="rows"] .hc-card:not(:has(.hc-glyph)) .hc-dek {
+  grid-column: 1 / 3;
+}
+
+.home-cards[data-view="rows"] .hc-title {
+  font-family: var(--font-interface);
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-wrap: nowrap;
+}
+/* The description, beneath the heading, one line. */
+.home-cards[data-view="rows"] .hc-dek {
+  grid-column: 2;
+  -webkit-line-clamp: 1;
+  margin: 0;
+}
+.home-cards[data-view="rows"] .hc-dek.is-empty { display: none; }
+
+.home-cards[data-view="rows"] .hc-foot {
+  grid-column: -2;
+  grid-row: 1;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Over a pattern the index sits on a solid panel. */
+.home-cards[data-pattern][data-view="rows"] .hc-grid {
+  background: var(--background-primary);
+  border: var(--border-width) solid var(--hc-hair);
+  border-radius: var(--radius-m);
+  padding: 0 var(--size-4-3);
+}
+
+/* Phones: no icon track; the sentence runs the full width. */
+body.is-phone .home-cards[data-view="rows"] .hc-glyph { display: none; }
+body.is-phone .home-cards[data-view="rows"] .hc-card-headtext { grid-column: 1; }
+body.is-phone .home-cards[data-view="rows"] .hc-dek { grid-column: 1 / -1; }
+

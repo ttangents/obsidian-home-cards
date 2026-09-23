@@ -1,0 +1,26 @@
+/* --- Sections -------------------------------------------- */
+
+.hc-section { margin-top: var(--size-4-8); }
+.hc-section.is-hidden { display: none; }
+
+.hc-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+}
+.hc-section-head h2 {
+  font-family: var(--h2-font);
+  font-size: var(--h2-size);
+  font-weight: var(--h2-weight);
+  font-style: var(--h2-style);
+  font-variant: var(--h2-variant);
+  line-height: var(--h2-line-height);
+  color: var(--h2-color);
+  margin: 0;
+}
+.hc-count {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+

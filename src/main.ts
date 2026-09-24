@@ -12,14 +12,15 @@
  *   main.ts        wiring
  */
 
-import { debounce, Plugin } from "obsidian";
+import { debounce, Events, Plugin, type EventRef } from "obsidian";
 import { DekCache } from "./compose/dek-cache";
-import { registerBasesView, type Redrawable } from "./render/bases-view";
+import { registerBasesView } from "./render/bases-view";
 import { HomeView, VIEW_TYPE_HOME } from "./render/home-view";
 import { normalizeSettings } from "./settings/normalize";
 import { defaultSettings, type HomeCardsSettings } from "./settings/schema";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
 
+const REFRESH = "refresh";
 /** Quiet period after the last keystroke before an edit is written. */
 const SAVE_DELAY_MS = 400;
 /** Quiet period after the metadata cache settles before views recompose. */
@@ -31,8 +32,12 @@ export default class HomeCardsPlugin extends Plugin {
   /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
   readonly dekCache = new DekCache();
 
-  /** Bases views currently mounted; each adds and removes itself. */
-  readonly basesViews = new Set<Redrawable>();
+  /**
+   * Views subscribe here to redraw after a settings change or a metadata
+   * update. The plugin holds no view references; each view's Component
+   * releases its subscription when the view closes.
+   */
+  private readonly events = new Events();
 
   /** True while an edit sits in memory that data.json does not have. */
   private dirty = false;
@@ -45,7 +50,7 @@ export default class HomeCardsPlugin extends Plugin {
     registerBasesView(this);
     this.addSettingTab(new HomeCardsSettingTab(this));
 
-    this.addRibbonIcon("layout-grid", "Open Home Cards", () => void this.activateView());
+    this.addRibbonIcon("layout-grid", "Open home page", () => void this.activateView());
     this.addCommand({ id: "open", name: "Open", callback: () => void this.activateView() });
     this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
 
@@ -123,10 +128,13 @@ export default class HomeCardsPlugin extends Plugin {
     await workspace.revealLeaf(leaf);
   }
 
+  /** Subscribe to redraw requests; pass the result to `registerEvent`. */
+  onRefresh(callback: () => void): EventRef {
+    return this.events.on(REFRESH, callback);
+  }
+
+  /** Ask every open Home and Bases view to redraw. */
   refreshViews(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_HOME)) {
-      if (leaf.view instanceof HomeView) void leaf.view.refresh();
-    }
-    for (const view of this.basesViews) view.redraw();
+    this.events.trigger(REFRESH);
   }
 }

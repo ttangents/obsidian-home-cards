@@ -4,7 +4,8 @@ import { greetingFor } from "../src/compose/greeting";
 
 const at = (month: number, day: number, hour: number) => new Date(2026, month - 1, day, hour);
 /** Every greeting reachable at a moment, by sweeping the rng. */
-const all = (d: Date) => new Set(Array.from({ length: 400 }, (_, i) => greetingFor(d, () => i / 400)));
+const all = (d: Date, occasions = true) =>
+  new Set(Array.from({ length: 400 }, (_, i) => greetingFor(d, { occasions, rng: () => i / 400 })));
 
 test("occasions pin the greeting on the local date", () => {
   assert.ok([...all(at(12, 25, 9))].every((g) => /Christmas|Noël|Navidad/.test(g)));
@@ -37,5 +38,11 @@ test("every greeting, all year round, is in Latin script", () => {
 });
 
 test("the rng's upper edge stays in range", () => {
-  assert.equal(typeof greetingFor(at(8, 12, 8), () => 0.9999999), "string");
+  assert.equal(typeof greetingFor(at(8, 12, 8), { rng: () => 0.9999999 }), "string");
+});
+
+test("holiday greetings can be turned off", () => {
+  const christmasMorning = all(at(12, 25, 9), false);
+  assert.ok(christmasMorning.has("Good morning"));
+  assert.ok(![...christmasMorning].some((g) => /Christmas|Noël|Navidad/.test(g)));
 });

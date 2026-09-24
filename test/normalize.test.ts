@@ -84,3 +84,18 @@ test("Les's live data.json survives intact", () => {
   assert.equal(s.sections[0].title, "Organizations");
   assert.equal(s.sections[0].propertyValue, "Organization");
 });
+
+test("new settings default sensibly and blank type keys fall back", () => {
+  const d = defaultSettings();
+  assert.equal(d.typeProperty, "type");
+  assert.equal(d.greetingOccasions, true);
+  assert.equal(d.titlePrefixes, "");
+  assert.equal(normalizeSettings({ typeProperty: "  " }).typeProperty, "type");
+  assert.equal(normalizeSettings({ typeProperty: " kind " }).typeProperty, "kind");
+  assert.equal(normalizeSettings({ greetingOccasions: false }).greetingOccasions, false);
+});
+
+test("the default page needs no configuration", () => {
+  const kinds = defaultSettings().sections.map((c) => c.kind);
+  assert.ok(!kinds.includes("property") && !kinds.includes("tag"));
+});

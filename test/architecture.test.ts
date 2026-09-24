@@ -78,3 +78,23 @@ test("the built stylesheet is current, balanced and carries its load-bearing rul
   assert.ok(!/^body(\.theme-dark)? \{[^}]*--hc-bg-/m.test(built), "tile variables must not sit on body");
   assert.ok(!/\.hc-sub\b(?!row)/.test(built), "the old .hc-sub class is retired");
 });
+
+test("the manifest passes the directory's format checks", () => {
+  const m = JSON.parse(read("manifest.json")) as Record<string, unknown>;
+  const allowed = new Set(["id", "name", "version", "minAppVersion", "description", "author", "authorUrl", "fundingUrl", "isDesktopOnly"]);
+  for (const key of Object.keys(m)) assert.ok(allowed.has(key), key);
+  const d = String(m.description);
+  assert.ok(d.length >= 10 && d.length <= 250);
+  assert.match(d, /^[A-Z][A-Za-z0-9\s.,!?'"-]+\.$/);
+  for (const key of ["id", "name", "description"]) {
+    assert.ok(!/obsidian|plugin/i.test(String(m[key])), key);
+  }
+  const versions = JSON.parse(read("versions.json")) as Record<string, string>;
+  assert.equal(versions[String(m.version)], m.minAppVersion);
+  const pkg = JSON.parse(read("package.json")) as { version: string };
+  assert.equal(pkg.version, m.version);
+});
+
+test("the license names its holder", () => {
+  assert.match(read("LICENSE"), /^Copyright \(c\) \d{4} \S/m);
+});

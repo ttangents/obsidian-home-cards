@@ -4,7 +4,31 @@
  * per compose rather than once per card.
  */
 
-import type { App } from "obsidian";
+import type { App, CachedMetadata, TFile } from "obsidian";
+
+/**
+ * One compose's view of the vault, shared by every section: the note
+ * list is fetched once and the link totals are summed at most once, so
+ * a page of seven sections costs one walk of the vault, not seven.
+ * Discard it after the compose; it does not track later changes.
+ */
+export class VaultSnapshot {
+  readonly files: readonly TFile[];
+  private inbound: ReadonlyMap<string, number> | null = null;
+
+  constructor(readonly app: App) {
+    this.files = app.vault.getMarkdownFiles();
+  }
+
+  cacheOf(file: TFile): CachedMetadata | null {
+    return this.app.metadataCache.getFileCache(file);
+  }
+
+  /** Inbound link totals per path; computed on first use. */
+  inboundCounts(): ReadonlyMap<string, number> {
+    return (this.inbound ??= inboundCounts(this.app));
+  }
+}
 
 /** Every frontmatter key in the vault, sorted, for the settings pickers. */
 export function discoverProperties(app: App): string[] {
@@ -40,11 +64,13 @@ interface TypifyStyle {
 }
 
 /**
- * Typify's icon per note `type`, keyed lowercase. A soft dependency on
- * another plugin's private data file: absent, malformed or reshaped data
- * yields an empty map, and cards fall back to their initial letter.
+ * Typify's icon per type value, keyed lowercase, for styles that apply
+ * to `typeKey`. An optional integration with another plugin's data
+ * file, read only when the user picks "Typify icon": absent, malformed or
+ * reshaped data yields an empty map, and cards fall back to their
+ * initial letter.
  */
-export async function loadTypifyIcons(app: App): Promise<Map<string, string>> {
+export async function loadTypifyIcons(app: App, typeKey: string): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const path = `${app.vault.configDir}/plugins/typify/data.json`;
   try {
@@ -56,7 +82,7 @@ export async function loadTypifyIcons(app: App): Promise<Map<string, string>> {
       const name = (style.name ?? "").trim();
       const icon = (style.icon ?? "").trim();
       if (!name || !icon) continue;
-      if (!(style.appliesTo ?? ["type"]).includes("type")) continue;
+      if (!(style.appliesTo ?? ["type"]).includes(typeKey)) continue;
       out.set(name.toLowerCase(), icon);
     }
   } catch {

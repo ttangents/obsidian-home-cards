@@ -12,7 +12,7 @@ import { firstValue, formatDate, frontmatterValue, parseDateLike } from "./value
 export interface CardItem {
   file: TFile;
   title: string;
-  /** The note's `type`, verbatim; "" when it declares none. */
+  /** The note's type property, verbatim; "" when it declares none. */
   rubric: string;
   /** Typify icon name for the type; "" when none applies. */
   icon: string;
@@ -64,7 +64,7 @@ function footer(ctx: CardContext, file: TFile, rubric: string, lead?: string): s
 export async function buildCard(ctx: CardContext, file: TFile, lead?: string): Promise<CardItem> {
   const { app, settings } = ctx;
   const cache = app.metadataCache.getFileCache(file);
-  const rubric = firstValue(frontmatterValue(cache, "type"));
+  const rubric = firstValue(frontmatterValue(cache, settings.typeProperty));
   const tags = settings.showTags
     ? [...new Set(tagsOf(cache).map((t) => t.trim()).filter(Boolean))].slice(0, settings.maxTags)
     : [];

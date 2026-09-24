@@ -13,6 +13,8 @@ export function applyAppearance(root: HTMLElement, s: HomeCardsSettings): void {
   if (s.background === "plain") delete root.dataset.pattern;
   else root.dataset.pattern = s.background;
   root.toggleClass("hc-accent-rubrics", s.accentRubrics);
-  root.style.setProperty("--hc-card-min", `${s.cardMinWidth}px`);
-  root.style.setProperty("--hc-dek-lines", String(s.dekLines));
+  root.setCssProps({
+    "--hc-card-min": `${s.cardMinWidth}px`,
+    "--hc-dek-lines": String(s.dekLines),
+  });
 }

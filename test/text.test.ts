@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cleanTitle, dekSignature, extractDek } from "../src/compose/text";
+import { cleanTitle, dekSignature, extractDek, splitSentences } from "../src/compose/text";
 import { defaultSettings } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";
 
-const s = defaultSettings();
+const s = { ...defaultSettings(), titlePrefixes: "(Report Update 2026), (Report), (Blog)" };
 
 test("cleanTitle strips a configured prefix and a trailing date stamp", () => {
   assert.equal(cleanTitle("(Report) Treat agents as skills", s), "Treat agents as skills");
@@ -65,4 +65,21 @@ test("dekSignature changes only with extraction settings", () => {
   assert.equal(dekSignature({ ...s, titlePrefixes: "x" }), base);
   assert.notEqual(dekSignature({ ...s, summaryProperty: "abstract" }), base);
   assert.notEqual(dekSignature({ ...s, boilerplateOpeners: "" }), base);
+});
+
+test("splitSentences breaks at end punctuation followed by space or the end", () => {
+  assert.deepEqual(splitSentences("A 3.14 value. Next one! Last?"), ["A 3.14 value.", "Next one!", "Last?"]);
+  assert.deepEqual(splitSentences("Wait... what? Yes."), ["Wait...", "what?", "Yes."]);
+  assert.deepEqual(splitSentences("No end punctuation"), ["No end punctuation"]);
+  assert.deepEqual(splitSentences(""), []);
+});
+
+test("no source file uses a regex lookbehind", async () => {
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(join(dir, e.name)) : e.name.endsWith(".ts") ? [join(dir, e.name)] : []
+    );
+  for (const file of walk("src")) assert.ok(!/\(\?<[=!]/.test(readFileSync(file, "utf8")), file);
 });

@@ -57,8 +57,11 @@ export class HomeView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    this.greeting = greetingFor(new Date());
+    this.greeting = greetingFor(new Date(), {
+      occasions: this.plugin.settings.greetingOccasions,
+    });
     this.shell = this.buildShell(this.contentEl);
+    this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
     await this.refresh();
   }
 
@@ -185,11 +188,18 @@ export class HomeView extends ItemView {
     // Built detached, then swapped in whole: no intermediate empty state.
     const next = createDiv();
     if (!sections.length) {
-      next.createDiv({ cls: "hc-empty", text: "No sections enabled. Add one in Settings → Home Cards." });
-    }
-    const open = noteOpener(app);
-    for (const { config, cards } of sections) {
-      renderSection(next, sectionTitle(config), cards, settings, open, "No notes match this section.");
+      next.createDiv({ cls: "hc-empty", text: "Turn on a section in Settings → Home Cards to fill this page." });
+    } else if (!app.vault.getMarkdownFiles().length) {
+      // A new vault: one line beats a column of empty sections.
+      next.createDiv({ cls: "hc-empty", text: "Cards appear here as you write notes." });
+    } else {
+      const open = noteOpener(app);
+      for (const { config, cards, claimed } of sections) {
+        const empty = claimed
+          ? "Every matching note already appears in a section above."
+          : "This section has no matching notes.";
+        renderSection(next, sectionTitle(config), cards, settings, open, empty);
+      }
     }
     shell.body.replaceChildren(...Array.from(next.childNodes));
     this.applyFilter();

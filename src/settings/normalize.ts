@@ -143,6 +143,7 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
     dedupe: bool(r.dedupe, d.dedupe),
 
     greetingEnabled: bool(r.greetingEnabled, d.greetingEnabled),
+    greetingOccasions: bool(r.greetingOccasions, d.greetingOccasions),
     greetingName: str(r.greetingName, d.greetingName),
     showNoteCount: bool(r.showNoteCount, d.showNoteCount),
     openOnStartup: bool(r.openOnStartup, d.openOnStartup),
@@ -153,6 +154,8 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
     background: choice(BACKGROUNDS, r.background, d.background),
     accentRubrics: bool(r.accentRubrics, d.accentRubrics),
 
+    // Blank falls back to the default: a card always has a type key.
+    typeProperty: str(r.typeProperty, d.typeProperty).trim() || d.typeProperty,
     showGlyph: bool(r.showGlyph, d.showGlyph),
     typifyIcons: bool(r.typifyIcons, d.typifyIcons),
     showRubric: bool(r.showRubric, d.showRubric),

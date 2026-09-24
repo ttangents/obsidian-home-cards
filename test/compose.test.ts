@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { composeSections } from "../src/compose/compose";
 import { rankSection } from "../src/compose/rank";
+import { VaultSnapshot } from "../src/compose/vault";
 import { BLANK_SECTION, defaultSettings, type SectionConfig } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";
 
@@ -21,7 +22,7 @@ const v = fakeVault(
     lastOpen: ["c.md", "missing.md", "a.md"],
   }
 );
-const paths = (cfg: SectionConfig, settings = s) => rankSection(v.app, cfg, settings).map((r) => r.file.path);
+const paths = (cfg: SectionConfig, settings = s) => rankSection(new VaultSnapshot(v.app), cfg, settings).map((r) => r.file.path);
 
 test("recently opened follows the workspace order and skips missing paths", () => {
   assert.deepEqual(paths(section({ kind: "recent-opened" })), ["c.md", "a.md"]);
@@ -51,7 +52,7 @@ test("tag sections match the tag and its descendants", () => {
 });
 
 test("popularity counts inbound links once, ignores deleted targets, breaks ties on title", () => {
-  const most = rankSection(v.app, section({ kind: "most-linked" }), s);
+  const most = rankSection(new VaultSnapshot(v.app), section({ kind: "most-linked" }), s);
   assert.deepEqual(
     most.map((r) => [r.file.path, r.lead]),
     [["b.md", "3 links"], ["a.md", "1 link"], ["c.md", "1 link"], ["d.md", "0 links"], ["e.md", "0 links"]]
@@ -76,6 +77,7 @@ test("compose honors order, dedupe, the count cap, and disabled sections", async
   assert.deepEqual(out.map((x) => x.config.id), ["one", "two"]);
   assert.deepEqual(out[0].cards.map((c) => c.file.path), ["c.md"]);
   assert.deepEqual(out[1].cards.map((c) => c.file.path), ["d.md", "a.md", "e.md"]);
+  assert.equal(out[1].claimed, 1);
 
   const dupes = await composeSections(v.app, { ...settings, dedupe: false });
   assert.deepEqual(dupes[1].cards.map((c) => c.file.path), ["c.md", "d.md", "a.md"]);
@@ -87,4 +89,40 @@ test("compose leaves deks null without a source and fills them with one", async 
   assert.equal(lazy[0].cards[0].dek, null);
   const eager = await composeSections(v.app, settings, async (f) => `dek of ${f.path}`);
   assert.equal(eager[0].cards[0].dek, "dek of c.md");
+});
+
+test("one compose walks the vault once and sums the link table once", async () => {
+  let listings = 0;
+  let linkReads = 0;
+  const cache = v.app.metadataCache as unknown as { resolvedLinks: unknown };
+  const links = cache.resolvedLinks;
+  const counted = {
+    ...v.app,
+    vault: { ...v.app.vault, getMarkdownFiles: () => (listings++, v.app.vault.getMarkdownFiles()) },
+    metadataCache: {
+      getFileCache: v.app.metadataCache.getFileCache,
+      get resolvedLinks() {
+        linkReads++;
+        return links;
+      },
+    },
+  } as typeof v.app;
+  const settings = {
+    ...s,
+    sections: [
+      section({ id: "a", kind: "most-linked" }),
+      section({ id: "b", kind: "least-linked" }),
+      section({ id: "c", kind: "recent-modified" }),
+    ],
+  };
+  await composeSections(counted, settings);
+  assert.equal(listings, 1);
+  assert.equal(linkReads, 1);
+});
+
+test("the type label reads the configured property", async () => {
+  const w = fakeVault([{ path: "x.md", fm: { type: "Report", kind: "Memo" } }]);
+  const settings = { ...s, typeProperty: "kind", sections: [section({ kind: "recent-modified" })] };
+  const [only] = await composeSections(w.app, settings);
+  assert.equal(only.cards[0].rubric, "Memo");
 });

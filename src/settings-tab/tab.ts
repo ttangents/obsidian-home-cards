@@ -89,7 +89,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         d
           .addOption("off", "None")
           .addOption("letter", "Initial letter")
-          .addOption("typify", "Typify icon")
+          .addOption("typify", "Icon from Typify")
           .setValue(!s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter")
           .onChange((v) => {
             s.showGlyph = v !== "off";
@@ -100,16 +100,28 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     if (s.showGlyph && s.typifyIcons) {
       hint(
         content,
-        "Icons come from Typify's own settings, matched on a note's type. Types Typify does not cover keep the initial letter."
+        "Requires the Typify plugin. Home Cards reads Typify's icons and matches them on each note's type. Types without a Typify icon keep the initial letter."
       );
     }
 
-    new Setting(content).setName("Type label").addToggle((t) =>
-      t.setValue(s.showRubric).onChange((v) => {
-        s.showRubric = v;
-        this.plugin.touch();
-      })
-    );
+    new Setting(content)
+      .setName("Type label")
+      .setDesc("The value of this property, shown as the first pill on each card.")
+      .addText((t) =>
+        t
+          .setValue(s.typeProperty)
+          .setDisabled(!s.showRubric)
+          .onChange((v) => {
+            s.typeProperty = v.trim() || "type";
+            this.plugin.touch();
+          })
+      )
+      .addToggle((t) =>
+        t.setValue(s.showRubric).onChange((v) => {
+          s.showRubric = v;
+          void this.restructure();
+        })
+      );
 
     new Setting(content)
       .setName("Tags")
@@ -283,6 +295,18 @@ export class HomeCardsSettingTab extends PluginSettingTab {
           s.greetingEnabled = v;
           void this.restructure();
         })
+      );
+    new Setting(header)
+      .setName("Holiday greetings")
+      .setDesc("On fixed-date holidays such as New Year's Day and Christmas, the greeting marks the day. Applies the next time you open the home page.")
+      .addToggle((t) =>
+        t
+          .setValue(s.greetingOccasions)
+          .setDisabled(!s.greetingEnabled)
+          .onChange((v) => {
+            s.greetingOccasions = v;
+            this.plugin.touch();
+          })
       );
     new Setting(header).setName("Show note count").addToggle((t) =>
       t.setValue(s.showNoteCount).onChange((v) => {

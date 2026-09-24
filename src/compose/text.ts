@@ -60,6 +60,18 @@ const PROSE_SECTION = "paragraph";
 /** Sentences shorter than this are fragments ("Draft."), not openings. */
 const MIN_SENTENCE = 12;
 
+/**
+ * Sentences: a run of text ending at `.`, `?` or `!` that a space or the
+ * end of the text follows, so "3.14" and "e.g.x" stay whole. Written with
+ * a lookahead: lookbehind fails to parse on iOS before 16.4, and a
+ * syntax error there would stop the whole plugin loading.
+ */
+const SENTENCE = /\S.*?(?:[.?!]+(?=\s|$)|$)/g;
+
+export function splitSentences(text: string): string[] {
+  return text.match(SENTENCE) ?? [];
+}
+
 const openerList = memoLast((raw: string) => splitList(raw).map((o) => o.toLowerCase()));
 
 /** Strip wiki links, markdown links and inline emphasis to plain text. */
@@ -110,7 +122,7 @@ export async function extractDek(
   if (!flat) return "";
 
   const openers = openerList(s.boilerplateOpeners);
-  for (const sentence of flat.split(/(?<=[.?!])\s+/).slice(0, 3)) {
+  for (const sentence of splitSentences(flat).slice(0, 3)) {
     const lower = sentence.toLowerCase();
     if (openers.some((o) => lower.startsWith(o))) continue;
     if (sentence.length >= MIN_SENTENCE) return sentence;

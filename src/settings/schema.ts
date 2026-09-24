@@ -117,6 +117,8 @@ export interface HomeCardsSettings {
   dedupe: boolean;
 
   greetingEnabled: boolean;
+  /** Pin the greeting on fixed-date holidays (New Year, Christmas...). */
+  greetingOccasions: boolean;
   greetingName: string;
   showNoteCount: boolean;
   openOnStartup: boolean;
@@ -127,6 +129,8 @@ export interface HomeCardsSettings {
   background: Background;
   accentRubrics: boolean;
 
+  /** Frontmatter key whose value becomes the card's type label. */
+  typeProperty: string;
   showGlyph: boolean;
   typifyIcons: boolean;
   showRubric: boolean;
@@ -165,11 +169,15 @@ export const BLANK_SECTION: Readonly<SectionConfig> = {
   filterFolders: "",
 };
 
+/**
+ * The first-run page. Every section works in any vault, so a new user
+ * sees cards before configuring anything; property and tag sections
+ * need keys only the user knows.
+ */
 export function defaultSections(): SectionConfig[] {
   return [
     { ...BLANK_SECTION, id: "opened", kind: "recent-opened" },
     { ...BLANK_SECTION, id: "created", kind: "recent-created" },
-    { ...BLANK_SECTION, id: "dateline", kind: "property", propertyKey: "date", sortKey: "date" },
     { ...BLANK_SECTION, id: "most", kind: "most-linked" },
     { ...BLANK_SECTION, id: "least", kind: "least-linked" },
   ];
@@ -181,6 +189,7 @@ export function defaultSettings(): HomeCardsSettings {
     dedupe: true,
 
     greetingEnabled: true,
+    greetingOccasions: true,
     greetingName: "",
     showNoteCount: true,
     openOnStartup: false,
@@ -191,6 +200,7 @@ export function defaultSettings(): HomeCardsSettings {
     background: "plain",
     accentRubrics: true,
 
+    typeProperty: "type",
     showGlyph: true,
     typifyIcons: false,
     showRubric: true,
@@ -201,9 +211,8 @@ export function defaultSettings(): HomeCardsSettings {
     showFileSize: false,
 
     summaryProperty: "summary",
-    boilerplateOpeners:
-      "this note, this file, this is the transcript, this briefing, draft, pre-work",
-    titlePrefixes: "(Report Update 2026), (Report), (Blog)",
+    boilerplateOpeners: "this note, this document, this page",
+    titlePrefixes: "",
     stripTrailingDates: true,
   };
 }

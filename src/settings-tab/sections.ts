@@ -213,7 +213,10 @@ export class SectionsPane {
     );
 
     if (cfg.kind === "property") {
-      row("Property", "Only notes carrying it appear here.").addDropdown((d) => {
+      const desc = props.length
+        ? "Only notes carrying it appear here."
+        : "The notes in this vault have no properties yet. Add some, then reopen settings.";
+      row("Property", desc).addDropdown((d) => {
         d.addOption("", "Pick a property");
         for (const k of props) d.addOption(k, k);
         // A stored key the vault no longer uses stays selectable and labeled.

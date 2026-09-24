@@ -1,14 +1,10 @@
 /**
- * "Home cards" as a Bases view type (Obsidian 1.10+).
+ * "Home cards" as a Bases view type.
  *
  * The query (filters, formulas, sort, groupBy, limit) stays in Bases;
  * this view draws the result as cards, one section per group. A query can
  * return any number of entries, so deks load lazily as cards approach the
  * viewport, through the plugin's shared dek cache.
- *
- * `BasesView` is undefined before 1.10, so the subclass is declared inside
- * the registration function behind a runtime guard. Importing this module
- * on an older app never evaluates `extends BasesView`.
  */
 
 import { BasesView, type QueryController } from "obsidian";
@@ -21,112 +17,103 @@ import { observeDeks } from "./lazy-deks";
 
 const BASES_VIEW_ID = "home-cards";
 
-/** The one thing the plugin asks of a live Bases view: redraw. */
-export interface Redrawable {
-  redraw(): void;
+class HomeCardsBasesView extends BasesView {
+  readonly type = BASES_VIEW_ID;
+  /** Our own element inside the container Bases hands us. */
+  private readonly root: HTMLElement;
+  /** Invalidates async renders that land after newer data or an unload. */
+  private generation = 0;
+  private disposeObserver: (() => void) | null = null;
+
+  constructor(
+    controller: QueryController,
+    containerEl: HTMLElement,
+    private readonly plugin: HomeCardsPlugin
+  ) {
+    super(controller);
+    this.root = containerEl.createDiv({ cls: "hc-in-bases" });
+    // Settings edits redraw the view; the Component releases the handler.
+    this.registerEvent(plugin.onRefresh(() => this.onDataUpdated()));
+  }
+
+  onunload(): void {
+    this.generation++;
+    this.stopObserving();
+    this.root.remove();
+  }
+
+  /**
+   * Bases calls this on every query re-run and replaces `this.data`
+   * wholesale, so the view keeps nothing from a previous run.
+   */
+  onDataUpdated(): void {
+    const token = ++this.generation;
+    this.stopObserving();
+
+    // onDataUpdated is synchronous by contract. The async tail checks
+    // the token after every await and catches its own failures, so an
+    // error never surfaces as an unhandled rejection inside Bases.
+    this.render(token).catch((err) => {
+      console.error("Home Cards: Bases render failed", err);
+      if (token !== this.generation) return;
+      this.root.empty();
+      this.root.createDiv({
+        cls: "hc-empty",
+        text: "Could not render this view. See the console for details.",
+      });
+    });
+  }
+
+  private async render(token: number): Promise<void> {
+    const { app } = this;
+    const { plugin } = this;
+    const settings = plugin.settings;
+    const groups = this.data.groupedData;
+
+    // No dek source: deks stay null and fill in on scroll.
+    const ctx: CardContext = {
+      app,
+      settings,
+      metaKey: "date",
+      icons: await iconsFor(app, settings),
+    };
+    const sections = await Promise.all(
+      groups.map(async (group) => ({
+        title: group.hasKey() ? (group.key?.toString() ?? "") : "",
+        cards: await Promise.all(group.entries.map((entry) => buildCard(ctx, entry.file))),
+      }))
+    );
+    if (token !== this.generation) return;
+
+    const root = this.root;
+    root.empty();
+    applyAppearance(root, settings);
+    root.dataset.view = "grid";
+    const open = noteOpener(app);
+    for (const { title, cards } of sections) {
+      renderSection(root, title, cards, settings, open);
+    }
+
+    this.disposeObserver = observeDeks(root, (path, el) => {
+      const file = app.vault.getFileByPath(path);
+      if (!file) return;
+      void plugin.dekCache.get(app, file, plugin.settings).then((dek) => {
+        if (token === this.generation) settleDek(el, dek);
+      });
+    });
+  }
+
+  private stopObserving(): void {
+    this.disposeObserver?.();
+    this.disposeObserver = null;
+  }
 }
 
-/** Register the view type. Returns false where Bases is unavailable. */
+/** Register the view type. Returns false if Obsidian declines the registration. */
 export function registerBasesView(plugin: HomeCardsPlugin): boolean {
-  if (typeof BasesView !== "function" || typeof plugin.registerBasesView !== "function") {
-    return false;
-  }
-
-  class HomeCardsBasesView extends BasesView implements Redrawable {
-    readonly type = BASES_VIEW_ID;
-    /** Our own element inside the container Bases hands us. */
-    private readonly root: HTMLElement;
-    /** Invalidates async renders that land after newer data or an unload. */
-    private generation = 0;
-    private disposeObserver: (() => void) | null = null;
-
-    constructor(controller: QueryController, containerEl: HTMLElement) {
-      super(controller);
-      this.root = containerEl.createDiv({ cls: "hc-in-bases" });
-      // Released in onunload, so settings changes reach only live views.
-      plugin.basesViews.add(this);
-    }
-
-    onunload(): void {
-      plugin.basesViews.delete(this);
-      this.generation++;
-      this.stopObserving();
-      this.root.remove();
-    }
-
-    redraw(): void {
-      this.onDataUpdated();
-    }
-
-    /**
-     * Bases calls this on every query re-run and replaces `this.data`
-     * wholesale, so the view keeps nothing from a previous run.
-     */
-    onDataUpdated(): void {
-      const token = ++this.generation;
-      this.stopObserving();
-
-      // onDataUpdated is synchronous by contract. The async tail checks
-      // the token after every await and catches its own failures, so an
-      // error never surfaces as an unhandled rejection inside Bases.
-      this.render(token).catch((err) => {
-        console.error("Home Cards: Bases render failed", err);
-        if (token !== this.generation) return;
-        this.root.empty();
-        this.root.createDiv({
-          cls: "hc-empty",
-          text: "Could not render this view. See the console for details.",
-        });
-      });
-    }
-
-    private async render(token: number): Promise<void> {
-      const { app } = this;
-      const settings = plugin.settings;
-      const groups = this.data.groupedData;
-
-      // No dek source: deks stay null and fill in on scroll.
-      const ctx: CardContext = {
-        app,
-        settings,
-        metaKey: "date",
-        icons: await iconsFor(app, settings),
-      };
-      const sections = await Promise.all(
-        groups.map(async (group) => ({
-          title: group.hasKey() ? (group.key?.toString() ?? "") : "",
-          cards: await Promise.all(group.entries.map((entry) => buildCard(ctx, entry.file))),
-        }))
-      );
-      if (token !== this.generation) return;
-
-      const root = this.root;
-      root.empty();
-      applyAppearance(root, settings);
-      root.dataset.view = "grid";
-      const open = noteOpener(app);
-      for (const { title, cards } of sections) {
-        renderSection(root, title, cards, settings, open);
-      }
-
-      this.disposeObserver = observeDeks(root, (path, el) => {
-        const file = app.vault.getFileByPath(path);
-        if (!file) return;
-        void plugin.dekCache.get(app, file, plugin.settings).then((dek) => {
-          if (token === this.generation) settleDek(el, dek);
-        });
-      });
-    }
-
-    private stopObserving(): void {
-      this.disposeObserver?.();
-      this.disposeObserver = null;
-    }
-  }
-
   return plugin.registerBasesView(BASES_VIEW_ID, {
     name: "Home cards",
     icon: "layout-grid",
-    factory: (controller, containerEl) => new HomeCardsBasesView(controller, containerEl),
+    factory: (controller, containerEl) => new HomeCardsBasesView(controller, containerEl, plugin),
   });
 }

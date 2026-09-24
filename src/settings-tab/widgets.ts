@@ -17,7 +17,7 @@ interface Choice {
  * `.setting-items` container the caller fills with rows. Themes draw the
  * container as one card with hairline dividers. This is the DOM that
  * `SettingGroup` (1.11+) produces, built by hand so the plugin keeps its
- * 1.5 floor.
+ * 1.10 floor, which Bases sets.
  */
 export function settingGroup(parent: HTMLElement, heading?: string, cls?: string): HTMLElement {
   const group = parent.createDiv({ cls: "setting-group" });

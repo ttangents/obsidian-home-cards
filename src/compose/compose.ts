@@ -8,11 +8,13 @@ import type { App } from "obsidian";
 import type { HomeCardsSettings, SectionConfig } from "../settings/schema";
 import { buildCard, type CardContext, type CardItem, type DekSource } from "./card";
 import { rankSection, type Ranked } from "./rank";
-import { loadTypifyIcons } from "./vault";
+import { loadTypifyIcons, VaultSnapshot } from "./vault";
 
 export interface ComposedSection {
   config: SectionConfig;
   cards: CardItem[];
+  /** Matches skipped because an earlier section already shows them. */
+  claimed: number;
 }
 
 /** Typify icons when the glyph setting asks for them, else none. */
@@ -20,7 +22,9 @@ export async function iconsFor(
   app: App,
   settings: HomeCardsSettings
 ): Promise<ReadonlyMap<string, string>> {
-  return settings.showGlyph && settings.typifyIcons ? loadTypifyIcons(app) : new Map();
+  return settings.showGlyph && settings.typifyIcons
+    ? loadTypifyIcons(app, settings.typeProperty)
+    : new Map();
 }
 
 export async function composeSections(
@@ -29,6 +33,7 @@ export async function composeSections(
   deks?: DekSource
 ): Promise<ComposedSection[]> {
   const icons = await iconsFor(app, settings);
+  const vault = new VaultSnapshot(app);
   const taken = new Set<string>();
   const out: ComposedSection[] = [];
 
@@ -37,8 +42,12 @@ export async function composeSections(
 
     // Sections claim notes in order, so section order sets precedence.
     const picked: Ranked[] = [];
-    for (const r of rankSection(app, cfg, settings)) {
-      if (settings.dedupe && taken.has(r.file.path)) continue;
+    let claimed = 0;
+    for (const r of rankSection(vault, cfg, settings)) {
+      if (settings.dedupe && taken.has(r.file.path)) {
+        claimed++;
+        continue;
+      }
       picked.push(r);
       if (picked.length >= cfg.count) break;
     }
@@ -52,7 +61,7 @@ export async function composeSections(
       deks,
     };
     const cards = await Promise.all(picked.map((r) => buildCard(ctx, r.file, r.lead)));
-    out.push({ config: cfg, cards });
+    out.push({ config: cfg, cards, claimed });
   }
   return out;
 }

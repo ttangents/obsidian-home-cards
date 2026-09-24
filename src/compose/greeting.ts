@@ -10,6 +10,8 @@
  * weekend extras. Movable feasts (Easter, Diwali, Eid) are absent on
  * purpose: skipping them beats guessing them wrongly.
  *
+ * The holidays follow the Western calendar, so a setting turns them off.
+ *
  * Pure: callers pass the Date, and tests pass the rng too.
  */
 
@@ -73,11 +75,18 @@ function pick<T>(list: readonly T[], rng: () => number): T {
   return list[Math.floor(rng() * list.length) % list.length];
 }
 
+export interface GreetingOptions {
+  /** Let fixed-date holidays pin the greeting. */
+  occasions: boolean;
+  rng: () => number;
+}
+
 /** The greeting for a moment in local time, before the name is attached. */
-export function greetingFor(now: Date, rng: () => number = Math.random): string {
-  const occasion = OCCASIONS.find(
-    (o) => o.month === now.getMonth() + 1 && o.day === now.getDate()
-  );
+export function greetingFor(now: Date, options: Partial<GreetingOptions> = {}): string {
+  const { occasions = true, rng = Math.random } = options;
+  const occasion =
+    occasions &&
+    OCCASIONS.find((o) => o.month === now.getMonth() + 1 && o.day === now.getDate());
   if (occasion) return pick(occasion.texts, rng);
 
   const hour = now.getHours();

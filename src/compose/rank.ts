@@ -4,12 +4,12 @@
  * slot are read later, and only for their opening sentence.
  */
 
-import type { App, TFile } from "obsidian";
+import type { TFile } from "obsidian";
 import type { HomeCardsSettings, SectionConfig } from "../settings/schema";
 import { compileScope, tagsOf } from "./scope";
 import { cleanTitle } from "./text";
 import { firstValue, frontmatterValue, asStringList } from "./values";
-import { inboundCounts } from "./vault";
+import type { VaultSnapshot } from "./vault";
 
 /** A ranked note, with the figure it ranked on when that is worth showing. */
 export interface Ranked {
@@ -17,6 +17,13 @@ export interface Ranked {
   /** Leads the card footer, e.g. "7 links". */
   lead?: string;
 }
+
+/**
+ * One collator for every comparison. `localeCompare` with options builds
+ * a collator per call, which dominates the sort on a large vault.
+ * `numeric` orders "Item 9" before "Item 10" and ISO dates correctly.
+ */
+const collator = new Intl.Collator(undefined, { numeric: true });
 
 const byTitle = (settings: HomeCardsSettings) => (file: TFile) =>
   cleanTitle(file.basename, settings);
@@ -30,8 +37,8 @@ const byTitle = (settings: HomeCardsSettings) => (file: TFile) =>
  * Ties break on the displayed title, so "(Report) Treat…" files under T.
  */
 function sortByKey(
-  app: App,
-  files: TFile[],
+  vault: VaultSnapshot,
+  files: readonly TFile[],
   key: string,
   dir: SectionConfig["sortDir"],
   settings: HomeCardsSettings
@@ -40,7 +47,7 @@ function sortByKey(
   const sign = dir === "desc" ? -1 : 1;
   return files
     .map((file) => {
-      const value = key ? firstValue(frontmatterValue(app.metadataCache.getFileCache(file), key)) : "";
+      const value = key ? firstValue(frontmatterValue(vault.cacheOf(file), key)) : "";
       return {
         file,
         has: value !== "",
@@ -50,49 +57,47 @@ function sortByKey(
     })
     .sort((a, b) => {
       if (a.has !== b.has) return a.has ? -1 : 1;
-      // localeCompare, not < >, or text values sort in ASCII order.
-      const primary = sign * a.key.localeCompare(b.key, undefined, { numeric: true });
-      return primary || a.title.localeCompare(b.title);
+      // A collator, not < >, or text values sort in ASCII order.
+      const primary = sign * collator.compare(a.key, b.key);
+      return primary || collator.compare(a.title, b.title);
     })
     .map((d) => d.file);
 }
 
 function byPopularity(
-  app: App,
-  files: TFile[],
+  vault: VaultSnapshot,
+  files: readonly TFile[],
   most: boolean,
   settings: HomeCardsSettings
 ): Ranked[] {
-  const counts = inboundCounts(app);
+  const counts = vault.inboundCounts();
   const title = byTitle(settings);
   const sign = most ? -1 : 1;
   return files
     .map((file) => ({ file, n: counts.get(file.path) ?? 0, title: title(file) }))
     // Least-linked lists orphans, which all tie at zero; the title
     // tie-break is what makes that list readable.
-    .sort((a, b) => sign * (a.n - b.n) || a.title.localeCompare(b.title))
+    .sort((a, b) => sign * (a.n - b.n) || collator.compare(a.title, b.title))
     .map(({ file, n }) => ({ file, lead: `${n} ${n === 1 ? "link" : "links"}` }));
 }
 
-const plain = (files: TFile[]): Ranked[] => files.map((file) => ({ file }));
+const plain = (files: readonly TFile[]): Ranked[] => files.map((file) => ({ file }));
 
 /** Every note the section admits, best first. */
 export function rankSection(
-  app: App,
+  vault: VaultSnapshot,
   cfg: SectionConfig,
   settings: HomeCardsSettings
 ): Ranked[] {
   const scope = compileScope(cfg);
-  const cacheOf = (f: TFile) => app.metadataCache.getFileCache(f);
-  const pool = app.vault
-    .getMarkdownFiles()
-    .filter((f) => !scope || scope(f, cacheOf(f)));
+  const cacheOf = (f: TFile) => vault.cacheOf(f);
+  const pool = scope ? vault.files.filter((f) => scope(f, cacheOf(f))) : vault.files;
 
   switch (cfg.kind) {
     case "recent-opened": {
       const byPath = new Map(pool.map((f) => [f.path, f]));
       return plain(
-        app.workspace
+        vault.app.workspace
           .getLastOpenFiles()
           .map((p) => byPath.get(p))
           .filter((f): f is TFile => f !== undefined)
@@ -104,7 +109,7 @@ export function rankSection(
       return plain([...pool].sort((a, b) => b.stat.mtime - a.stat.mtime));
     case "most-linked":
     case "least-linked":
-      return byPopularity(app, pool, cfg.kind === "most-linked", settings);
+      return byPopularity(vault, pool, cfg.kind === "most-linked", settings);
     case "tag": {
       const want = cfg.tag.replace(/^#/, "").toLowerCase();
       if (!want) return [];
@@ -114,7 +119,7 @@ export function rankSection(
           return tag === want || tag.startsWith(`${want}/`);
         })
       );
-      return plain(sortByKey(app, hits, cfg.sortKey, cfg.sortDir, settings));
+      return plain(sortByKey(vault, hits, cfg.sortKey, cfg.sortDir, settings));
     }
     case "property": {
       if (!cfg.propertyKey) return [];
@@ -124,7 +129,7 @@ export function rankSection(
         if (raw == null || raw === "") return false;
         return !want || asStringList(raw).some((v) => v.toLowerCase() === want);
       });
-      return plain(sortByKey(app, hits, cfg.sortKey || cfg.propertyKey, cfg.sortDir, settings));
+      return plain(sortByKey(vault, hits, cfg.sortKey || cfg.propertyKey, cfg.sortDir, settings));
     }
   }
 }

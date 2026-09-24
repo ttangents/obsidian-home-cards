@@ -103,6 +103,10 @@ function cleanTitle(name, s) {
 }
 var PROSE_SECTION = "paragraph";
 var MIN_SENTENCE = 12;
+var SENTENCE = /\S.*?(?:[.?!]+(?=\s|$)|$)/g;
+function splitSentences(text) {
+  return text.match(SENTENCE) ?? [];
+}
 var openerList = memoLast((raw) => splitList(raw).map((o) => o.toLowerCase()));
 function flatten(markdown) {
   return markdown.replace(/!?\[\[([^\]|]*\|)?([^\]]*)\]\]/g, "$2").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/[*_`=~]/g, "").replace(/\s+/g, " ").trim();
@@ -126,7 +130,7 @@ async function extractDek(app, file, cache, s) {
   const flat = flatten(text);
   if (!flat) return "";
   const openers = openerList(s.boilerplateOpeners);
-  for (const sentence of flat.split(/(?<=[.?!])\s+/).slice(0, 3)) {
+  for (const sentence of splitSentences(flat).slice(0, 3)) {
     const lower = sentence.toLowerCase();
     if (openers.some((o) => lower.startsWith(o))) continue;
     if (sentence.length >= MIN_SENTENCE) return sentence;
@@ -273,7 +277,7 @@ function footer(ctx, file, rubric, lead) {
 async function buildCard(ctx, file, lead) {
   const { app, settings } = ctx;
   const cache = app.metadataCache.getFileCache(file);
-  const rubric = firstValue(frontmatterValue(cache, "type"));
+  const rubric = firstValue(frontmatterValue(cache, settings.typeProperty));
   const tags = settings.showTags ? [...new Set(tagsOf(cache).map((t) => t.trim()).filter(Boolean))].slice(0, settings.maxTags) : [];
   const dek = ctx.deks ? await ctx.deks(file) : null;
   return {
@@ -288,7 +292,90 @@ async function buildCard(ctx, file, lead) {
   };
 }
 
+// src/compose/rank.ts
+var collator = new Intl.Collator(void 0, { numeric: true });
+var byTitle = (settings) => (file) => cleanTitle(file.basename, settings);
+function sortByKey(vault, files, key, dir, settings) {
+  const title = byTitle(settings);
+  const sign = dir === "desc" ? -1 : 1;
+  return files.map((file) => {
+    const value = key ? firstValue(frontmatterValue(vault.cacheOf(file), key)) : "";
+    return {
+      file,
+      has: value !== "",
+      key: value || String(file.stat.mtime).padStart(16, "0"),
+      title: title(file)
+    };
+  }).sort((a, b) => {
+    if (a.has !== b.has) return a.has ? -1 : 1;
+    const primary = sign * collator.compare(a.key, b.key);
+    return primary || collator.compare(a.title, b.title);
+  }).map((d) => d.file);
+}
+function byPopularity(vault, files, most, settings) {
+  const counts = vault.inboundCounts();
+  const title = byTitle(settings);
+  const sign = most ? -1 : 1;
+  return files.map((file) => ({ file, n: counts.get(file.path) ?? 0, title: title(file) })).sort((a, b) => sign * (a.n - b.n) || collator.compare(a.title, b.title)).map(({ file, n }) => ({ file, lead: `${n} ${n === 1 ? "link" : "links"}` }));
+}
+var plain = (files) => files.map((file) => ({ file }));
+function rankSection(vault, cfg, settings) {
+  const scope = compileScope(cfg);
+  const cacheOf = (f) => vault.cacheOf(f);
+  const pool = scope ? vault.files.filter((f) => scope(f, cacheOf(f))) : vault.files;
+  switch (cfg.kind) {
+    case "recent-opened": {
+      const byPath = new Map(pool.map((f) => [f.path, f]));
+      return plain(
+        vault.app.workspace.getLastOpenFiles().map((p) => byPath.get(p)).filter((f) => f !== void 0)
+      );
+    }
+    case "recent-created":
+      return plain([...pool].sort((a, b) => b.stat.ctime - a.stat.ctime));
+    case "recent-modified":
+      return plain([...pool].sort((a, b) => b.stat.mtime - a.stat.mtime));
+    case "most-linked":
+    case "least-linked":
+      return byPopularity(vault, pool, cfg.kind === "most-linked", settings);
+    case "tag": {
+      const want = cfg.tag.replace(/^#/, "").toLowerCase();
+      if (!want) return [];
+      const hits = pool.filter(
+        (f) => tagsOf(cacheOf(f)).some((t) => {
+          const tag = t.toLowerCase();
+          return tag === want || tag.startsWith(`${want}/`);
+        })
+      );
+      return plain(sortByKey(vault, hits, cfg.sortKey, cfg.sortDir, settings));
+    }
+    case "property": {
+      if (!cfg.propertyKey) return [];
+      const want = cfg.propertyValue.trim().toLowerCase();
+      const hits = pool.filter((f) => {
+        const raw = frontmatterValue(cacheOf(f), cfg.propertyKey);
+        if (raw == null || raw === "") return false;
+        return !want || asStringList(raw).some((v) => v.toLowerCase() === want);
+      });
+      return plain(sortByKey(vault, hits, cfg.sortKey || cfg.propertyKey, cfg.sortDir, settings));
+    }
+  }
+}
+
 // src/compose/vault.ts
+var VaultSnapshot = class {
+  constructor(app) {
+    this.app = app;
+    this.inbound = null;
+    this.files = app.vault.getMarkdownFiles();
+  }
+  cacheOf(file) {
+    return this.app.metadataCache.getFileCache(file);
+  }
+  /** Inbound link totals per path; computed on first use. */
+  inboundCounts() {
+    return this.inbound ??= inboundCounts(this.app);
+  }
+};
 function discoverProperties(app) {
   const keys = /* @__PURE__ */ new Set();
   for (const file of app.vault.getMarkdownFiles()) {
@@ -308,7 +395,7 @@ function inboundCounts(app) {
   }
   return totals;
 }
-async function loadTypifyIcons(app) {
+async function loadTypifyIcons(app, typeKey) {
   const out = /* @__PURE__ */ new Map();
   const path = `${app.vault.configDir}/plugins/typify/data.json`;
   try {
@@ -318,7 +405,7 @@ async function loadTypifyIcons(app) {
       const name = (style.name ?? "").trim();
       const icon = (style.icon ?? "").trim();
       if (!name || !icon) continue;
-      if (!(style.appliesTo ?? ["type"]).includes("type")) continue;
+      if (!(style.appliesTo ?? ["type"]).includes(typeKey)) continue;
       out.set(name.toLowerCase(), icon);
     }
   } catch {
@@ -327,87 +414,24 @@ async function loadTypifyIcons(app) {
   return out;
 }
 
-// src/compose/rank.ts
-var byTitle = (settings) => (file) => cleanTitle(file.basename, settings);
-function sortByKey(app, files, key, dir, settings) {
-  const title = byTitle(settings);
-  const sign = dir === "desc" ? -1 : 1;
-  return files.map((file) => {
-    const value = key ? firstValue(frontmatterValue(app.metadataCache.getFileCache(file), key)) : "";
-    return {
-      file,
-      has: value !== "",
-      key: value || String(file.stat.mtime).padStart(16, "0"),
-      title: title(file)
-    };
-  }).sort((a, b) => {
-    if (a.has !== b.has) return a.has ? -1 : 1;
-    const primary = sign * a.key.localeCompare(b.key, void 0, { numeric: true });
-    return primary || a.title.localeCompare(b.title);
-  }).map((d) => d.file);
-}
-function byPopularity(app, files, most, settings) {
-  const counts = inboundCounts(app);
-  const title = byTitle(settings);
-  const sign = most ? -1 : 1;
-  return files.map((file) => ({ file, n: counts.get(file.path) ?? 0, title: title(file) })).sort((a, b) => sign * (a.n - b.n) || a.title.localeCompare(b.title)).map(({ file, n }) => ({ file, lead: `${n} ${n === 1 ? "link" : "links"}` }));
-}
-var plain = (files) => files.map((file) => ({ file }));
-function rankSection(app, cfg, settings) {
-  const scope = compileScope(cfg);
-  const cacheOf = (f) => app.metadataCache.getFileCache(f);
-  const pool = app.vault.getMarkdownFiles().filter((f) => !scope || scope(f, cacheOf(f)));
-  switch (cfg.kind) {
-    case "recent-opened": {
-      const byPath = new Map(pool.map((f) => [f.path, f]));
-      return plain(
-        app.workspace.getLastOpenFiles().map((p) => byPath.get(p)).filter((f) => f !== void 0)
-      );
-    }
-    case "recent-created":
-      return plain([...pool].sort((a, b) => b.stat.ctime - a.stat.ctime));
-    case "recent-modified":
-      return plain([...pool].sort((a, b) => b.stat.mtime - a.stat.mtime));
-    case "most-linked":
-    case "least-linked":
-      return byPopularity(app, pool, cfg.kind === "most-linked", settings);
-    case "tag": {
-      const want = cfg.tag.replace(/^#/, "").toLowerCase();
-      if (!want) return [];
-      const hits = pool.filter(
-        (f) => tagsOf(cacheOf(f)).some((t) => {
-          const tag = t.toLowerCase();
-          return tag === want || tag.startsWith(`${want}/`);
-        })
-      );
-      return plain(sortByKey(app, hits, cfg.sortKey, cfg.sortDir, settings));
-    }
-    case "property": {
-      if (!cfg.propertyKey) return [];
-      const want = cfg.propertyValue.trim().toLowerCase();
-      const hits = pool.filter((f) => {
-        const raw = frontmatterValue(cacheOf(f), cfg.propertyKey);
-        if (raw == null || raw === "") return false;
-        return !want || asStringList(raw).some((v) => v.toLowerCase() === want);
-      });
-      return plain(sortByKey(app, hits, cfg.sortKey || cfg.propertyKey, cfg.sortDir, settings));
-    }
-  }
-}
-
 // src/compose/compose.ts
 async function iconsFor(app, settings) {
-  return settings.showGlyph && settings.typifyIcons ? loadTypifyIcons(app) : /* @__PURE__ */ new Map();
+  return settings.showGlyph && settings.typifyIcons ? loadTypifyIcons(app, settings.typeProperty) : /* @__PURE__ */ new Map();
 }
 async function composeSections(app, settings, deks) {
   const icons = await iconsFor(app, settings);
+  const vault = new VaultSnapshot(app);
   const taken = /* @__PURE__ */ new Set();
   const out = [];
   for (const cfg of settings.sections) {
     if (!cfg.enabled) continue;
     const picked = [];
-    for (const r of rankSection(app, cfg, settings)) {
-      if (settings.dedupe && taken.has(r.file.path)) continue;
+    let claimed = 0;
+    for (const r of rankSection(vault, cfg, settings)) {
+      if (settings.dedupe && taken.has(r.file.path)) {
+        claimed++;
+        continue;
+      }
       picked.push(r);
       if (picked.length >= cfg.count) break;
     }
@@ -420,7 +444,7 @@ async function composeSections(app, settings, deks) {
       deks
     };
     const cards = await Promise.all(picked.map((r) => buildCard(ctx, r.file, r.lead)));
-    out.push({ config: cfg, cards });
+    out.push({ config: cfg, cards, claimed });
   }
   return out;
 }
@@ -432,8 +456,10 @@ function applyAppearance(root, s) {
   if (s.background === "plain") delete root.dataset.pattern;
   else root.dataset.pattern = s.background;
   root.toggleClass("hc-accent-rubrics", s.accentRubrics);
-  root.style.setProperty("--hc-card-min", `${s.cardMinWidth}px`);
-  root.style.setProperty("--hc-dek-lines", String(s.dekLines));
+  root.setCssProps({
+    "--hc-card-min": `${s.cardMinWidth}px`,
+    "--hc-dek-lines": String(s.dekLines)
+  });
 }
 
 // src/render/card.ts
@@ -536,88 +562,83 @@ function observeDeks(root, fill) {
 
 // src/render/bases-view.ts
 var BASES_VIEW_ID = "home-cards";
-function registerBasesView(plugin) {
-  if (typeof import_obsidian2.BasesView !== "function" || typeof plugin.registerBasesView !== "function") {
-    return false;
+var HomeCardsBasesView = class extends import_obsidian2.BasesView {
+  constructor(controller, containerEl, plugin) {
+    super(controller);
+    this.plugin = plugin;
+    this.type = BASES_VIEW_ID;
+    /** Invalidates async renders that land after newer data or an unload. */
+    this.generation = 0;
+    this.disposeObserver = null;
+    this.root = containerEl.createDiv({ cls: "hc-in-bases" });
+    this.registerEvent(plugin.onRefresh(() => this.onDataUpdated()));
   }
-  class HomeCardsBasesView extends import_obsidian2.BasesView {
-    constructor(controller, containerEl) {
-      super(controller);
-      this.type = BASES_VIEW_ID;
-      /** Invalidates async renders that land after newer data or an unload. */
-      this.generation = 0;
-      this.disposeObserver = null;
-      this.root = containerEl.createDiv({ cls: "hc-in-bases" });
-      plugin.basesViews.add(this);
-    }
-    onunload() {
-      plugin.basesViews.delete(this);
-      this.generation++;
-      this.stopObserving();
-      this.root.remove();
-    }
-    redraw() {
-      this.onDataUpdated();
-    }
-    /**
-     * Bases calls this on every query re-run and replaces `this.data`
-     * wholesale, so the view keeps nothing from a previous run.
-     */
-    onDataUpdated() {
-      const token = ++this.generation;
-      this.stopObserving();
-      this.render(token).catch((err) => {
-        console.error("Home Cards: Bases render failed", err);
-        if (token !== this.generation) return;
-        this.root.empty();
-        this.root.createDiv({
-          cls: "hc-empty",
-          text: "Could not render this view. See the console for details."
-        });
-      });
-    }
-    async render(token) {
-      const { app } = this;
-      const settings = plugin.settings;
-      const groups = this.data.groupedData;
-      const ctx = {
-        app,
-        settings,
-        metaKey: "date",
-        icons: await iconsFor(app, settings)
-      };
-      const sections = await Promise.all(
-        groups.map(async (group) => ({
-          title: group.hasKey() ? group.key?.toString() ?? "" : "",
-          cards: await Promise.all(group.entries.map((entry) => buildCard(ctx, entry.file)))
-        }))
-      );
+  onunload() {
+    this.generation++;
+    this.stopObserving();
+    this.root.remove();
+  }
+  /**
+   * Bases calls this on every query re-run and replaces `this.data`
+   * wholesale, so the view keeps nothing from a previous run.
+   */
+  onDataUpdated() {
+    const token = ++this.generation;
+    this.stopObserving();
+    this.render(token).catch((err) => {
+      console.error("Home Cards: Bases render failed", err);
       if (token !== this.generation) return;
-      const root = this.root;
-      root.empty();
-      applyAppearance(root, settings);
-      root.dataset.view = "grid";
-      const open = noteOpener(app);
-      for (const { title, cards } of sections) {
-        renderSection(root, title, cards, settings, open);
-      }
-      this.disposeObserver = observeDeks(root, (path, el) => {
-        const file = app.vault.getFileByPath(path);
-        if (!file) return;
-        void plugin.dekCache.get(app, file, plugin.settings).then((dek) => {
-          if (token === this.generation) settleDek(el, dek);
-        });
+      this.root.empty();
+      this.root.createDiv({
+        cls: "hc-empty",
+        text: "Could not render this view. See the console for details."
       });
-    }
-    stopObserving() {
-      this.disposeObserver?.();
-      this.disposeObserver = null;
-    }
+    });
   }
+  async render(token) {
+    const { app } = this;
+    const { plugin } = this;
+    const settings = plugin.settings;
+    const groups = this.data.groupedData;
+    const ctx = {
+      app,
+      settings,
+      metaKey: "date",
+      icons: await iconsFor(app, settings)
+    };
+    const sections = await Promise.all(
+      groups.map(async (group) => ({
+        title: group.hasKey() ? group.key?.toString() ?? "" : "",
+        cards: await Promise.all(group.entries.map((entry) => buildCard(ctx, entry.file)))
+      }))
+    );
+    if (token !== this.generation) return;
+    const root = this.root;
+    root.empty();
+    applyAppearance(root, settings);
+    root.dataset.view = "grid";
+    const open = noteOpener(app);
+    for (const { title, cards } of sections) {
+      renderSection(root, title, cards, settings, open);
+    }
+    this.disposeObserver = observeDeks(root, (path, el) => {
+      const file = app.vault.getFileByPath(path);
+      if (!file) return;
+      void plugin.dekCache.get(app, file, plugin.settings).then((dek) => {
+        if (token === this.generation) settleDek(el, dek);
+      });
+    });
+  }
+  stopObserving() {
+    this.disposeObserver?.();
+    this.disposeObserver = null;
+  }
+};
+function registerBasesView(plugin) {
   return plugin.registerBasesView(BASES_VIEW_ID, {
     name: "Home cards",
     icon: "layout-grid",
-    factory: (controller, containerEl) => new HomeCardsBasesView(controller, containerEl)
+    factory: (controller, containerEl) => new HomeCardsBasesView(controller, containerEl, plugin)
   });
 }
 
@@ -701,10 +722,9 @@ var WEEKEND = ["Happy weekend", "Easy does it"];
 function pick(list, rng) {
   return list[Math.floor(rng() * list.length) % list.length];
 }
-function greetingFor(now, rng = Math.random) {
-  const occasion = OCCASIONS.find(
-    (o) => o.month === now.getMonth() + 1 && o.day === now.getDate()
-  );
+function greetingFor(now, options = {}) {
+  const { occasions = true, rng = Math.random } = options;
+  const occasion = occasions && OCCASIONS.find((o) => o.month === now.getMonth() + 1 && o.day === now.getDate());
   if (occasion) return pick(occasion.texts, rng);
   const hour = now.getHours();
   const bucket = BY_HOUR.find((b) => hour >= b.from && hour < b.to)?.texts ?? LATE_NIGHT;
@@ -773,7 +793,6 @@ function defaultSections() {
   return [
     { ...BLANK_SECTION, id: "opened", kind: "recent-opened" },
     { ...BLANK_SECTION, id: "created", kind: "recent-created" },
-    { ...BLANK_SECTION, id: "dateline", kind: "property", propertyKey: "date", sortKey: "date" },
     { ...BLANK_SECTION, id: "most", kind: "most-linked" },
     { ...BLANK_SECTION, id: "least", kind: "least-linked" }
   ];
@@ -783,6 +802,7 @@ function defaultSettings() {
     sections: defaultSections(),
     dedupe: true,
     greetingEnabled: true,
+    greetingOccasions: true,
     greetingName: "",
     showNoteCount: true,
     openOnStartup: false,
@@ -791,6 +811,7 @@ function defaultSettings() {
     cardSurface: "flat",
     background: "plain",
     accentRubrics: true,
+    typeProperty: "type",
     showGlyph: true,
     typifyIcons: false,
     showRubric: true,
@@ -800,8 +821,8 @@ function defaultSettings() {
     dekLines: 3,
     showFileSize: false,
     summaryProperty: "summary",
-    boilerplateOpeners: "this note, this file, this is the transcript, this briefing, draft, pre-work",
-    titlePrefixes: "(Report Update 2026), (Report), (Blog)",
+    boilerplateOpeners: "this note, this document, this page",
+    titlePrefixes: "",
     stripTrailingDates: true
   };
 }
@@ -855,8 +876,11 @@ var HomeView = class extends import_obsidian3.ItemView {
     return "layout-grid";
   }
   async onOpen() {
-    this.greeting = greetingFor(/* @__PURE__ */ new Date());
+    this.greeting = greetingFor(/* @__PURE__ */ new Date(), {
+      occasions: this.plugin.settings.greetingOccasions
+    });
     this.shell = this.buildShell(this.contentEl);
+    this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
     await this.refresh();
   }
   async onClose() {
@@ -964,11 +988,15 @@ var HomeView = class extends import_obsidian3.ItemView {
     if (token !== this.generation) return;
     const next = createDiv();
     if (!sections.length) {
-      next.createDiv({ cls: "hc-empty", text: "No sections enabled. Add one in Settings \u2192 Home Cards." });
-    }
-    const open = noteOpener(app);
-    for (const { config, cards } of sections) {
-      renderSection(next, sectionTitle(config), cards, settings, open, "No notes match this section.");
+      next.createDiv({ cls: "hc-empty", text: "Turn on a section in Settings \u2192 Home Cards to fill this page." });
+    } else if (!app.vault.getMarkdownFiles().length) {
+      next.createDiv({ cls: "hc-empty", text: "Cards appear here as you write notes." });
+    } else {
+      const open = noteOpener(app);
+      for (const { config, cards, claimed } of sections) {
+        const empty = claimed ? "Every matching note already appears in a section above." : "This section has no matching notes.";
+        renderSection(next, sectionTitle(config), cards, settings, open, empty);
+      }
     }
     shell.body.replaceChildren(...Array.from(next.childNodes));
     this.applyFilter();
@@ -1068,6 +1096,7 @@ function normalizeSettings(stored) {
     sections: normalizeSections(r.sections),
     dedupe: bool(r.dedupe, d.dedupe),
     greetingEnabled: bool(r.greetingEnabled, d.greetingEnabled),
+    greetingOccasions: bool(r.greetingOccasions, d.greetingOccasions),
     greetingName: str(r.greetingName, d.greetingName),
     showNoteCount: bool(r.showNoteCount, d.showNoteCount),
     openOnStartup: bool(r.openOnStartup, d.openOnStartup),
@@ -1076,6 +1105,8 @@ function normalizeSettings(stored) {
     cardSurface: choice(SURFACES, r.cardSurface, d.cardSurface),
     background: choice(BACKGROUNDS, r.background, d.background),
     accentRubrics: bool(r.accentRubrics, d.accentRubrics),
+    // Blank falls back to the default: a card always has a type key.
+    typeProperty: str(r.typeProperty, d.typeProperty).trim() || d.typeProperty,
     showGlyph: bool(r.showGlyph, d.showGlyph),
     typifyIcons: bool(r.typifyIcons, d.typifyIcons),
     showRubric: bool(r.showRubric, d.showRubric),
@@ -1249,7 +1280,8 @@ var SectionsPane = class {
       })
     );
     if (cfg.kind === "property") {
-      row("Property", "Only notes carrying it appear here.").addDropdown((d) => {
+      const desc = props.length ? "Only notes carrying it appear here." : "The notes in this vault have no properties yet. Add some, then reopen settings.";
+      row("Property", desc).addDropdown((d) => {
         d.addOption("", "Pick a property");
         for (const k of props) d.addOption(k, k);
         if (cfg.propertyKey && !props.includes(cfg.propertyKey)) {
@@ -1350,7 +1382,7 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
     hint(root, "What each card carries, and where its text comes from.");
     const content = settingGroup(root);
     new import_obsidian6.Setting(content).setName("Glyph").setDesc("A mark in the corner of each card.").addDropdown(
-      (d) => d.addOption("off", "None").addOption("letter", "Initial letter").addOption("typify", "Typify icon").setValue(!s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter").onChange((v) => {
+      (d) => d.addOption("off", "None").addOption("letter", "Initial letter").addOption("typify", "Icon from Typify").setValue(!s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter").onChange((v) => {
         s.showGlyph = v !== "off";
         s.typifyIcons = v === "typify";
         void this.restructure();
@@ -1359,13 +1391,18 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
     if (s.showGlyph && s.typifyIcons) {
       hint(
         content,
-        "Icons come from Typify's own settings, matched on a note's type. Types Typify does not cover keep the initial letter."
+        "Requires the Typify plugin. Home Cards reads Typify's icons and matches them on each note's type. Types without a Typify icon keep the initial letter."
       );
     }
-    new import_obsidian6.Setting(content).setName("Type label").addToggle(
+    new import_obsidian6.Setting(content).setName("Type label").setDesc("The value of this property, shown as the first pill on each card.").addText(
+      (t) => t.setValue(s.typeProperty).setDisabled(!s.showRubric).onChange((v) => {
+        s.typeProperty = v.trim() || "type";
+        this.plugin.touch();
+      })
+    ).addToggle(
       (t) => t.setValue(s.showRubric).onChange((v) => {
         s.showRubric = v;
-        this.plugin.touch();
+        void this.restructure();
       })
     );
     new import_obsidian6.Setting(content).setName("Tags").setDesc("Frontmatter tags first, then inline tags.").addToggle(
@@ -1472,6 +1509,12 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
         void this.restructure();
       })
     );
+    new import_obsidian6.Setting(header).setName("Holiday greetings").setDesc("On fixed-date holidays such as New Year's Day and Christmas, the greeting marks the day. Applies the next time you open the home page.").addToggle(
+      (t) => t.setValue(s.greetingOccasions).setDisabled(!s.greetingEnabled).onChange((v) => {
+        s.greetingOccasions = v;
+        this.plugin.touch();
+      })
+    );
     new import_obsidian6.Setting(header).setName("Show note count").addToggle(
       (t) => t.setValue(s.showNoteCount).onChange((v) => {
         s.showNoteCount = v;
@@ -1518,6 +1561,7 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
 };
 
 // src/main.ts
+var REFRESH = "refresh";
 var SAVE_DELAY_MS = 400;
 var RESOLVE_DELAY_MS = 1500;
 var HomeCardsPlugin = class extends import_obsidian7.Plugin {
@@ -1526,8 +1570,12 @@ var HomeCardsPlugin = class extends import_obsidian7.Plugin {
     this.settings = defaultSettings();
     /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
     this.dekCache = new DekCache();
-    /** Bases views currently mounted; each adds and removes itself. */
-    this.basesViews = /* @__PURE__ */ new Set();
+    /**
+     * Views subscribe here to redraw after a settings change or a metadata
+     * update. The plugin holds no view references; each view's Component
+     * releases its subscription when the view closes.
+     */
+    this.events = new import_obsidian7.Events();
     /** True while an edit sits in memory that data.json does not have. */
     this.dirty = false;
     this.flushSoon = (0, import_obsidian7.debounce)(() => void this.flush(), SAVE_DELAY_MS, true);
@@ -1537,7 +1585,7 @@ var HomeCardsPlugin = class extends import_obsidian7.Plugin {
     this.registerView(VIEW_TYPE_HOME, (leaf) => new HomeView(leaf, this));
     registerBasesView(this);
     this.addSettingTab(new HomeCardsSettingTab(this));
-    this.addRibbonIcon("layout-grid", "Open Home Cards", () => void this.activateView());
+    this.addRibbonIcon("layout-grid", "Open home page", () => void this.activateView());
     this.addCommand({ id: "open", name: "Open", callback: () => void this.activateView() });
     this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
     const settle = (0, import_obsidian7.debounce)(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
@@ -1599,10 +1647,12 @@ var HomeCardsPlugin = class extends import_obsidian7.Plugin {
     await leaf.setViewState({ type: VIEW_TYPE_HOME, active: true });
     await workspace.revealLeaf(leaf);
   }
+  /** Subscribe to redraw requests; pass the result to `registerEvent`. */
+  onRefresh(callback) {
+    return this.events.on(REFRESH, callback);
+  }
+  /** Ask every open Home and Bases view to redraw. */
   refreshViews() {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_HOME)) {
-      if (leaf.view instanceof HomeView) void leaf.view.refresh();
-    }
-    for (const view of this.basesViews) view.redraw();
+    this.events.trigger(REFRESH);
   }
 };

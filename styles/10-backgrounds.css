@@ -3,9 +3,10 @@
    pattern is a pair of seamless tiles carried on one
    custom property per pattern id, declared only on the page
    and settings roots that paint them: the light tile by
-   default, the dark tile under .theme-dark. The view and the
-   settings swatches resolve the same property, so a preview
-   always shows exactly what the page will paint. Plain sets no attribute
+   default, the dark tile under .theme-dark. The page and every
+   swatch (settings and the header picker) resolve the same
+   property, so a preview always shows exactly what the page will
+   paint. Plain sets no attribute
    and no rule here fires. Cards sit on an 85% underlay of the
    theme's primary background so patterns stay behind the
    content even when a theme's surfaces are translucent.
@@ -80,57 +81,57 @@
 }
 
 .home-cards[data-pattern="diamonds"],
-.home-cards-settings .hc-swatch[data-pattern="diamonds"] {
+.hc-swatch[data-pattern="diamonds"] {
   --hc-tile: var(--hc-bg-diamonds);
   --hc-veil: var(--hc-veil-diamonds);
 }
 .home-cards[data-pattern="leaves"],
-.home-cards-settings .hc-swatch[data-pattern="leaves"] {
+.hc-swatch[data-pattern="leaves"] {
   --hc-tile: var(--hc-bg-leaves);
   --hc-veil: var(--hc-veil-leaves);
 }
 .home-cards[data-pattern="stitches"],
-.home-cards-settings .hc-swatch[data-pattern="stitches"] {
+.hc-swatch[data-pattern="stitches"] {
   --hc-tile: var(--hc-bg-stitches);
   --hc-veil: var(--hc-veil-stitches);
 }
 .home-cards[data-pattern="suns"],
-.home-cards-settings .hc-swatch[data-pattern="suns"] {
+.hc-swatch[data-pattern="suns"] {
   --hc-tile: var(--hc-bg-suns);
   --hc-veil: var(--hc-veil-suns);
 }
 .home-cards[data-pattern="grid"],
-.home-cards-settings .hc-swatch[data-pattern="grid"] {
+.hc-swatch[data-pattern="grid"] {
   --hc-tile: var(--hc-bg-grid);
   --hc-veil: var(--hc-veil-grid);
 }
 .home-cards[data-pattern="rain"],
-.home-cards-settings .hc-swatch[data-pattern="rain"] {
+.hc-swatch[data-pattern="rain"] {
   --hc-tile: var(--hc-bg-rain);
   --hc-veil: var(--hc-veil-rain);
 }
 .home-cards[data-pattern="squares"],
-.home-cards-settings .hc-swatch[data-pattern="squares"] {
+.hc-swatch[data-pattern="squares"] {
   --hc-tile: var(--hc-bg-squares);
   --hc-veil: var(--hc-veil-squares);
 }
 .home-cards[data-pattern="polka"],
-.home-cards-settings .hc-swatch[data-pattern="polka"] {
+.hc-swatch[data-pattern="polka"] {
   --hc-tile: var(--hc-bg-polka);
   --hc-veil: var(--hc-veil-polka);
 }
 .home-cards[data-pattern="basket"],
-.home-cards-settings .hc-swatch[data-pattern="basket"] {
+.hc-swatch[data-pattern="basket"] {
   --hc-tile: var(--hc-bg-basket);
   --hc-veil: var(--hc-veil-basket);
 }
 .home-cards[data-pattern="pebbles"],
-.home-cards-settings .hc-swatch[data-pattern="pebbles"] {
+.hc-swatch[data-pattern="pebbles"] {
   --hc-tile: var(--hc-bg-pebbles);
   --hc-veil: var(--hc-veil-pebbles);
 }
 .home-cards[data-pattern="confetti"],
-.home-cards-settings .hc-swatch[data-pattern="confetti"] {
+.hc-swatch[data-pattern="confetti"] {
   --hc-tile: var(--hc-bg-confetti);
   --hc-veil: var(--hc-veil-confetti);
 }
@@ -147,7 +148,7 @@
 /* The veil sits over the tile in the theme's own background color, so
    the pattern recedes behind the header and cards in any theme. */
 .home-cards[data-pattern],
-.home-cards-settings .hc-swatch[data-pattern] {
+.hc-swatch[data-pattern] {
   --hc-veil-color: color-mix(in srgb, var(--background-primary) var(--hc-veil, 0%), transparent);
   background-image:
     linear-gradient(var(--hc-veil-color), var(--hc-veil-color)),

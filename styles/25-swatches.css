@@ -1,0 +1,50 @@
+/* --- Background swatches ---------------------------------
+   One grid, drawn by src/render/swatches.ts for both the
+   settings tab and the header picker. Context rules below set
+   each one's size.
+   ---------------------------------------------------------- */
+
+.hc-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-4);
+}
+.home-cards-settings .hc-swatches {
+  padding: var(--size-4-3) 0 var(--size-4-4);
+}
+.hc-swatch-item {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-2-2);
+  cursor: pointer;
+}
+.hc-swatch {
+  width: 108px;
+  height: 72px;
+  border-radius: var(--radius-m);
+  border: var(--border-width) solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  /* Half the page scale, so a swatch previews more of the repeat. */
+  background-size: auto, 200px auto;
+  background-position: center;
+}
+.hc-swatch-item:hover .hc-swatch {
+  border-color: var(--background-modifier-border-hover);
+}
+.hc-swatch-item.is-selected .hc-swatch {
+  border: 2px solid var(--interactive-accent);
+}
+.hc-swatch-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.hc-swatch-item.is-selected .hc-swatch-label {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}

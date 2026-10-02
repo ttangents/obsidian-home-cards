@@ -2,7 +2,8 @@
  * The Home workspace view.
  *
  * Built as a stable shell around a replaceable body. The header (greeting,
- * dateline, filter box, view toggle) is created once per open and only
+ * dateline, filter box, view toggle, background picker) is created once
+ * per open and only
  * updated afterwards, so the filter keeps its focus and caret, the chosen
  * layout survives, and the greeting drawn at open does not re-roll every
  * time a note is saved. `refresh()` recomposes the cards off-screen and
@@ -17,6 +18,7 @@ import type HomeCardsPlugin from "../main";
 import { sectionTitle, VIEW_MODES, type ViewMode } from "../settings/schema";
 import { applyAppearance } from "./appearance";
 import { noteOpener, renderSection } from "./card";
+import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
 
 export const VIEW_TYPE_HOME = "home-cards-view";
 
@@ -25,7 +27,14 @@ interface Shell {
   greeting: HTMLElement;
   dateline: HTMLElement;
   toggles: Map<ViewMode, HTMLElement>;
+  pickerToggle: HTMLElement;
   body: HTMLElement;
+}
+
+/** The open background picker: its panel and its swatch grid. */
+interface OpenPicker {
+  panel: HTMLElement;
+  grid: BackgroundPicker;
 }
 
 export class HomeView extends ItemView {
@@ -33,6 +42,7 @@ export class HomeView extends ItemView {
   private mode: ViewMode;
   private greeting = "";
   private query = "";
+  private picker: OpenPicker | null = null;
   /** Invalidates composes that finish after a newer one or a close. */
   private generation = 0;
 
@@ -62,10 +72,28 @@ export class HomeView extends ItemView {
     });
     this.shell = this.buildShell(this.contentEl);
     this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
+
+    // The picker closes on a press outside it or on Escape. Registered
+    // once for the view's life; each handler is a no-op while it is shut.
+    const doc = this.contentEl.ownerDocument;
+    this.registerDomEvent(doc, "pointerdown", (evt) => {
+      const target = evt.target as Node | null;
+      if (!this.picker || !target) return;
+      if (this.picker.panel.contains(target) || this.shell?.pickerToggle.contains(target)) return;
+      this.closePicker();
+    });
+    this.registerDomEvent(doc, "keydown", (evt) => {
+      if (evt.key !== "Escape" || !this.picker) return;
+      evt.preventDefault();
+      this.closePicker();
+      this.shell?.pickerToggle.focus();
+    });
+
     await this.refresh();
   }
 
   async onClose(): Promise<void> {
+    this.closePicker();
     this.generation++;
     this.shell = null;
     this.contentEl.empty();
@@ -77,6 +105,7 @@ export class HomeView extends ItemView {
     if (!shell) return;
     applyAppearance(shell.root, this.plugin.settings);
     this.paintHeader(shell);
+    this.picker?.grid.paint();
     await this.recompose(shell);
   }
 
@@ -101,8 +130,9 @@ export class HomeView extends ItemView {
       this.applyFilter();
     });
 
-    // One control cluster: the layout glyphs, a hairline, recompose.
-    // aria-label carries each name, and Obsidian shows it as the tooltip.
+    // One control cluster: the layout glyphs, a hairline, then the
+    // background picker and recompose. aria-label carries each name, and
+    // Obsidian shows it as the tooltip.
     const seg = controls.createDiv({ cls: "hc-seg" });
     const toggles = new Map<ViewMode, HTMLElement>();
     for (const mode of VIEW_MODES) {
@@ -111,6 +141,18 @@ export class HomeView extends ItemView {
       btn.addEventListener("click", () => this.setMode(mode.id));
       toggles.set(mode.id, btn);
     }
+    seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
+    const pickerToggle = seg.createEl("button", {
+      cls: "hc-picker-toggle",
+      attr: { "aria-label": "Background", "aria-haspopup": "dialog", "aria-expanded": "false" },
+    });
+    setIcon(pickerToggle, "swatch-book");
+    // Older Obsidian builds ship a Lucide set without swatch-book.
+    if (!pickerToggle.firstElementChild) setIcon(pickerToggle, "palette");
+    pickerToggle.addEventListener("click", () => {
+      if (this.picker) this.closePicker();
+      else this.openPicker(controls, pickerToggle);
+    });
     const recompose = seg.createEl("button", {
       cls: "hc-reload",
       attr: { "aria-label": "Recompose" },
@@ -121,7 +163,7 @@ export class HomeView extends ItemView {
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing…" });
 
-    const shell = { root, greeting, dateline, toggles, body };
+    const shell = { root, greeting, dateline, toggles, pickerToggle, body };
     this.paintMode(shell);
     return shell;
   }
@@ -142,6 +184,36 @@ export class HomeView extends ItemView {
     ];
     if (s.showNoteCount) bits.push(`${this.app.vault.getMarkdownFiles().length} notes`);
     shell.dateline.setText(bits.join("  ·  "));
+  }
+
+  /**
+   * Open the background picker under the header controls. A pick applies
+   * to this page at once and stays open, so patterns can be compared;
+   * the plugin then saves it and redraws every other open view.
+   */
+  private openPicker(controls: HTMLElement, toggle: HTMLElement): void {
+    const root = this.shell?.root;
+    if (!root) return;
+    const panel = controls.createDiv({
+      cls: "hc-picker",
+      attr: { role: "dialog", "aria-label": "Background" },
+    });
+    const grid = renderBackgroundPicker(panel, this.plugin, () =>
+      applyAppearance(root, this.plugin.settings)
+    );
+    this.picker = { panel, grid };
+    toggle.addClass("is-active");
+    toggle.setAttr("aria-expanded", "true");
+    panel.querySelector<HTMLElement>(".hc-swatch-item.is-selected")?.focus();
+  }
+
+  private closePicker(): void {
+    if (!this.picker) return;
+    this.picker.panel.remove();
+    this.picker = null;
+    const toggle = this.shell?.pickerToggle;
+    toggle?.removeClass("is-active");
+    toggle?.setAttr("aria-expanded", "false");
   }
 
   /** Layout switches are pure CSS: no recompose, no network of listeners. */

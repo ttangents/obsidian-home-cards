@@ -60,9 +60,10 @@
    pattern is a pair of seamless tiles carried on one
    custom property per pattern id, declared only on the page
    and settings roots that paint them: the light tile by
-   default, the dark tile under .theme-dark. The view and the
-   settings swatches resolve the same property, so a preview
-   always shows exactly what the page will paint. Plain sets no attribute
+   default, the dark tile under .theme-dark. The page and every
+   swatch (settings and the header picker) resolve the same
+   property, so a preview always shows exactly what the page will
+   paint. Plain sets no attribute
    and no rule here fires. Cards sit on an 85% underlay of the
    theme's primary background so patterns stay behind the
    content even when a theme's surfaces are translucent.
@@ -137,57 +138,57 @@
 }
 
 .home-cards[data-pattern="diamonds"],
-.home-cards-settings .hc-swatch[data-pattern="diamonds"] {
+.hc-swatch[data-pattern="diamonds"] {
   --hc-tile: var(--hc-bg-diamonds);
   --hc-veil: var(--hc-veil-diamonds);
 }
 .home-cards[data-pattern="leaves"],
-.home-cards-settings .hc-swatch[data-pattern="leaves"] {
+.hc-swatch[data-pattern="leaves"] {
   --hc-tile: var(--hc-bg-leaves);
   --hc-veil: var(--hc-veil-leaves);
 }
 .home-cards[data-pattern="stitches"],
-.home-cards-settings .hc-swatch[data-pattern="stitches"] {
+.hc-swatch[data-pattern="stitches"] {
   --hc-tile: var(--hc-bg-stitches);
   --hc-veil: var(--hc-veil-stitches);
 }
 .home-cards[data-pattern="suns"],
-.home-cards-settings .hc-swatch[data-pattern="suns"] {
+.hc-swatch[data-pattern="suns"] {
   --hc-tile: var(--hc-bg-suns);
   --hc-veil: var(--hc-veil-suns);
 }
 .home-cards[data-pattern="grid"],
-.home-cards-settings .hc-swatch[data-pattern="grid"] {
+.hc-swatch[data-pattern="grid"] {
   --hc-tile: var(--hc-bg-grid);
   --hc-veil: var(--hc-veil-grid);
 }
 .home-cards[data-pattern="rain"],
-.home-cards-settings .hc-swatch[data-pattern="rain"] {
+.hc-swatch[data-pattern="rain"] {
   --hc-tile: var(--hc-bg-rain);
   --hc-veil: var(--hc-veil-rain);
 }
 .home-cards[data-pattern="squares"],
-.home-cards-settings .hc-swatch[data-pattern="squares"] {
+.hc-swatch[data-pattern="squares"] {
   --hc-tile: var(--hc-bg-squares);
   --hc-veil: var(--hc-veil-squares);
 }
 .home-cards[data-pattern="polka"],
-.home-cards-settings .hc-swatch[data-pattern="polka"] {
+.hc-swatch[data-pattern="polka"] {
   --hc-tile: var(--hc-bg-polka);
   --hc-veil: var(--hc-veil-polka);
 }
 .home-cards[data-pattern="basket"],
-.home-cards-settings .hc-swatch[data-pattern="basket"] {
+.hc-swatch[data-pattern="basket"] {
   --hc-tile: var(--hc-bg-basket);
   --hc-veil: var(--hc-veil-basket);
 }
 .home-cards[data-pattern="pebbles"],
-.home-cards-settings .hc-swatch[data-pattern="pebbles"] {
+.hc-swatch[data-pattern="pebbles"] {
   --hc-tile: var(--hc-bg-pebbles);
   --hc-veil: var(--hc-veil-pebbles);
 }
 .home-cards[data-pattern="confetti"],
-.home-cards-settings .hc-swatch[data-pattern="confetti"] {
+.hc-swatch[data-pattern="confetti"] {
   --hc-tile: var(--hc-bg-confetti);
   --hc-veil: var(--hc-veil-confetti);
 }
@@ -204,7 +205,7 @@
 /* The veil sits over the tile in the theme's own background color, so
    the pattern recedes behind the header and cards in any theme. */
 .home-cards[data-pattern],
-.home-cards-settings .hc-swatch[data-pattern] {
+.hc-swatch[data-pattern] {
   --hc-veil-color: color-mix(in srgb, var(--background-primary) var(--hc-veil, 0%), transparent);
   background-image:
     linear-gradient(var(--hc-veil-color), var(--hc-veil-color)),
@@ -259,6 +260,8 @@ body.is-phone .hc-wrap {
 }
 
 .hc-controls {
+  /* Anchors the background picker panel. */
+  position: relative;
   /* Right-aligned beside the masthead; when the header wraps on a
      narrow pane, the row takes the full width and the filter grows. */
   flex: 1 1 20em;
@@ -309,12 +312,90 @@ input.hc-search {
      card-sized --shadow-s spills a haze below a 26px button. */
   box-shadow: var(--input-shadow);
 }
-.hc-seg .hc-reload {
-  margin-inline-start: var(--size-2-1);
-  border-inline-start: var(--border-width) solid var(--hc-hair);
-  border-radius: 0;
+/* Hairline between the layout toggles and the page actions. */
+.hc-seg-divider {
+  flex: none;
+  align-self: stretch;
+  width: var(--border-width);
+  margin: var(--size-2-2) var(--size-2-1);
+  background: var(--hc-hair);
 }
 
+/* The background picker: a panel under the controls, styled from the
+   theme's menu surface, holding the same swatch grid as settings. */
+.hc-picker {
+  position: absolute;
+  top: calc(100% + var(--size-2-3));
+  inset-inline-end: 0;
+  z-index: var(--layer-popover, 30);
+  max-width: 100%;
+  padding: var(--size-4-3);
+  background: var(--background-primary);
+  border: var(--border-width) solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+}
+.hc-picker .hc-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: var(--size-4-3) var(--size-4-2);
+}
+.hc-picker .hc-swatch {
+  width: 72px;
+  height: 48px;
+  background-size: auto, 160px auto;
+}
+
+/* --- Background swatches ---------------------------------
+   One grid, drawn by src/render/swatches.ts for both the
+   settings tab and the header picker. Context rules below set
+   each one's size.
+   ---------------------------------------------------------- */
+
+.hc-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-4);
+}
+.home-cards-settings .hc-swatches {
+  padding: var(--size-4-3) 0 var(--size-4-4);
+}
+.hc-swatch-item {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-2-2);
+  cursor: pointer;
+}
+.hc-swatch {
+  width: 108px;
+  height: 72px;
+  border-radius: var(--radius-m);
+  border: var(--border-width) solid var(--background-modifier-border);
+  background-color: var(--background-primary);
+  /* Half the page scale, so a swatch previews more of the repeat. */
+  background-size: auto, 200px auto;
+  background-position: center;
+}
+.hc-swatch-item:hover .hc-swatch {
+  border-color: var(--background-modifier-border-hover);
+}
+.hc-swatch-item.is-selected .hc-swatch {
+  border: 2px solid var(--interactive-accent);
+}
+.hc-swatch-label {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+.hc-swatch-item.is-selected .hc-swatch-label {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}
 /* --- Sections -------------------------------------------- */
 
 .hc-section { margin-top: var(--size-4-8); }
@@ -732,49 +813,3 @@ body.is-phone .home-cards[data-view="rows"] .hc-dek { grid-column: 1 / -1; }
   justify-content: flex-end;
   margin: var(--size-4-3) 0 var(--size-4-6);
 }
-
-/* Background swatch gallery ------------------------------- */
-
-.home-cards-settings .hc-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--size-4-4);
-  padding: var(--size-4-3) 0 var(--size-4-4);
-}
-.home-cards-settings .hc-swatch-item {
-  background: none;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  height: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--size-2-2);
-  cursor: pointer;
-}
-.home-cards-settings .hc-swatch {
-  width: 108px;
-  height: 72px;
-  border-radius: var(--radius-m);
-  border: var(--border-width) solid var(--background-modifier-border);
-  background-color: var(--background-primary);
-  /* Half the page scale, so a swatch previews more of the repeat. */
-  background-size: auto, 200px auto;
-  background-position: center;
-}
-.home-cards-settings .hc-swatch-item:hover .hc-swatch {
-  border-color: var(--background-modifier-border-hover);
-}
-.home-cards-settings .hc-swatch-item.is-selected .hc-swatch {
-  border: 2px solid var(--interactive-accent);
-}
-.home-cards-settings .hc-swatch-label {
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
-}
-.home-cards-settings .hc-swatch-item.is-selected .hc-swatch-label {
-  color: var(--text-accent);
-  font-weight: var(--font-semibold);
-}
-

@@ -72,7 +72,7 @@ test("the built stylesheet is current, balanced and carries its load-bearing rul
   const bare = built.replace(/\/\*[\s\S]*?\*\//g, "");
   assert.equal((bare.match(/{/g) ?? []).length, (bare.match(/}/g) ?? []).length);
   for (const selector of [
-    ".hc-grid {", ".hc-card {", ".hc-top {", ".hc-dateline {", ".hc-seg .hc-reload {",
+    ".hc-grid {", ".hc-card {", ".hc-top {", ".hc-dateline {", ".hc-seg-divider {", ".hc-picker {",
     '.home-cards[data-view="rows"] .hc-card {', ".home-cards.hc-in-bases {",
     ".home-cards-settings .setting-item.hc-subrow {",
   ]) {

@@ -37,6 +37,8 @@ body.is-phone .hc-wrap {
 }
 
 .hc-controls {
+  /* Anchors the background picker panel. */
+  position: relative;
   /* Right-aligned beside the masthead; when the header wraps on a
      narrow pane, the row takes the full width and the filter grows. */
   flex: 1 1 20em;
@@ -87,9 +89,37 @@ input.hc-search {
      card-sized --shadow-s spills a haze below a 26px button. */
   box-shadow: var(--input-shadow);
 }
-.hc-seg .hc-reload {
-  margin-inline-start: var(--size-2-1);
-  border-inline-start: var(--border-width) solid var(--hc-hair);
-  border-radius: 0;
+/* Hairline between the layout toggles and the page actions. */
+.hc-seg-divider {
+  flex: none;
+  align-self: stretch;
+  width: var(--border-width);
+  margin: var(--size-2-2) var(--size-2-1);
+  background: var(--hc-hair);
+}
+
+/* The background picker: a panel under the controls, styled from the
+   theme's menu surface, holding the same swatch grid as settings. */
+.hc-picker {
+  position: absolute;
+  top: calc(100% + var(--size-2-3));
+  inset-inline-end: 0;
+  z-index: var(--layer-popover, 30);
+  max-width: 100%;
+  padding: var(--size-4-3);
+  background: var(--background-primary);
+  border: var(--border-width) solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-s);
+}
+.hc-picker .hc-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: var(--size-4-3) var(--size-4-2);
+}
+.hc-picker .hc-swatch {
+  width: 72px;
+  height: 48px;
+  background-size: auto, 160px auto;
 }
 

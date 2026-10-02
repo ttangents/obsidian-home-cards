@@ -857,6 +857,37 @@ function sectionTitle(cfg) {
   return cfg.title.trim() || autoTitle(cfg);
 }
 
+// src/render/swatches.ts
+function renderBackgroundPicker(parent, plugin, onPick) {
+  const grid = parent.createDiv({
+    cls: "hc-swatches",
+    attr: { role: "radiogroup", "aria-label": "Background" }
+  });
+  const items = BACKGROUNDS.map((bg) => {
+    const item = grid.createEl("button", { cls: "hc-swatch-item", attr: { role: "radio" } });
+    const face = item.createDiv({ cls: "hc-swatch" });
+    if (bg.id !== "plain") face.dataset.pattern = bg.id;
+    item.createDiv({ cls: "hc-swatch-label", text: bg.label });
+    item.addEventListener("click", () => {
+      if (plugin.settings.background === bg.id) return;
+      plugin.settings.background = bg.id;
+      paint();
+      onPick?.();
+      void plugin.commit();
+    });
+    return { id: bg.id, item };
+  });
+  const paint = () => {
+    for (const { id, item } of items) {
+      const on = plugin.settings.background === id;
+      item.toggleClass("is-selected", on);
+      item.setAttr("aria-checked", String(on));
+    }
+  };
+  paint();
+  return { paint };
+}
+
 // src/render/home-view.ts
 var VIEW_TYPE_HOME = "home-cards-view";
 var HomeView = class extends import_obsidian3.ItemView {
@@ -866,6 +897,7 @@ var HomeView = class extends import_obsidian3.ItemView {
     this.shell = null;
     this.greeting = "";
     this.query = "";
+    this.picker = null;
     /** Invalidates composes that finish after a newer one or a close. */
     this.generation = 0;
     this.mode = plugin.settings.defaultView;
@@ -885,9 +917,23 @@ var HomeView = class extends import_obsidian3.ItemView {
     });
     this.shell = this.buildShell(this.contentEl);
     this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
+    const doc = this.contentEl.ownerDocument;
+    this.registerDomEvent(doc, "pointerdown", (evt) => {
+      const target = evt.target;
+      if (!this.picker || !target) return;
+      if (this.picker.panel.contains(target) || this.shell?.pickerToggle.contains(target)) return;
+      this.closePicker();
+    });
+    this.registerDomEvent(doc, "keydown", (evt) => {
+      if (evt.key !== "Escape" || !this.picker) return;
+      evt.preventDefault();
+      this.closePicker();
+      this.shell?.pickerToggle.focus();
+    });
     await this.refresh();
   }
   async onClose() {
+    this.closePicker();
     this.generation++;
     this.shell = null;
     this.contentEl.empty();
@@ -898,6 +944,7 @@ var HomeView = class extends import_obsidian3.ItemView {
     if (!shell) return;
     applyAppearance(shell.root, this.plugin.settings);
     this.paintHeader(shell);
+    this.picker?.grid.paint();
     await this.recompose(shell);
   }
   // ------------------------------------------------------------- header
@@ -925,6 +972,17 @@ var HomeView = class extends import_obsidian3.ItemView {
       btn.addEventListener("click", () => this.setMode(mode.id));
       toggles.set(mode.id, btn);
     }
+    seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
+    const pickerToggle = seg.createEl("button", {
+      cls: "hc-picker-toggle",
+      attr: { "aria-label": "Background", "aria-haspopup": "dialog", "aria-expanded": "false" }
+    });
+    (0, import_obsidian3.setIcon)(pickerToggle, "swatch-book");
+    if (!pickerToggle.firstElementChild) (0, import_obsidian3.setIcon)(pickerToggle, "palette");
+    pickerToggle.addEventListener("click", () => {
+      if (this.picker) this.closePicker();
+      else this.openPicker(controls, pickerToggle);
+    });
     const recompose = seg.createEl("button", {
       cls: "hc-reload",
       attr: { "aria-label": "Recompose" }
@@ -933,7 +991,7 @@ var HomeView = class extends import_obsidian3.ItemView {
     recompose.addEventListener("click", () => void this.refresh());
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing\u2026" });
-    const shell = { root, greeting, dateline, toggles, body };
+    const shell = { root, greeting, dateline, toggles, pickerToggle, body };
     this.paintMode(shell);
     return shell;
   }
@@ -952,6 +1010,36 @@ var HomeView = class extends import_obsidian3.ItemView {
     ];
     if (s.showNoteCount) bits.push(`${this.app.vault.getMarkdownFiles().length} notes`);
     shell.dateline.setText(bits.join("  \xB7  "));
+  }
+  /**
+   * Open the background picker under the header controls. A pick applies
+   * to this page at once and stays open, so patterns can be compared;
+   * the plugin then saves it and redraws every other open view.
+   */
+  openPicker(controls, toggle) {
+    const root = this.shell?.root;
+    if (!root) return;
+    const panel = controls.createDiv({
+      cls: "hc-picker",
+      attr: { role: "dialog", "aria-label": "Background" }
+    });
+    const grid = renderBackgroundPicker(
+      panel,
+      this.plugin,
+      () => applyAppearance(root, this.plugin.settings)
+    );
+    this.picker = { panel, grid };
+    toggle.addClass("is-active");
+    toggle.setAttr("aria-expanded", "true");
+    panel.querySelector(".hc-swatch-item.is-selected")?.focus();
+  }
+  closePicker() {
+    if (!this.picker) return;
+    this.picker.panel.remove();
+    this.picker = null;
+    const toggle = this.shell?.pickerToggle;
+    toggle?.removeClass("is-active");
+    toggle?.setAttr("aria-expanded", "false");
   }
   /** Layout switches are pure CSS: no recompose, no network of listeners. */
   setMode(mode) {
@@ -1510,7 +1598,7 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
     );
     const background = settingGroup(root, "Background");
     new import_obsidian6.Setting(background).setName("Pattern").setDesc("Plain follows the theme. Each pattern switches between a light and a dark tile with the theme's mode.");
-    this.swatchGallery(background);
+    renderBackgroundPicker(background, this.plugin);
     const header = settingGroup(root, "Header");
     new import_obsidian6.Setting(header).setName("Greeting").setDesc("Follows the time of day and the calendar, with a word from another language now and then. Add a name to be greeted by it.").addText(
       (t) => t.setPlaceholder("Your name").setValue(s.greetingName).setDisabled(!s.greetingEnabled).onChange((v) => {
@@ -1541,36 +1629,6 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
         this.plugin.touch();
       })
     );
-  }
-  /**
-   * One swatch per background, each painted with the same custom property
-   * the page uses, so a preview cannot drift from the real background.
-   * Selection repaints in place; the pane keeps its scroll position.
-   */
-  swatchGallery(parent) {
-    const s = this.plugin.settings;
-    const grid = parent.createDiv({ cls: "hc-swatches", attr: { role: "radiogroup" } });
-    const items = BACKGROUNDS.map((bg) => {
-      const item = grid.createEl("button", { cls: "hc-swatch-item", attr: { role: "radio" } });
-      const face = item.createDiv({ cls: "hc-swatch" });
-      if (bg.id !== "plain") face.dataset.pattern = bg.id;
-      item.createDiv({ cls: "hc-swatch-label", text: bg.label });
-      item.addEventListener("click", () => {
-        if (s.background === bg.id) return;
-        s.background = bg.id;
-        paint();
-        void this.plugin.commit();
-      });
-      return { id: bg.id, item };
-    });
-    const paint = () => {
-      for (const { id, item } of items) {
-        const on = s.background === id;
-        item.toggleClass("is-selected", on);
-        item.setAttr("aria-checked", String(on));
-      }
-    };
-    paint();
   }
 };
 

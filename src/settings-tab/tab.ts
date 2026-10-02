@@ -9,7 +9,8 @@
 
 import { PluginSettingTab, Setting } from "obsidian";
 import type HomeCardsPlugin from "../main";
-import { BACKGROUNDS, isChoice, LIMITS, SURFACES, VIEW_MODES } from "../settings/schema";
+import { renderBackgroundPicker } from "../render/swatches";
+import { isChoice, LIMITS, SURFACES, VIEW_MODES } from "../settings/schema";
 import { SectionsPane } from "./sections";
 import { addChoices, hint, settingGroup } from "./widgets";
 
@@ -274,7 +275,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     new Setting(background)
       .setName("Pattern")
       .setDesc("Plain follows the theme. Each pattern switches between a light and a dark tile with the theme's mode.");
-    this.swatchGallery(background);
+    renderBackgroundPicker(background, this.plugin);
 
     const header = settingGroup(root, "Header");
     new Setting(header)
@@ -320,36 +321,5 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         this.plugin.touch();
       })
     );
-  }
-
-  /**
-   * One swatch per background, each painted with the same custom property
-   * the page uses, so a preview cannot drift from the real background.
-   * Selection repaints in place; the pane keeps its scroll position.
-   */
-  private swatchGallery(parent: HTMLElement): void {
-    const s = this.plugin.settings;
-    const grid = parent.createDiv({ cls: "hc-swatches", attr: { role: "radiogroup" } });
-    const items = BACKGROUNDS.map((bg) => {
-      const item = grid.createEl("button", { cls: "hc-swatch-item", attr: { role: "radio" } });
-      const face = item.createDiv({ cls: "hc-swatch" });
-      if (bg.id !== "plain") face.dataset.pattern = bg.id;
-      item.createDiv({ cls: "hc-swatch-label", text: bg.label });
-      item.addEventListener("click", () => {
-        if (s.background === bg.id) return;
-        s.background = bg.id;
-        paint();
-        void this.plugin.commit();
-      });
-      return { id: bg.id, item };
-    });
-    const paint = () => {
-      for (const { id, item } of items) {
-        const on = s.background === id;
-        item.toggleClass("is-selected", on);
-        item.setAttr("aria-checked", String(on));
-      }
-    };
-    paint();
   }
 }

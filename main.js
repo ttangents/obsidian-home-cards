@@ -1182,6 +1182,7 @@ function renderBackgroundPicker(parent, plugin, onPick) {
 // src/render/home-view.ts
 var VIEW_TYPE_HOME = "home-cards-view";
 var GREETING_SWAP_MS = 8e3;
+var RECOMPOSE_SPIN_MS = 600;
 var HomeView = class extends import_obsidian4.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -1287,7 +1288,7 @@ var HomeView = class extends import_obsidian4.ItemView {
       attr: { "aria-label": "Recompose" }
     });
     (0, import_obsidian4.setIcon)(recompose, "refresh-cw");
-    recompose.addEventListener("click", () => void this.refresh());
+    recompose.addEventListener("click", () => void this.recomposeNow(recompose));
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing\u2026" });
     const shell = { root, greeting, dateline, toggles, pickerToggle, body };
@@ -1339,6 +1340,22 @@ var HomeView = class extends import_obsidian4.ItemView {
     const toggle = this.shell?.pickerToggle;
     toggle?.removeClass("is-active");
     toggle?.setAttr("aria-expanded", "false");
+  }
+  /**
+   * The Recompose button: a fresh greeting and fresh cards. The icon
+   * spins for at least one turn, so a click always shows it registered,
+   * even when the cards come back unchanged.
+   */
+  async recomposeNow(button) {
+    if (button.hasClass("is-spinning")) return;
+    button.addClass("is-spinning");
+    const minimum = new Promise((resolve) => window.setTimeout(resolve, RECOMPOSE_SPIN_MS));
+    this.greeting = this.plugin.greetings.pick(/* @__PURE__ */ new Date()).text;
+    try {
+      await Promise.all([this.refresh(), minimum]);
+    } finally {
+      button.removeClass("is-spinning");
+    }
   }
   /** Layout switches are pure CSS: no recompose, no network of listeners. */
   setMode(mode) {

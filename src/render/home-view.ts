@@ -25,6 +25,9 @@ export const VIEW_TYPE_HOME = "home-cards-view";
 /** How long after opening a late AI greeting may still replace the first. */
 const GREETING_SWAP_MS = 8_000;
 
+/** One turn of the Recompose icon; see .hc-reload.is-spinning. */
+const RECOMPOSE_SPIN_MS = 600;
+
 interface Shell {
   root: HTMLElement;
   greeting: HTMLElement;
@@ -170,7 +173,7 @@ export class HomeView extends ItemView {
       attr: { "aria-label": "Recompose" },
     });
     setIcon(recompose, "refresh-cw");
-    recompose.addEventListener("click", () => void this.refresh());
+    recompose.addEventListener("click", () => void this.recomposeNow(recompose));
 
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing…" });
@@ -226,6 +229,23 @@ export class HomeView extends ItemView {
     const toggle = this.shell?.pickerToggle;
     toggle?.removeClass("is-active");
     toggle?.setAttr("aria-expanded", "false");
+  }
+
+  /**
+   * The Recompose button: a fresh greeting and fresh cards. The icon
+   * spins for at least one turn, so a click always shows it registered,
+   * even when the cards come back unchanged.
+   */
+  private async recomposeNow(button: HTMLElement): Promise<void> {
+    if (button.hasClass("is-spinning")) return;
+    button.addClass("is-spinning");
+    const minimum = new Promise((resolve) => window.setTimeout(resolve, RECOMPOSE_SPIN_MS));
+    this.greeting = this.plugin.greetings.pick(new Date()).text;
+    try {
+      await Promise.all([this.refresh(), minimum]);
+    } finally {
+      button.removeClass("is-spinning");
+    }
   }
 
   /** Layout switches are pure CSS: no recompose, no network of listeners. */

@@ -56,6 +56,9 @@ export default class HomeCardsPlugin extends Plugin {
     await this.loadSettings();
 
     this.registerView(VIEW_TYPE_HOME, (leaf) => new HomeView(leaf, this));
+    // Lets Page Preview show notes on hover over cards; it lists this
+    // source in its settings, defaulting to Cmd or Ctrl held.
+    this.registerHoverLinkSource(VIEW_TYPE_HOME, { display: "Home Cards", defaultMod: true });
     registerBasesView(this);
     this.addSettingTab(new HomeCardsSettingTab(this));
 

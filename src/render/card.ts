@@ -4,19 +4,23 @@
  * markup from the same model.
  */
 
-import { setIcon, type App, type TFile } from "obsidian";
+import { setIcon, type TFile } from "obsidian";
 import type { CardItem } from "../compose/card";
 import type { HomeCardsSettings } from "../settings/schema";
 
 export type CardOptions = Pick<HomeCardsSettings, "showGlyph" | "showRubric" | "showDeks">;
-export type OpenNote = (file: TFile, newLeaf: boolean) => void;
+
+/** What a card does when used; render/actions.ts supplies the real ones. */
+export interface CardActions {
+  /** Open the note, in a new tab when a modifier key is held. */
+  open: (file: TFile, newLeaf: boolean) => void;
+  /** Show the note's context menu. */
+  menu?: (file: TFile, evt: MouseEvent) => void;
+  /** Offer a hover preview of the note. */
+  hover?: (file: TFile, evt: MouseEvent, el: HTMLElement) => void;
+}
 
 const NO_DEK = "No opening sentence.";
-
-/** Open a note in place, or in a new tab when a modifier is held. */
-export function noteOpener(app: App): OpenNote {
-  return (file, newLeaf) => void app.workspace.getLeaf(newLeaf ? "tab" : false).openFile(file);
-}
 
 function renderGlyph(head: HTMLElement, card: CardItem): void {
   const glyph = head.createSpan({ cls: "hc-glyph" });
@@ -68,7 +72,7 @@ function renderCard(
   parent: HTMLElement,
   card: CardItem,
   opts: CardOptions,
-  open: OpenNote
+  actions: CardActions
 ): HTMLElement {
   const el = parent.createEl("article", { cls: "hc-card" });
   el.dataset.search = card.search;
@@ -83,39 +87,92 @@ function renderCard(
   if (opts.showDeks) renderDek(el, card);
   if (card.meta) el.createEl("footer", { cls: "hc-foot", text: card.meta });
 
-  const go = (evt: MouseEvent | KeyboardEvent) => open(card.file, evt.metaKey || evt.ctrlKey);
+  const go = (evt: MouseEvent | KeyboardEvent) => actions.open(card.file, evt.metaKey || evt.ctrlKey);
   el.addEventListener("click", go);
   el.addEventListener("keydown", (evt) => {
     if (evt.key !== "Enter" && evt.key !== " ") return;
     evt.preventDefault();
     go(evt);
   });
+  const { menu, hover } = actions;
+  if (menu) {
+    el.addEventListener("contextmenu", (evt) => {
+      evt.preventDefault();
+      menu(card.file, evt);
+    });
+  }
+  if (hover) el.addEventListener("mouseover", (evt) => hover(card.file, evt, el));
   return el;
+}
+
+export interface SectionOptions {
+  /** Shown in place of the grid when the section has no cards. */
+  emptyText?: string;
+  /** Held-back cards, rendered hidden after the visible ones. */
+  more?: readonly CardItem[];
+  /** Makes the heading fold the section; called with the new state. */
+  fold?: { collapsed: boolean; onToggle: (collapsed: boolean) => void };
+  /** Called when "See more" is pressed. */
+  onSeeMore?: () => void;
 }
 
 /**
  * One titled section of cards. A blank title draws no heading row (an
- * ungrouped Bases result); `emptyText` stands in when there are no cards.
+ * ungrouped Bases result).
+ *
+ * Every card, held back or not, carries `data-hc-index`; the caller
+ * decides which show (see the home view's paint), so filtering can reach
+ * held-back cards too.
  */
 export function renderSection(
   parent: HTMLElement,
   title: string,
   cards: readonly CardItem[],
   opts: CardOptions,
-  open: OpenNote,
-  emptyText = ""
+  actions: CardActions,
+  options: SectionOptions = {}
 ): HTMLElement {
+  const { emptyText = "", more = [], fold, onSeeMore } = options;
   const section = parent.createDiv({ cls: "hc-section" });
+  section.dataset.hcVisible = String(cards.length);
+
   if (title) {
     const head = section.createDiv({ cls: "hc-section-head" });
-    head.createEl("h2", { text: title });
+    if (fold) {
+      const toggle = head.createEl("button", {
+        cls: "hc-fold clickable-icon",
+        attr: { "aria-label": fold.collapsed ? "Expand section" : "Collapse section" },
+      });
+      setIcon(toggle, "chevron-down");
+      section.toggleClass("is-collapsed", fold.collapsed);
+      toggle.setAttr("aria-expanded", String(!fold.collapsed));
+      const flip = () => {
+        const collapsed = !section.hasClass("is-collapsed");
+        section.toggleClass("is-collapsed", collapsed);
+        toggle.setAttr("aria-expanded", String(!collapsed));
+        toggle.setAttr("aria-label", collapsed ? "Expand section" : "Collapse section");
+        fold.onToggle(collapsed);
+      };
+      toggle.addEventListener("click", flip);
+      head.createEl("h2", { text: title }).addEventListener("click", flip);
+      head.addClass("is-foldable");
+    } else {
+      head.createEl("h2", { text: title });
+    }
     head.createSpan({ cls: "hc-count", text: String(cards.length) });
   }
-  if (!cards.length && emptyText) {
+
+  if (!cards.length && !more.length && emptyText) {
     section.createDiv({ cls: "hc-empty", text: emptyText });
     return section;
   }
   const grid = section.createDiv({ cls: "hc-grid" });
-  for (const card of cards) renderCard(grid, card, opts, open);
+  [...cards, ...more].forEach((card, i) => {
+    renderCard(grid, card, opts, actions).dataset.hcIndex = String(i);
+  });
+  if (more.length && onSeeMore) {
+    const row = section.createDiv({ cls: "hc-more-row" });
+    row.createEl("button", { cls: "hc-more", text: "See more" }).addEventListener("click", onSeeMore);
+  }
   return section;
 }

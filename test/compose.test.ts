@@ -126,3 +126,37 @@ test("the type label reads the configured property", async () => {
   const [only] = await composeSections(w.app, settings);
   assert.equal(only.cards[0].rubric, "Memo");
 });
+
+test("See more holds back further matches without taking another section's notes", async () => {
+  const settings = {
+    ...s,
+    sections: [
+      section({ id: "a", kind: "recent-modified", count: 1 }),
+      section({ id: "b", kind: "recent-created", count: 1 }),
+    ],
+  };
+  const [a, b] = await composeSections(v.app, settings);
+  const shown = new Set([...a.cards, ...b.cards].map((c) => c.file.path));
+  for (const card of [...a.more, ...b.more]) assert.ok(!shown.has(card.file.path), card.file.path);
+  const held = [...a.more, ...b.more].map((c) => c.file.path);
+  assert.equal(new Set(held).size, held.length, "no note held back twice");
+  assert.ok(a.more.length <= 3 && b.more.length <= 3, "at most MORE_PAGES pages");
+  assert.ok(a.more.every((c) => c.dek === null), "held-back deks load lazily");
+});
+
+test("Rediscover draws untouched notes in an order that holds for a day", async () => {
+  const day = 86_400_000;
+  const base = new Date(2026, 9, 7, 9).getTime();
+  const old = (i: number) => ({ path: `old${i}.md`, mtime: base - (200 + i) * day, ctime: base - 400 * day });
+  const w = fakeVault([...Array.from({ length: 12 }, (_, i) => old(i)), { path: "fresh.md", mtime: base - day }]);
+  const settings = { ...s, rediscoverMonths: 6, sections: [section({ id: "r", kind: "rediscover", count: 12 })] };
+  const morning = await composeSections(w.app, settings, undefined, new Date(base));
+  const evening = await composeSections(w.app, settings, undefined, new Date(base + 10 * 3_600_000));
+  const tomorrow = await composeSections(w.app, settings, undefined, new Date(base + day));
+  const order = (x: typeof morning) => x[0].cards.map((c) => c.file.path).join();
+  assert.equal(morning[0].cards.length, 12);
+  assert.ok(!order(morning).includes("fresh.md"));
+  assert.equal(order(morning), order(evening), "stable within the day");
+  assert.notEqual(order(morning), order(tomorrow), "reshuffled the next day");
+  assert.match(morning[0].cards[0].meta, /^Untouched for \d+ months/);
+});

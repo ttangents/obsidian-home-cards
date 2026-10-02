@@ -16,7 +16,11 @@ export class VaultSnapshot {
   readonly files: readonly TFile[];
   private inbound: ReadonlyMap<string, number> | null = null;
 
-  constructor(readonly app: App) {
+  constructor(
+    readonly app: App,
+    /** The moment of the compose; date-based rankings measure from it. */
+    readonly now: Date = new Date()
+  ) {
     this.files = app.vault.getMarkdownFiles();
   }
 
@@ -27,6 +31,18 @@ export class VaultSnapshot {
   /** Inbound link totals per path; computed on first use. */
   inboundCounts(): ReadonlyMap<string, number> {
     return (this.inbound ??= inboundCounts(this.app));
+  }
+}
+
+/**
+ * The path for a new note in `folder` ("" for the vault root): "Untitled",
+ * then "Untitled 1", "Untitled 2" and so on, as Obsidian names them.
+ */
+export function untitledPath(folder: string, exists: (path: string) => boolean): string {
+  const prefix = folder ? `${folder}/` : "";
+  for (let n = 0; ; n++) {
+    const path = `${prefix}Untitled${n ? ` ${n}` : ""}.md`;
+    if (!exists(path)) return path;
   }
 }
 

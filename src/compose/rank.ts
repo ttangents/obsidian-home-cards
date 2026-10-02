@@ -83,6 +83,62 @@ function byPopularity(
 
 const plain = (files: readonly TFile[]): Ranked[] => files.map((file) => ({ file }));
 
+// ------------------------------------------------------------ rediscover
+
+const DAY_MS = 86_400_000;
+
+/** Notes untouched for `months` or more: the pool Rediscover draws from. */
+export function forgottenNotes(
+  files: readonly TFile[],
+  now: Date,
+  months: number
+): TFile[] {
+  const cutoff = new Date(now);
+  cutoff.setMonth(cutoff.getMonth() - months);
+  return files.filter((f) => f.stat.mtime < cutoff.getTime());
+}
+
+/** A small seeded generator (mulberry32), so a shuffle can repeat. */
+function seeded(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let a = h >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Forgotten notes in an order that holds for the whole day and changes
+ * the next. Seeding on the date keeps the section still while notes are
+ * edited and the page recomposes; a fresh draw each compose would reshuffle
+ * the cards on every save.
+ */
+function rediscover(files: readonly TFile[], now: Date, months: number, salt: string): Ranked[] {
+  const day = Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / DAY_MS);
+  const rng = seeded(`${day}/${salt}`);
+  const pool = forgottenNotes(files, now, months);
+  // Fisher-Yates, decorated with each note's age for the footer.
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.map((file) => ({ file, lead: untouchedFor(file, now) }));
+}
+
+/** "Untouched for 8 months", "Untouched for 2 years". */
+function untouchedFor(file: TFile, now: Date): string {
+  const months = Math.floor((now.getTime() - file.stat.mtime) / (30.44 * DAY_MS));
+  if (months < 24) return `Untouched for ${months} ${months === 1 ? "month" : "months"}`;
+  return `Untouched for ${Math.floor(months / 12)} years`;
+}
+
 /** Every note the section admits, best first. */
 export function rankSection(
   vault: VaultSnapshot,
@@ -110,6 +166,8 @@ export function rankSection(
     case "most-linked":
     case "least-linked":
       return byPopularity(vault, pool, cfg.kind === "most-linked", settings);
+    case "rediscover":
+      return rediscover(pool, vault.now, settings.rediscoverMonths, cfg.id);
     case "tag": {
       const want = cfg.tag.replace(/^#/, "").toLowerCase();
       if (!want) return [];

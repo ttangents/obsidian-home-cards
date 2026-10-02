@@ -76,6 +76,19 @@ function migrate(raw: Raw): Raw {
   if (typeof r.paperStyle === "string" && r.paperStyle !== "blank") r.background = "suns";
   if (r.backgroundPattern === true) r.background = "suns";
 
+  // 1.22 replaced the pattern set. Leaves and Suns keep their ids with
+  // new artwork; each retired pattern moves to its nearest replacement.
+  const retiredPatterns: Raw = {
+    hearts: "diamonds",
+    interlace: "diamonds",
+    regal: "diamonds",
+    crosses: "diamonds",
+    waves: "stitches",
+  };
+  if (typeof r.background === "string" && r.background in retiredPatterns) {
+    r.background = retiredPatterns[r.background];
+  }
+
   // ≤1.17 surfaces were three theme shades; map onto the nearest treatment.
   const surfaceMap: Raw = { secondary: "flat", "primary-alt": "elevated", transparent: "outline" };
   if (typeof r.cardSurface === "string" && r.cardSurface in surfaceMap) {

@@ -760,13 +760,10 @@ var SURFACES = [
 ];
 var BACKGROUNDS = [
   { id: "plain", label: "Plain" },
-  { id: "hearts", label: "Hearts" },
+  { id: "diamonds", label: "Diamonds" },
   { id: "leaves", label: "Leaves" },
-  { id: "suns", label: "Suns" },
-  { id: "waves", label: "Waves" },
-  { id: "interlace", label: "Interlace" },
-  { id: "regal", label: "Regal" },
-  { id: "crosses", label: "Crosses" }
+  { id: "stitches", label: "Stitches" },
+  { id: "suns", label: "Suns" }
 ];
 function isChoice(registry, value) {
   return registry.some((c) => c.id === value);
@@ -1044,6 +1041,16 @@ function migrate(raw) {
   if (r.defaultView === "masonry" || r.defaultView === "tiles") r.defaultView = "grid";
   if (typeof r.paperStyle === "string" && r.paperStyle !== "blank") r.background = "suns";
   if (r.backgroundPattern === true) r.background = "suns";
+  const retiredPatterns = {
+    hearts: "diamonds",
+    interlace: "diamonds",
+    regal: "diamonds",
+    crosses: "diamonds",
+    waves: "stitches"
+  };
+  if (typeof r.background === "string" && r.background in retiredPatterns) {
+    r.background = retiredPatterns[r.background];
+  }
   const surfaceMap = { secondary: "flat", "primary-alt": "elevated", transparent: "outline" };
   if (typeof r.cardSurface === "string" && r.cardSurface in surfaceMap) {
     r.cardSurface = surfaceMap[r.cardSurface];

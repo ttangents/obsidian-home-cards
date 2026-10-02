@@ -48,7 +48,7 @@ test("every pattern has both tiles, a variable pair and a selector", () => {
   const css = read("styles/10-backgrounds.css");
   for (const { id } of BACKGROUNDS.filter((b) => b.id !== "plain")) {
     for (const mode of ["light", "dark"]) {
-      assert.ok(existsSync(`assets/tiles/${id}-${mode}.png`), `${id}-${mode}.png`);
+      assert.ok(existsSync(`assets/tiles/${id}-${mode}.webp`), `${id}-${mode}.webp`);
       assert.ok(css.includes(`--hc-bg-${id}: url("@tile:${id}-${mode}@")`), `${id} ${mode} variable`);
     }
     assert.ok(css.includes(`.home-cards[data-pattern="${id}"]`), `${id} selector`);
@@ -97,4 +97,16 @@ test("the manifest passes the directory's format checks", () => {
 
 test("the license names its holder", () => {
   assert.match(read("LICENSE"), /^Copyright \(c\) \d{4} \S/m);
+});
+
+test("every tile file belongs to a registered pattern and draws sharp at 400px", async () => {
+  const ids = new Set(BACKGROUNDS.map((b) => b.id));
+  for (const file of readdirSync("assets/tiles")) {
+    const m = /^([a-z]+)-(light|dark)\.webp$/.exec(file);
+    assert.ok(m && ids.has(m[1] as never), `stray tile: ${file}`);
+    // WebP VP8 header: width sits in bytes 26-27 of a lossy file.
+    const buf = readFileSync(`assets/tiles/${file}`);
+    assert.equal(buf.toString("ascii", 12, 16), "VP8 ", `${file}: expected lossy WebP`);
+    assert.equal(buf.readUInt16LE(26) & 0x3fff, 800, `${file}: expected 800px wide`);
+  }
 });

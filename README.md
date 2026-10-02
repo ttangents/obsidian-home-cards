@@ -12,7 +12,7 @@ Home Cards gives your vault a start page. The page shows sections of note cards:
 - **Two layouts.** A grid of cards and a compact list of rows, switched from the header.
 - **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
 - **A Bases view.** Any base can show its results as "Home cards", with one section per group.
-- **A greeting.** The greeting follows your local time of day and, optionally, fixed-date holidays. Now and then it greets you in another language, always in Latin script.
+- **A greeting.** About 180 built-in greetings follow your local time of day, the day of the week and, optionally, fixed-date holidays, some in other languages, always in Latin script. On a Mac with Apple Intelligence, the on-device model can write a fresh one instead.
 
 ![Rows view, dark mode](docs/rows-dark.png)
 
@@ -53,9 +53,24 @@ If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, se
 - **Home Cards: Open** shows the home page, opening it in a new tab if needed.
 - **Home Cards: Recompose** redraws every open home page and Home cards base view.
 
+### Optional: greetings from Apple Intelligence
+
+On a Mac running macOS 26 or later with Apple Intelligence turned on, Home Cards can ask the on-device model for each greeting. The option is off until you turn it on under **Settings → Home Cards → Layout → Header**.
+
+Obsidian plugins cannot call Apple's model directly, so Home Cards runs a shortcut you build once in the Shortcuts app:
+
+1. Create a shortcut named **Home Cards Greeting**.
+2. Add **Get Text from Input**, with Shortcut Input as its input.
+3. Add **Use Model**. Choose **On-Device**, and set its prompt to the Text from the previous step.
+4. Add **Stop and Output**, and set it to the model's Response.
+
+Then press **Test** next to the shortcut name in settings. Home Cards writes the next greeting ahead of time, so the page does not wait for the model, and it falls back to the built-in greetings whenever the shortcut or the model is unavailable. Phones, tablets and other computers always use the built-in greetings.
+
 ## Privacy
 
 Home Cards makes no network requests and sends no data anywhere. It reads your notes' metadata and the first paragraph of each note it shows.
+
+With Apple Intelligence greetings turned on, Home Cards runs your shortcut through macOS's `shortcuts` command. The prompt holds only the date, the time and the name of any fixed-date holiday; it contains nothing from your vault, and the on-device model does not send it off your Mac. Home Cards keeps the next greeting in Obsidian's local storage on that Mac, outside your synced settings.
 
 ## Architecture
 

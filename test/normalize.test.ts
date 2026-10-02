@@ -105,3 +105,9 @@ test("retired background patterns move to their replacements", () => {
     assert.equal(normalizeSettings({ background: old }).background, now, old);
   }
 });
+
+test("Apple Intelligence is off by default and the shortcut name never blank", () => {
+  assert.equal(defaultSettings().greetingAI, false);
+  assert.equal(normalizeSettings({ greetingShortcut: "  " }).greetingShortcut, "Home Cards Greeting");
+  assert.equal(normalizeSettings({ greetingAI: true }).greetingAI, true);
+});

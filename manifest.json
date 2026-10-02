@@ -1,7 +1,7 @@
 {
 	"id": "home-cards",
 	"name": "Home Cards",
-	"version": "1.25.0",
+	"version": "1.26.0",
 	"minAppVersion": "1.10.0",
 	"description": "A configurable start page for your vault, with sections of cards drawn from recency, properties, tags and links, styled by your active theme.",
 	"author": "Les Joseph",

@@ -365,6 +365,19 @@ input.hc-search {
   background-size: auto, 160px auto;
 }
 
+
+/* A greeting from Apple Intelligence that replaces the first one fades
+   in, so the change reads as intended. */
+.hc-greeting.is-fresh {
+  animation: hc-fade-in var(--anim-duration-moderate, 300ms) var(--anim-motion-smooth, ease) both;
+}
+@keyframes hc-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hc-greeting.is-fresh { animation: none; }
+}
 /* --- Background swatches ---------------------------------
    One grid, drawn by src/render/swatches.ts for both the
    settings tab and the header picker. Context rules below set
@@ -832,3 +845,12 @@ body.is-phone .home-cards[data-view="rows"] .hc-dek { grid-column: 1 / -1; }
   justify-content: flex-end;
   margin: var(--size-4-3) 0 var(--size-4-6);
 }
+
+/* Setup steps under the Apple Intelligence option. */
+.home-cards-settings .hc-steps {
+  margin: 0 0 var(--size-4-3);
+  padding-inline-start: var(--size-4-8);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.home-cards-settings .hc-steps li { margin: var(--size-2-1) 0; }

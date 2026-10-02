@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => HomeCardsPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/compose/values.ts
 function frontmatterValue(cache, key) {
@@ -170,8 +170,388 @@ var DekCache = class {
   }
 };
 
+// src/compose/greeting.ts
+var PARTS = [
+  { part: "night", from: 0, label: "the small hours of the night" },
+  { part: "early", from: 5, label: "early morning" },
+  { part: "morning", from: 8, label: "morning" },
+  { part: "midday", from: 12, label: "around lunchtime" },
+  { part: "afternoon", from: 14, label: "afternoon" },
+  { part: "evening", from: 17, label: "evening" },
+  { part: "late", from: 21, label: "late evening" }
+];
+var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+var MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+function partOf(hour) {
+  let found = PARTS[0];
+  for (const p of PARTS) if (hour >= p.from) found = p;
+  return found;
+}
+var OCCASIONS = [
+  {
+    month: 1,
+    day: 1,
+    name: "New Year's Day",
+    texts: ["Happy New Year", "Bonne ann\xE9e", "Feliz a\xF1o nuevo", "New year, same brilliant vault", "Fresh calendar, {name}"]
+  },
+  {
+    month: 2,
+    day: 14,
+    name: "Valentine's Day",
+    texts: ["Happy Valentine's Day", "Love letters count as notes", "Be mine, {name}. Says your vault"]
+  },
+  { month: 3, day: 14, name: "Pi Day", texts: ["Happy Pi Day", "Happy 3.14159", "An irrational amount of notes"] },
+  { month: 3, day: 17, name: "St. Patrick's Day", texts: ["Happy St. Patrick's Day", "Sl\xE1inte", "Luck of the Irish, {name}"] },
+  {
+    month: 4,
+    day: 1,
+    name: "April Fools' Day",
+    texts: ["Trust nothing today", "Happy April Fools'", "All your notes are gone. Kidding."]
+  },
+  { month: 4, day: 22, name: "Earth Day", texts: ["Happy Earth Day", "Paperless since forever"] },
+  { month: 4, day: 23, name: "World Book Day", texts: ["Happy World Book Day", "Read anything good, {name}?"] },
+  { month: 5, day: 4, name: "Star Wars Day", texts: ["May the Fourth be with you", "These are the notes you're looking for"] },
+  { month: 5, day: 25, name: "Towel Day", texts: ["Happy Towel Day", "Don't panic", "Know where your towel is, {name}?"] },
+  { month: 10, day: 31, name: "Halloween", texts: ["Happy Halloween", "Boo", "Spooky notes ahead, {name}", "Trick or treat?"] },
+  { month: 12, day: 24, name: "Christmas Eve", texts: ["Merry Christmas Eve", "Not long now, {name}"] },
+  {
+    month: 12,
+    day: 25,
+    name: "Christmas Day",
+    texts: ["Merry Christmas", "Joyeux No\xEBl", "Feliz Navidad", "Buon Natale", "Season's greetings, {name}"]
+  },
+  { month: 12, day: 31, name: "New Year's Eve", texts: ["Happy New Year's Eve", "See you next year", "Last notes of the year, {name}"] }
+];
+function occasionOn(now) {
+  return OCCASIONS.find((o) => o.month === now.getMonth() + 1 && o.day === now.getDate());
+}
+var SALUTATIONS = [
+  "Hello",
+  "Hi there",
+  "Hey",
+  "Welcome back",
+  "Hola",
+  "Bonjour",
+  "Ciao",
+  "Ol\xE1",
+  "Hallo",
+  "Hej",
+  "Moin",
+  "Servus",
+  "Salut",
+  "Ahoj",
+  "Szia",
+  "Tere",
+  "Merhaba",
+  "Yassou",
+  "Dia dhuit",
+  "Namaste",
+  "Namaskar",
+  "Vanakkam",
+  "Sat sri akal",
+  "Salaam",
+  "Shalom",
+  "Habari",
+  "Jambo",
+  "Sawubona",
+  "Konnichiwa",
+  "Ni hao",
+  "Annyeong",
+  "Sawasdee",
+  "Xin ch\xE0o",
+  "Kumusta",
+  "Mabuhay",
+  "Selamat datang",
+  "Aloha",
+  "Kia ora",
+  "G'day",
+  "Howdy"
+];
+var ANYTIME = [
+  "Good to see you, {name}",
+  "Back for more, {name}?",
+  "Your notes missed you",
+  "Everything is where you left it",
+  "Ready when you are, {name}",
+  "What are we thinking about today?",
+  "Another idea worth writing down?",
+  "Pick up where you left off",
+  "The cards are dealt, {name}",
+  "Fresh page, familiar notes"
+];
+var BY_PART = {
+  night: [
+    "Still up, {name}?",
+    "The vault never sleeps",
+    "Good night, owl",
+    "It's late. Or early.",
+    "Sleep is overrated, apparently",
+    "Shh, the notes are sleeping",
+    "Burning the midnight oil"
+  ],
+  early: [
+    "Good morning",
+    "Rise and shine",
+    "Early start, {name}",
+    "Up with the birds",
+    "Coffee first, then ideas",
+    "Before the inbox wakes up",
+    "Ohay\u014D",
+    "Bom dia"
+  ],
+  morning: [
+    "Good morning",
+    "Buongiorno",
+    "Guten Morgen",
+    "Buenos d\xEDas",
+    "Bom dia",
+    "Suprabhat",
+    "Selamat pagi",
+    "Top of the morning",
+    "Morning, {name}. Coffee in hand?",
+    "A clear head and a clean page",
+    "Morning pages, anyone?"
+  ],
+  midday: [
+    "Good afternoon",
+    "Bon app\xE9tit, {name}",
+    "Lunch break reading?",
+    "Halfway through the day",
+    "Midday check-in, {name}",
+    "Buon pranzo"
+  ],
+  afternoon: [
+    "Good afternoon",
+    "Buenas tardes",
+    "Boa tarde",
+    "Guten Tag",
+    "Selamat sore",
+    "Tea time, {name}?",
+    "Afternoon slump? Not here",
+    "Second wind incoming",
+    "The afternoon is young"
+  ],
+  evening: [
+    "Good evening",
+    "Bonsoir",
+    "Guten Abend",
+    "Buonasera",
+    "Boa noite",
+    "Shubh sandhya",
+    "Selamat malam",
+    "Winding down, {name}?",
+    "One more thought before dinner",
+    "The day's notes are in"
+  ],
+  late: [
+    "Evening, {name}. Still at it?",
+    "Just one more note",
+    "Night owl hours",
+    "Burning the midnight oil",
+    "Late one, {name}",
+    "Good night"
+  ]
+};
+var BY_WEEKDAY = [
+  ["Lazy Sunday", "Sunday thinking", "Easy does it, {name}"],
+  ["Happy Monday. Mostly.", "Monday again, {name}", "Fresh week, fresh notes"],
+  ["Tuesday, the quiet achiever", "Happy Tuesday"],
+  ["Halfway there, {name}", "Happy hump day"],
+  ["Nearly Friday", "Thursday: Friday's opening act"],
+  ["Happy Friday", "Nearly the weekend", "Friday at last, {name}"],
+  ["Happy Saturday", "Saturday, no meetings", "Weekend mode, {name}"]
+];
+function monthStart(now) {
+  if (now.getDate() > 3) return [];
+  const month = MONTHS[now.getMonth()];
+  const lines = [`${month} already, {name}?`];
+  if (now.getMonth() === 0) lines.push("New year, same great vault");
+  if (now.getMonth() === 6) lines.push("Halfway through the year, {name}");
+  if (now.getMonth() === 11) lines.push("Last month of the year, {name}");
+  return lines;
+}
+function pick(list, rng) {
+  return list[Math.floor(rng() * list.length) % list.length];
+}
+function greetingFor(now, options = {}) {
+  const { occasions = true, rng = Math.random } = options;
+  const occasion = occasions ? occasionOn(now) : void 0;
+  if (occasion) return pick(occasion.texts, rng);
+  const pool = [
+    ...BY_PART[partOf(now.getHours()).part],
+    ...BY_WEEKDAY[now.getDay()],
+    ...monthStart(now),
+    ...SALUTATIONS,
+    ...ANYTIME
+  ];
+  return pick(pool, rng);
+}
+var NAME = "{name}";
+function withName(template, name) {
+  const n = name.trim();
+  if (template.includes(NAME)) {
+    if (n) return template.replace(NAME, n);
+    return template.replace(/,\s*\{name\}/, "").replace(/\{name\},\s*/, "").replace(/\s*\{name\}/, "").trim();
+  }
+  const short = template.split(/\s+/).length <= 3 && !/[.?!]$/.test(template);
+  return n && short ? `${template}, ${n}` : template;
+}
+function greetingPrompt(now, options) {
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const when = `${WEEKDAYS[now.getDay()]}, ${now.getDate()} ${MONTHS[now.getMonth()]}, ${hh}:${mm} (${partOf(now.getHours()).label})`;
+  const occasion = options.occasions ? occasionOn(now) : void 0;
+  return [
+    "Write one greeting for the top of a personal notes app's home page.",
+    `It is ${when}.`,
+    occasion ? `Today is ${occasion.name}.` : "",
+    "Keep it between 1 and 7 words, in English, warm and a little dry or funny.",
+    "It may use a greeting word from another language, written in Latin letters, such as Namaste or Hola.",
+    "If it reads naturally, write {name} once where the reader's name goes.",
+    "No emoji, no quotation marks, no hashtags, no other names.",
+    "Reply with the greeting only."
+  ].filter(Boolean).join(" ");
+}
+var ALLOWED = /^[\p{Script=Latin}\p{N}\p{Zs}.,!?'’:;\-{}]+$/u;
+function cleanModelGreeting(raw) {
+  const line = raw.split(/\r?\n/).map((l) => l.trim()).find(Boolean);
+  if (!line) return null;
+  let text = line.replace(/^(greeting|here'?s? (is )?(a|your) greeting)\s*:\s*/i, "").replace(/^["'“‘`]+|["'”’`]+$/g, "").replace(/\s+/g, " ").trim();
+  if (text.endsWith(".") && !text.endsWith("..")) text = text.slice(0, -1);
+  text = text.replace(/\{\s*name\s*\}/gi, NAME);
+  if (!text || text.length > 60 || text.split(" ").length > 10) return null;
+  if (!ALLOWED.test(text)) return null;
+  if (text.replace(NAME, "").includes("{") || text.replace(NAME, "").includes("}")) return null;
+  return text;
+}
+
+// src/platform/greeting-source.ts
+var STORE_KEY = "home-cards-next-greeting";
+var REST_AFTER_ERROR_MS = 10 * 6e4;
+function slotOf(now, occasions) {
+  const h = now.getHours();
+  const part = h < 5 ? 0 : h < 8 ? 1 : h < 12 ? 2 : h < 14 ? 3 : h < 17 ? 4 : h < 21 ? 5 : 6;
+  const date = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  return `${date}/${part}/${occasions ? "o" : "-"}`;
+}
+var GreetingSource = class {
+  constructor(store, settings, model) {
+    this.store = store;
+    this.settings = settings;
+    this.model = model;
+    this.refilling = null;
+    this.restUntil = 0;
+  }
+  aiEnabled() {
+    return this.settings().greetingAI && this.model.supported();
+  }
+  pick(now) {
+    const s = this.settings();
+    const text = greetingFor(now, { occasions: s.greetingOccasions });
+    if (!this.aiEnabled()) return { text, later: null };
+    const slot = slotOf(now, s.greetingOccasions);
+    const ready = this.take(slot);
+    if (ready) {
+      void this.refill(now);
+      return { text: ready, later: null };
+    }
+    const later = this.refill(now).then(() => {
+      const fresh = this.take(slot);
+      if (fresh) void this.refill(now);
+      return fresh;
+    });
+    return { text, later };
+  }
+  /** Write a greeting for `now` and store it, unless one is on its way. */
+  refill(now) {
+    if (!this.aiEnabled() || Date.now() < this.restUntil) return Promise.resolve();
+    this.refilling ??= this.ask(now).then((text) => {
+      if (text) this.keep({ slot: slotOf(now, this.settings().greetingOccasions), text });
+    }).catch((err) => {
+      this.restUntil = Date.now() + REST_AFTER_ERROR_MS;
+      console.warn("Home Cards: Apple Intelligence greeting unavailable;", err instanceof Error ? err.message : err);
+    }).finally(() => {
+      this.refilling = null;
+    });
+    return this.refilling;
+  }
+  /**
+   * One run, straight through, for the settings tab's Test button.
+   * Resolves with the cleaned greeting, or rejects with the reason.
+   */
+  async test(now = /* @__PURE__ */ new Date()) {
+    const text = await this.ask(now);
+    if (!text) throw new Error("The model replied, but not with a short greeting.");
+    this.restUntil = 0;
+    return text;
+  }
+  async ask(now) {
+    const s = this.settings();
+    const prompt = greetingPrompt(now, { occasions: s.greetingOccasions });
+    const reply = await this.model.run(s.greetingShortcut, prompt);
+    return cleanModelGreeting(reply);
+  }
+  take(slot) {
+    const stored = this.store.loadLocalStorage(STORE_KEY);
+    if (!stored || stored.slot !== slot || typeof stored.text !== "string") return null;
+    this.store.saveLocalStorage(STORE_KEY, null);
+    return stored.text;
+  }
+  keep(value) {
+    this.store.saveLocalStorage(STORE_KEY, value);
+  }
+};
+
+// src/platform/shortcuts.ts
+var import_obsidian = require("obsidian");
+var SHORTCUTS_CLI = "/usr/bin/shortcuts";
+function shortcutsSupported() {
+  return import_obsidian.Platform.isDesktop && import_obsidian.Platform.isDesktopApp && import_obsidian.Platform.isMacOS;
+}
+async function runShortcut(name, input, timeoutMs = 2e4) {
+  if (!import_obsidian.Platform.isDesktop) throw new Error("Shortcuts are available only in the desktop app.");
+  if (!shortcutsSupported()) throw new Error("Shortcuts are available only on macOS.");
+  const cp = require("child_process");
+  const fs = require("fs").promises;
+  const os = require("os");
+  const dir = await fs.mkdtemp(`${os.tmpdir()}/home-cards-`);
+  const inPath = `${dir}/prompt.txt`;
+  const outPath = `${dir}/reply.txt`;
+  try {
+    await fs.writeFile(inPath, input, "utf8");
+    await new Promise((resolve, reject) => {
+      cp.execFile(
+        SHORTCUTS_CLI,
+        ["run", name, "--input-path", inPath, "--output-path", outPath, "--output-type", "public.plain-text"],
+        { timeout: timeoutMs },
+        (error, _stdout, stderr) => {
+          if (!error) return resolve();
+          const detail = String(stderr || error.message).trim();
+          reject(new Error(/couldn.t find|not found|no shortcut/i.test(detail) ? `Shortcuts has no shortcut named "${name}".` : detail || "The shortcut did not finish."));
+        }
+      );
+    });
+    return await fs.readFile(outPath, "utf8");
+  } finally {
+    void fs.rm(dir, { recursive: true, force: true }).catch(() => void 0);
+  }
+}
+
 // src/render/bases-view.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // src/compose/scope.ts
 function globToTest(pattern) {
@@ -463,7 +843,7 @@ function applyAppearance(root, s) {
 }
 
 // src/render/card.ts
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 var NO_DEK = "No opening sentence.";
 function noteOpener(app) {
   return (file, newLeaf) => void app.workspace.getLeaf(newLeaf ? "tab" : false).openFile(file);
@@ -471,7 +851,7 @@ function noteOpener(app) {
 function renderGlyph(head, card) {
   const glyph = head.createSpan({ cls: "hc-glyph" });
   if (card.icon) {
-    (0, import_obsidian.setIcon)(glyph, card.icon);
+    (0, import_obsidian2.setIcon)(glyph, card.icon);
     if (glyph.firstElementChild) {
       glyph.addClass("has-icon");
       return;
@@ -562,7 +942,7 @@ function observeDeks(root, fill) {
 
 // src/render/bases-view.ts
 var BASES_VIEW_ID = "home-cards";
-var HomeCardsBasesView = class extends import_obsidian2.BasesView {
+var HomeCardsBasesView = class extends import_obsidian3.BasesView {
   constructor(controller, containerEl, plugin) {
     super(controller);
     this.plugin = plugin;
@@ -643,100 +1023,7 @@ function registerBasesView(plugin) {
 }
 
 // src/render/home-view.ts
-var import_obsidian3 = require("obsidian");
-
-// src/compose/greeting.ts
-var OCCASIONS = [
-  { month: 1, day: 1, texts: ["Happy New Year", "Bonne ann\xE9e", "Feliz a\xF1o nuevo"] },
-  { month: 2, day: 14, texts: ["Happy Valentine's Day"] },
-  { month: 3, day: 14, texts: ["Happy Pi Day", "Happy 3.14159"] },
-  { month: 3, day: 17, texts: ["Happy St. Patrick's Day", "Sl\xE1inte"] },
-  { month: 4, day: 1, texts: ["Trust nothing today", "Happy April Fools'"] },
-  { month: 5, day: 4, texts: ["May the Fourth be with you"] },
-  { month: 5, day: 25, texts: ["Happy Towel Day", "Don't panic"] },
-  { month: 10, day: 31, texts: ["Happy Halloween", "Boo"] },
-  { month: 12, day: 24, texts: ["Merry Christmas Eve"] },
-  { month: 12, day: 25, texts: ["Merry Christmas", "Joyeux No\xEBl", "Feliz Navidad"] },
-  { month: 12, day: 31, texts: ["Happy New Year's Eve", "See you next year"] }
-];
-var ANYTIME = [
-  "Hello",
-  "Hola",
-  "Bonjour",
-  "Ciao",
-  "Namaste",
-  "Salaam",
-  "Shalom",
-  "Konnichiwa",
-  "Ni hao",
-  "Annyeong",
-  "Sawasdee",
-  "Selamat",
-  "Habari",
-  "Aloha",
-  "Kia ora",
-  "G'day",
-  "Howdy",
-  "Hej",
-  "Servus",
-  "Salut",
-  "Welcome back"
-];
-var BY_HOUR = [
-  {
-    from: 5,
-    to: 12,
-    texts: [
-      "Good morning",
-      "Buongiorno",
-      "Guten Morgen",
-      "Buenos d\xEDas",
-      "Bom dia",
-      "Ohay\u014D",
-      "Rise and shine",
-      "Top of the morning",
-      "Suprabhat",
-      "Coffee first"
-    ]
-  },
-  {
-    from: 12,
-    to: 17,
-    texts: ["Good afternoon", "Buenas tardes", "Bon apr\xE8s-midi", "Guten Tag", "Boa tarde"]
-  },
-  {
-    from: 17,
-    to: 22,
-    texts: ["Good evening", "Bonsoir", "Guten Abend", "Buonasera", "Boa noite", "Shubh sandhya"]
-  }
-];
-var LATE_NIGHT = [
-  "Burning the midnight oil",
-  "Still up",
-  "The vault never sleeps",
-  "Good night owl",
-  "Up late"
-];
-var FRIDAY = ["Happy Friday", "Nearly the weekend"];
-var WEEKEND = ["Happy weekend", "Easy does it"];
-function pick(list, rng) {
-  return list[Math.floor(rng() * list.length) % list.length];
-}
-function greetingFor(now, options = {}) {
-  const { occasions = true, rng = Math.random } = options;
-  const occasion = occasions && OCCASIONS.find((o) => o.month === now.getMonth() + 1 && o.day === now.getDate());
-  if (occasion) return pick(occasion.texts, rng);
-  const hour = now.getHours();
-  const bucket = BY_HOUR.find((b) => hour >= b.from && hour < b.to)?.texts ?? LATE_NIGHT;
-  const day = now.getDay();
-  const pool = [
-    ...bucket,
-    ...ANYTIME,
-    ...day === 5 ? FRIDAY : [],
-    ...day === 0 || day === 6 ? WEEKEND : []
-  ];
-  return pick(pool, rng);
-}
+var import_obsidian4 = require("obsidian");
 
 // src/settings/schema.ts
 var SECTION_KINDS = [
@@ -810,6 +1097,8 @@ function defaultSettings() {
     greetingEnabled: true,
     greetingOccasions: true,
     greetingName: "",
+    greetingAI: false,
+    greetingShortcut: "Home Cards Greeting",
     showNoteCount: true,
     openOnStartup: false,
     defaultView: "grid",
@@ -892,7 +1181,8 @@ function renderBackgroundPicker(parent, plugin, onPick) {
 
 // src/render/home-view.ts
 var VIEW_TYPE_HOME = "home-cards-view";
-var HomeView = class extends import_obsidian3.ItemView {
+var GREETING_SWAP_MS = 8e3;
+var HomeView = class extends import_obsidian4.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -914,10 +1204,17 @@ var HomeView = class extends import_obsidian3.ItemView {
     return "layout-grid";
   }
   async onOpen() {
-    this.greeting = greetingFor(/* @__PURE__ */ new Date(), {
-      occasions: this.plugin.settings.greetingOccasions
-    });
+    const openedAt = Date.now();
+    const { text, later } = this.plugin.greetings.pick(/* @__PURE__ */ new Date());
+    this.greeting = text;
     this.shell = this.buildShell(this.contentEl);
+    void later?.then((fresh) => {
+      const shell = this.shell;
+      if (!fresh || !shell || Date.now() - openedAt > GREETING_SWAP_MS) return;
+      this.greeting = fresh;
+      shell.greeting.addClass("is-fresh");
+      this.paintHeader(shell);
+    });
     this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
     const doc = this.contentEl.ownerDocument;
     this.registerDomEvent(doc, "pointerdown", (evt) => {
@@ -970,7 +1267,7 @@ var HomeView = class extends import_obsidian3.ItemView {
     const toggles = /* @__PURE__ */ new Map();
     for (const mode of VIEW_MODES) {
       const btn = seg.createEl("button", { attr: { "aria-label": `${mode.label} view` } });
-      (0, import_obsidian3.setIcon)(btn, mode.icon);
+      (0, import_obsidian4.setIcon)(btn, mode.icon);
       btn.addEventListener("click", () => this.setMode(mode.id));
       toggles.set(mode.id, btn);
     }
@@ -979,8 +1276,8 @@ var HomeView = class extends import_obsidian3.ItemView {
       cls: "hc-picker-toggle",
       attr: { "aria-label": "Background", "aria-haspopup": "dialog", "aria-expanded": "false" }
     });
-    (0, import_obsidian3.setIcon)(pickerToggle, "swatch-book");
-    if (!pickerToggle.firstElementChild) (0, import_obsidian3.setIcon)(pickerToggle, "palette");
+    (0, import_obsidian4.setIcon)(pickerToggle, "swatch-book");
+    if (!pickerToggle.firstElementChild) (0, import_obsidian4.setIcon)(pickerToggle, "palette");
     pickerToggle.addEventListener("click", () => {
       if (this.picker) this.closePicker();
       else this.openPicker(controls, pickerToggle);
@@ -989,7 +1286,7 @@ var HomeView = class extends import_obsidian3.ItemView {
       cls: "hc-reload",
       attr: { "aria-label": "Recompose" }
     });
-    (0, import_obsidian3.setIcon)(recompose, "refresh-cw");
+    (0, import_obsidian4.setIcon)(recompose, "refresh-cw");
     recompose.addEventListener("click", () => void this.refresh());
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing\u2026" });
@@ -999,9 +1296,9 @@ var HomeView = class extends import_obsidian3.ItemView {
   }
   paintHeader(shell) {
     const s = this.plugin.settings;
-    const name = s.greetingName.trim();
+    const name = s.greetingName;
     shell.greeting.toggle(s.greetingEnabled);
-    shell.greeting.setText(name ? `${this.greeting}, ${name}` : this.greeting);
+    shell.greeting.setText(withName(this.greeting, name));
     const bits = [
       (/* @__PURE__ */ new Date()).toLocaleDateString(void 0, {
         weekday: "long",
@@ -1202,6 +1499,8 @@ function normalizeSettings(stored) {
     greetingEnabled: bool(r.greetingEnabled, d.greetingEnabled),
     greetingOccasions: bool(r.greetingOccasions, d.greetingOccasions),
     greetingName: str(r.greetingName, d.greetingName),
+    greetingAI: bool(r.greetingAI, d.greetingAI),
+    greetingShortcut: str(r.greetingShortcut, d.greetingShortcut).trim() || d.greetingShortcut,
     showNoteCount: bool(r.showNoteCount, d.showNoteCount),
     openOnStartup: bool(r.openOnStartup, d.openOnStartup),
     defaultView: choice(VIEW_MODES, r.defaultView, d.defaultView),
@@ -1227,17 +1526,17 @@ function normalizeSettings(stored) {
 }
 
 // src/settings-tab/tab.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/settings-tab/sections.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/settings-tab/widgets.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 function settingGroup(parent, heading, cls) {
   const group = parent.createDiv({ cls: "setting-group" });
   if (cls) group.addClass(cls);
-  if (heading) new import_obsidian4.Setting(group).setName(heading).setHeading();
+  if (heading) new import_obsidian5.Setting(group).setName(heading).setHeading();
   return group.createDiv({ cls: "setting-items" });
 }
 function hint(parent, text) {
@@ -1283,7 +1582,7 @@ var SectionsPane = class {
       this.expanded.add(cfg.id);
       void this.restructure();
     });
-    new import_obsidian5.Setting(settingGroup(root)).setName("One section per note").setDesc("Stops a note filling a slot in more than one section.").addToggle(
+    new import_obsidian6.Setting(settingGroup(root)).setName("One section per note").setDesc("Stops a note filling a slot in more than one section.").addToggle(
       (t) => t.setValue(s.dedupe).onChange((v) => {
         s.dedupe = v;
         this.plugin.touch();
@@ -1316,7 +1615,7 @@ var SectionsPane = class {
       else this.expanded.add(cfg.id);
       this.redraw();
     };
-    new import_obsidian5.ExtraButtonComponent(head).setIcon(open ? "chevron-down" : "chevron-right").setTooltip(open ? "Collapse" : "Expand").onClick(toggleOpen).extraSettingsEl.addClass("hc-twisty");
+    new import_obsidian6.ExtraButtonComponent(head).setIcon(open ? "chevron-down" : "chevron-right").setTooltip(open ? "Collapse" : "Expand").onClick(toggleOpen).extraSettingsEl.addClass("hc-twisty");
     const info = head.createDiv({ cls: "setting-item-info hc-sec-label" });
     info.addEventListener("click", toggleOpen);
     const name = info.createDiv({ cls: "setting-item-name" });
@@ -1330,13 +1629,13 @@ var SectionsPane = class {
     };
     paintSummary();
     const controls = head.createDiv({ cls: "setting-item-control" });
-    new import_obsidian5.ToggleComponent(controls).setValue(cfg.enabled).setTooltip("Show this section").onChange((on) => {
+    new import_obsidian6.ToggleComponent(controls).setValue(cfg.enabled).setTooltip("Show this section").onChange((on) => {
       cfg.enabled = on;
       head.toggleClass("is-off", !on);
       this.plugin.touch();
     });
     const index = position();
-    const button = (icon, label, disabled, action) => new import_obsidian5.ExtraButtonComponent(controls).setIcon(icon).setTooltip(label).setDisabled(disabled).onClick(action);
+    const button = (icon, label, disabled, action) => new import_obsidian6.ExtraButtonComponent(controls).setIcon(icon).setTooltip(label).setDisabled(disabled).onClick(action);
     button("arrow-up", "Move up", index === 0, () => move(-1));
     button("arrow-down", "Move down", index === sections.length - 1, () => move(1));
     button("trash-2", "Remove section", false, () => {
@@ -1354,7 +1653,7 @@ var SectionsPane = class {
       this.plugin.touch();
     };
     const row = (name, desc) => {
-      const setting = new import_obsidian5.Setting(items).setName(name).setClass("hc-subrow");
+      const setting = new import_obsidian6.Setting(items).setName(name).setClass("hc-subrow");
       if (desc) setting.setDesc(desc);
       return setting;
     };
@@ -1432,7 +1731,7 @@ var PANES = [
   { id: "cards", label: "Cards" },
   { id: "layout", label: "Layout" }
 ];
-var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
+var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
   constructor(plugin) {
     super(plugin.app, plugin);
     this.plugin = plugin;
@@ -1485,7 +1784,7 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
     const s = this.plugin.settings;
     hint(root, "What each card carries, and where its text comes from.");
     const content = settingGroup(root);
-    new import_obsidian6.Setting(content).setName("Glyph").setDesc("A mark in the corner of each card.").addDropdown(
+    new import_obsidian7.Setting(content).setName("Glyph").setDesc("A mark in the corner of each card.").addDropdown(
       (d) => d.addOption("off", "None").addOption("letter", "Initial letter").addOption("typify", "Icon from Typify").setValue(!s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter").onChange((v) => {
         s.showGlyph = v !== "off";
         s.typifyIcons = v === "typify";
@@ -1498,7 +1797,7 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
         "Requires the Typify plugin. Home Cards reads Typify's icons and matches them on each note's type. Types without a Typify icon keep the initial letter."
       );
     }
-    new import_obsidian6.Setting(content).setName("Type label").setDesc("The value of this property, shown as the first pill on each card.").addText(
+    new import_obsidian7.Setting(content).setName("Type label").setDesc("The value of this property, shown as the first pill on each card.").addText(
       (t) => t.setValue(s.typeProperty).setDisabled(!s.showRubric).onChange((v) => {
         s.typeProperty = v.trim() || "type";
         this.plugin.touch();
@@ -1509,7 +1808,7 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
         void this.restructure();
       })
     );
-    new import_obsidian6.Setting(content).setName("Tags").setDesc("Frontmatter tags first, then inline tags.").addToggle(
+    new import_obsidian7.Setting(content).setName("Tags").setDesc("Frontmatter tags first, then inline tags.").addToggle(
       (t) => t.setValue(s.showTags).onChange((v) => {
         s.showTags = v;
         void this.restructure();
@@ -1520,7 +1819,7 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(content).setName("Opening sentence").setDesc("The first prose sentence, and how many lines it may run to.").addToggle(
+    new import_obsidian7.Setting(content).setName("Opening sentence").setDesc("The first prose sentence, and how many lines it may run to.").addToggle(
       (t) => t.setValue(s.showDeks).onChange((v) => {
         s.showDeks = v;
         void this.restructure();
@@ -1531,26 +1830,26 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(content).setName("File size in the footer").setDesc("The footer always carries the value the section sorts on.").addToggle(
+    new import_obsidian7.Setting(content).setName("File size in the footer").setDesc("The footer always carries the value the section sorts on.").addToggle(
       (t) => t.setValue(s.showFileSize).onChange((v) => {
         s.showFileSize = v;
         this.plugin.touch();
       })
     );
     const text = settingGroup(root, "Text extraction");
-    new import_obsidian6.Setting(text).setName("Summary property").setDesc("When a note defines it, it wins over the first sentence.").addText(
+    new import_obsidian7.Setting(text).setName("Summary property").setDesc("When a note defines it, it wins over the first sentence.").addText(
       (t) => t.setValue(s.summaryProperty).onChange((v) => {
         s.summaryProperty = v.trim();
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(text).setName("Skip openings beginning with").setDesc("Comma separated. Self-referential first sentences get passed over.").addTextArea(
+    new import_obsidian7.Setting(text).setName("Skip openings beginning with").setDesc("Comma separated. Self-referential first sentences get passed over.").addTextArea(
       (t) => t.setValue(s.boilerplateOpeners).onChange((v) => {
         s.boilerplateOpeners = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(text).setName("Strip from headlines").setDesc("Comma separated title prefixes. The toggle also strips trailing date stamps.").addText(
+    new import_obsidian7.Setting(text).setName("Strip from headlines").setDesc("Comma separated title prefixes. The toggle also strips trailing date stamps.").addText(
       (t) => t.setValue(s.titlePrefixes).onChange((v) => {
         s.titlePrefixes = v;
         this.plugin.touch();
@@ -1570,20 +1869,20 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
       "Color, type and spacing come from your active theme. These settings choose the surface cards sit on and how the grid reflows."
     );
     const page = settingGroup(root);
-    new import_obsidian6.Setting(page).setName("Default view").addDropdown(
+    new import_obsidian7.Setting(page).setName("Default view").addDropdown(
       (d) => addChoices(d, VIEW_MODES).setValue(s.defaultView).onChange((v) => {
         if (!isChoice(VIEW_MODES, v)) return;
         s.defaultView = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(page).setName("Minimum card width").setDesc("Cards reflow to fill the pane; this sets how narrow they may get.").addSlider(
+    new import_obsidian7.Setting(page).setName("Minimum card width").setDesc("Cards reflow to fill the pane; this sets how narrow they may get.").addSlider(
       (sl) => sl.setLimits(LIMITS.cardMinWidth.min, LIMITS.cardMinWidth.max, 2).setValue(s.cardMinWidth).setDynamicTooltip().onChange((v) => {
         s.cardMinWidth = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(page).setName("Card surface").setDesc(
+    new import_obsidian7.Setting(page).setName("Card surface").setDesc(
       "Flat sits on the theme surface; Elevated lifts on a shadow; Frosted blurs whatever lies behind the card; Outline keeps only the border."
     ).addDropdown(
       (d) => addChoices(d, SURFACES).setValue(s.cardSurface).onChange((v) => {
@@ -1592,17 +1891,17 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(page).setName("Type labels in accent color").setDesc("Off uses the theme's muted text color.").addToggle(
+    new import_obsidian7.Setting(page).setName("Type labels in accent color").setDesc("Off uses the theme's muted text color.").addToggle(
       (t) => t.setValue(s.accentRubrics).onChange((v) => {
         s.accentRubrics = v;
         this.plugin.touch();
       })
     );
     const background = settingGroup(root, "Background");
-    new import_obsidian6.Setting(background).setName("Pattern").setDesc("Plain follows the theme. Each pattern switches between a light and a dark tile with the theme's mode.");
+    new import_obsidian7.Setting(background).setName("Pattern").setDesc("Plain follows the theme. Each pattern switches between a light and a dark tile with the theme's mode.");
     renderBackgroundPicker(background, this.plugin);
     const header = settingGroup(root, "Header");
-    new import_obsidian6.Setting(header).setName("Greeting").setDesc("Follows the time of day and the calendar, with a word from another language now and then. Add a name to be greeted by it.").addText(
+    new import_obsidian7.Setting(header).setName("Greeting").setDesc("Follows the time of day and the calendar, with a word from another language now and then. Add a name to be greeted by it.").addText(
       (t) => t.setPlaceholder("Your name").setValue(s.greetingName).setDisabled(!s.greetingEnabled).onChange((v) => {
         s.greetingName = v;
         this.plugin.touch();
@@ -1613,24 +1912,72 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
         void this.restructure();
       })
     );
-    new import_obsidian6.Setting(header).setName("Holiday greetings").setDesc("On fixed-date holidays such as New Year's Day and Christmas, the greeting marks the day. Applies the next time you open the home page.").addToggle(
+    new import_obsidian7.Setting(header).setName("Holiday greetings").setDesc("On fixed-date holidays such as New Year's Day and Christmas, the greeting marks the day. Applies the next time you open the home page.").addToggle(
       (t) => t.setValue(s.greetingOccasions).setDisabled(!s.greetingEnabled).onChange((v) => {
         s.greetingOccasions = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(header).setName("Show note count").addToggle(
+    this.appleIntelligence(header);
+    new import_obsidian7.Setting(header).setName("Show note count").addToggle(
       (t) => t.setValue(s.showNoteCount).onChange((v) => {
         s.showNoteCount = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian6.Setting(header).setName("Open on startup").addToggle(
+    new import_obsidian7.Setting(header).setName("Open on startup").addToggle(
       (t) => t.setValue(s.openOnStartup).onChange((v) => {
         s.openOnStartup = v;
         this.plugin.touch();
       })
     );
+  }
+  /**
+   * Greetings from Apple Intelligence. Offered only where it can run (the
+   * desktop app on macOS); elsewhere a note explains why the option is
+   * missing, since these settings sync to phones and tablets too.
+   */
+  appleIntelligence(group) {
+    const s = this.plugin.settings;
+    const name = "Greetings from Apple Intelligence";
+    if (!shortcutsSupported()) {
+      new import_obsidian7.Setting(group).setName(name).setDesc("Available in the Obsidian desktop app on a Mac with Apple Intelligence. This device uses the built-in greetings.");
+      return;
+    }
+    new import_obsidian7.Setting(group).setName(name).setDesc("Writes a fresh greeting on this Mac with the on-device model. The prompt holds only the date and time, and nothing leaves your Mac. The built-in greetings fill in whenever the model is unavailable.").addToggle(
+      (t) => t.setValue(s.greetingAI).setDisabled(!s.greetingEnabled).onChange((v) => {
+        s.greetingAI = v;
+        void this.restructure();
+      })
+    );
+    if (!s.greetingAI || !s.greetingEnabled) return;
+    new import_obsidian7.Setting(group).setName("Shortcut").setDesc("The plugin runs this shortcut to reach the model. Test it once after you build it.").addText(
+      (t) => t.setPlaceholder("Home Cards Greeting").setValue(s.greetingShortcut).onChange((v) => {
+        s.greetingShortcut = v.trim() || "Home Cards Greeting";
+        this.plugin.touch();
+      })
+    ).addButton(
+      (b) => b.setButtonText("Test").onClick(async () => {
+        b.setDisabled(true).setButtonText("Running\u2026");
+        try {
+          const greeting = await this.plugin.greetings.test();
+          new import_obsidian7.Notice(`Apple Intelligence says: ${greeting.replace("{name}", s.greetingName.trim() || "friend")}`);
+        } catch (err) {
+          new import_obsidian7.Notice(`The shortcut did not work. ${err instanceof Error ? err.message : String(err)}`, 1e4);
+        } finally {
+          b.setDisabled(false).setButtonText("Test");
+        }
+      })
+    );
+    const steps = group.createEl("ol", { cls: "hc-steps" });
+    for (const step of [
+      `In the Shortcuts app, create a shortcut named "${s.greetingShortcut}".`,
+      "Add Get Text from Input, with Shortcut Input as its input.",
+      "Add Use Model. Choose On-Device, and set its prompt to the Text from the previous step.",
+      "Add Stop and Output, and set it to the model's Response."
+    ]) {
+      steps.createEl("li", { text: step });
+    }
   }
 };
 
@@ -1638,21 +1985,26 @@ var HomeCardsSettingTab = class extends import_obsidian6.PluginSettingTab {
 var REFRESH = "refresh";
 var SAVE_DELAY_MS = 400;
 var RESOLVE_DELAY_MS = 1500;
-var HomeCardsPlugin = class extends import_obsidian7.Plugin {
+var HomeCardsPlugin = class extends import_obsidian8.Plugin {
   constructor() {
     super(...arguments);
     this.settings = defaultSettings();
     /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
     this.dekCache = new DekCache();
+    /** The masthead greeting: the built-in list, or Apple Intelligence. */
+    this.greetings = new GreetingSource(this.app, () => this.settings, {
+      supported: shortcutsSupported,
+      run: (shortcut, prompt) => runShortcut(shortcut, prompt)
+    });
     /**
      * Views subscribe here to redraw after a settings change or a metadata
      * update. The plugin holds no view references; each view's Component
      * releases its subscription when the view closes.
      */
-    this.events = new import_obsidian7.Events();
+    this.events = new import_obsidian8.Events();
     /** True while an edit sits in memory that data.json does not have. */
     this.dirty = false;
-    this.flushSoon = (0, import_obsidian7.debounce)(() => void this.flush(), SAVE_DELAY_MS, true);
+    this.flushSoon = (0, import_obsidian8.debounce)(() => void this.flush(), SAVE_DELAY_MS, true);
   }
   async onload() {
     await this.loadSettings();
@@ -1662,8 +2014,9 @@ var HomeCardsPlugin = class extends import_obsidian7.Plugin {
     this.addRibbonIcon("layout-grid", "Open home page", () => void this.activateView());
     this.addCommand({ id: "open", name: "Open", callback: () => void this.activateView() });
     this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
-    const settle = (0, import_obsidian7.debounce)(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
+    const settle = (0, import_obsidian8.debounce)(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
     this.registerEvent(this.app.metadataCache.on("resolved", settle));
+    this.app.workspace.onLayoutReady(() => void this.greetings.refill(/* @__PURE__ */ new Date()));
     if (this.settings.openOnStartup) {
       this.app.workspace.onLayoutReady(() => void this.activateView());
     }

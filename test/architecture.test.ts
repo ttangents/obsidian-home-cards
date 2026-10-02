@@ -13,8 +13,9 @@ const read = (p: string) => readFileSync(p, "utf8");
 const sources = (dir: string) =>
   readdirSync(dir).filter((f) => f.endsWith(".ts")).map((f) => ({ file: join(dir, f), text: read(join(dir, f)) }));
 
-test("settings/ and compose/ import obsidian for types only", () => {
-  for (const { file, text } of [...sources("src/settings"), ...sources("src/compose")]) {
+test("settings/, compose/ and the greeting source import obsidian for types only", () => {
+  const greetingSource = sources("src/platform").filter((f) => f.file.endsWith("greeting-source.ts"));
+  for (const { file, text } of [...sources("src/settings"), ...sources("src/compose"), ...greetingSource]) {
     for (const line of text.split("\n")) {
       if (/from "obsidian"/.test(line)) assert.match(line, /^import type /, `${file}: ${line}`);
     }
@@ -22,7 +23,7 @@ test("settings/ and compose/ import obsidian for types only", () => {
 });
 
 test("each layer imports only from the layers above it", () => {
-  const order = ["settings", "compose", "render", "settings-tab"];
+  const order = ["settings", "compose", "platform", "render", "settings-tab"];
   for (const [rank, layer] of order.entries()) {
     for (const { file, text } of sources(join("src", layer))) {
       for (const m of text.matchAll(/^import (type )?.*from "\.\.\/([\w-]+)/gm)) {

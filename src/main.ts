@@ -15,6 +15,7 @@
 
 import { debounce, Events, Plugin, type EventRef } from "obsidian";
 import { DekCache } from "./compose/dek-cache";
+import { OpenHistory } from "./compose/open-history";
 import { GreetingSource } from "./platform/greeting-source";
 import { runShortcut, shortcutsSupported } from "./platform/shortcuts";
 import { registerBasesView } from "./render/bases-view";
@@ -34,6 +35,9 @@ export default class HomeCardsPlugin extends Plugin {
 
   /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
   readonly dekCache = new DekCache();
+
+  /** Opened notes beyond the ten Obsidian remembers, for "Recently opened". */
+  readonly openHistory = new OpenHistory(this.app);
 
   /** The masthead greeting: the built-in list, or Apple Intelligence. */
   readonly greetings = new GreetingSource(this.app, () => this.settings, {
@@ -70,6 +74,14 @@ export default class HomeCardsPlugin extends Plugin {
     // per burst is plenty.
     const settle = debounce(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
     this.registerEvent(this.app.metadataCache.on("resolved", settle));
+
+    // Keep the open history as notes open and move.
+    this.registerEvent(
+      this.app.workspace.on("file-open", (file) => {
+        if (file?.extension === "md") this.openHistory.record(file.path);
+      })
+    );
+    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => this.openHistory.rename(oldPath, file.path)));
 
     // Write the first greeting while the workspace settles.
     this.app.workspace.onLayoutReady(() => void this.greetings.refill(new Date()));

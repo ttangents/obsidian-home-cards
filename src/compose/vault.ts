@@ -5,6 +5,7 @@
  */
 
 import type { App, CachedMetadata, TFile } from "obsidian";
+import { mergeOpened } from "./open-history";
 
 /**
  * One compose's view of the vault, shared by every section: the note
@@ -19,9 +20,16 @@ export class VaultSnapshot {
   constructor(
     readonly app: App,
     /** The moment of the compose; date-based rankings measure from it. */
-    readonly now: Date = new Date()
+    readonly now: Date = new Date(),
+    /** The plugin's own open history, newest first (see open-history.ts). */
+    private readonly history: readonly string[] = []
   ) {
     this.files = app.vault.getMarkdownFiles();
+  }
+
+  /** Paths of recently opened files, newest first. */
+  openedPaths(): string[] {
+    return mergeOpened(this.app.workspace.getLastOpenFiles(), this.history);
   }
 
   cacheOf(file: TFile): CachedMetadata | null {

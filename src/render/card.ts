@@ -16,8 +16,14 @@ export interface CardActions {
   open: (file: TFile, newLeaf: boolean) => void;
   /** Show the note's context menu. */
   menu?: (file: TFile, evt: MouseEvent) => void;
-  /** Offer a hover preview of the note. */
-  hover?: (file: TFile, evt: MouseEvent, el: HTMLElement) => void;
+  /** Hover preview: told when the pointer enters and leaves a card. */
+  hover?: HoverTracker;
+}
+
+/** Follows the card under the pointer; see render/actions.ts. */
+export interface HoverTracker {
+  enter: (file: TFile, el: HTMLElement, evt: MouseEvent) => void;
+  leave: (el: HTMLElement) => void;
 }
 
 const NO_DEK = "No opening sentence.";
@@ -101,7 +107,12 @@ function renderCard(
       menu(card.file, evt);
     });
   }
-  if (hover) el.addEventListener("mouseover", (evt) => hover(card.file, evt, el));
+  if (hover) {
+    // mouseenter, not mouseover: one event per visit to the card, not one
+    // per child element the pointer crosses.
+    el.addEventListener("mouseenter", (evt) => hover.enter(card.file, el, evt));
+    el.addEventListener("mouseleave", () => hover.leave(el));
+  }
   return el;
 }
 
@@ -112,8 +123,11 @@ export interface SectionOptions {
   more?: readonly CardItem[];
   /** Makes the heading fold the section; called with the new state. */
   fold?: { collapsed: boolean; onToggle: (collapsed: boolean) => void };
-  /** Called when "See more" is pressed. */
-  onSeeMore?: () => void;
+  /**
+   * Adds "See more" and "Show fewer" under the cards. The caller decides
+   * which cards and buttons show (see the home view's applyFilter).
+   */
+  paging?: { more: () => void; fewer: () => void };
 }
 
 /**
@@ -132,35 +146,11 @@ export function renderSection(
   actions: CardActions,
   options: SectionOptions = {}
 ): HTMLElement {
-  const { emptyText = "", more = [], fold, onSeeMore } = options;
+  const { emptyText = "", more = [], fold, paging } = options;
   const section = parent.createDiv({ cls: "hc-section" });
   section.dataset.hcVisible = String(cards.length);
 
-  if (title) {
-    const head = section.createDiv({ cls: "hc-section-head" });
-    if (fold) {
-      const toggle = head.createEl("button", { cls: "hc-fold clickable-icon" });
-      setIcon(toggle, "chevron-down");
-      const label = (collapsed: boolean) =>
-        setTooltip(toggle, collapsed ? "Expand section" : "Collapse section", { placement: "left" });
-      label(fold.collapsed);
-      section.toggleClass("is-collapsed", fold.collapsed);
-      toggle.setAttr("aria-expanded", String(!fold.collapsed));
-      const flip = () => {
-        const collapsed = !section.hasClass("is-collapsed");
-        section.toggleClass("is-collapsed", collapsed);
-        toggle.setAttr("aria-expanded", String(!collapsed));
-        label(collapsed);
-        fold.onToggle(collapsed);
-      };
-      toggle.addEventListener("click", flip);
-      head.createEl("h2", { text: title }).addEventListener("click", flip);
-      head.addClass("is-foldable");
-    } else {
-      head.createEl("h2", { text: title });
-    }
-    head.createSpan({ cls: "hc-count", text: String(cards.length) });
-  }
+  if (title) renderHead(section, title, cards.length, fold);
 
   if (!cards.length && !more.length && emptyText) {
     section.createDiv({ cls: "hc-empty", text: emptyText });
@@ -170,9 +160,49 @@ export function renderSection(
   [...cards, ...more].forEach((card, i) => {
     renderCard(grid, card, opts, actions).dataset.hcIndex = String(i);
   });
-  if (more.length && onSeeMore) {
+  if (more.length && paging) {
     const row = section.createDiv({ cls: "hc-more-row" });
-    row.createEl("button", { cls: "hc-more", text: "See more" }).addEventListener("click", onSeeMore);
+    pagingButton(row, "hc-more", "See more", "chevron-down", paging.more);
+    pagingButton(row, "hc-less", "Show fewer", "chevron-up", paging.fewer);
   }
   return section;
+}
+
+function pagingButton(row: HTMLElement, cls: string, text: string, icon: string, run: () => void): void {
+  const btn = row.createEl("button", { cls });
+  setIcon(btn.createSpan({ cls: "hc-more-icon" }), icon);
+  btn.createSpan({ text });
+  btn.addEventListener("click", run);
+}
+
+/**
+ * The heading row: title, card count and, for a foldable section, the
+ * fold chevron. The whole row toggles the fold; the chevron is the
+ * keyboard-reachable control and carries the state for screen readers.
+ */
+function renderHead(
+  section: HTMLElement,
+  title: string,
+  count: number,
+  fold: SectionOptions["fold"]
+): void {
+  const head = section.createDiv({ cls: "hc-section-head" });
+  head.createEl("h2", { text: title });
+  head.createSpan({ cls: "hc-count", text: String(count) });
+  if (!fold) return;
+
+  head.addClass("is-foldable");
+  const toggle = head.createEl("button", { cls: "hc-fold clickable-icon" });
+  setIcon(toggle, "chevron-down");
+  const paint = (collapsed: boolean) => {
+    section.toggleClass("is-collapsed", collapsed);
+    toggle.setAttr("aria-expanded", String(!collapsed));
+    setTooltip(toggle, collapsed ? "Expand section" : "Collapse section", { placement: "left" });
+  };
+  paint(fold.collapsed);
+  head.addEventListener("click", () => {
+    const collapsed = !section.hasClass("is-collapsed");
+    paint(collapsed);
+    fold.onToggle(collapsed);
+  });
 }

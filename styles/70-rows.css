@@ -41,6 +41,10 @@ body.is-phone .home-cards[data-view="rows"] .hc-grid {
   border-radius: 0;
   padding: var(--size-4-3) var(--size-4-2);
   box-shadow: inset 2px 0 0 transparent;
+  /* Rows are one list on the page, not cards: no surface material. */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  translate: none;
   transition:
     background var(--anim-duration-fast) var(--anim-motion-smooth),
     box-shadow var(--anim-duration-fast) var(--anim-motion-smooth);
@@ -49,6 +53,7 @@ body.is-phone .home-cards[data-view="rows"] .hc-grid {
 .home-cards[data-view="rows"] .hc-card:hover {
   background: var(--background-modifier-hover);
   box-shadow: inset 2px 0 0 var(--interactive-accent);
+  translate: none;
 }
 
 /* The head dissolves so the glyph and the text place onto the

@@ -170,6 +170,62 @@ var DekCache = class {
   }
 };
 
+// src/compose/open-history.ts
+var STORE_KEY = "home-cards-opened";
+var HISTORY_LIMIT = 100;
+var OpenHistory = class {
+  constructor(store) {
+    this.store = store;
+    /** Newest first. Loaded on first use, so startup does no storage read. */
+    this.paths = null;
+  }
+  /** Opened note paths, newest first. */
+  list() {
+    return this.load();
+  }
+  /** Move `path` to the front. */
+  record(path) {
+    const paths = this.load();
+    if (paths[0] === path) return;
+    const at = paths.indexOf(path);
+    if (at >= 0) paths.splice(at, 1);
+    paths.unshift(path);
+    paths.length = Math.min(paths.length, HISTORY_LIMIT);
+    this.save();
+  }
+  /** Follow a rename, so a moved note keeps its place. */
+  rename(oldPath, newPath) {
+    const paths = this.load();
+    const at = paths.indexOf(oldPath);
+    if (at < 0) return;
+    paths[at] = newPath;
+    const dupe = paths.indexOf(newPath, at + 1);
+    if (dupe >= 0) paths.splice(dupe, 1);
+    this.save();
+  }
+  load() {
+    if (this.paths) return this.paths;
+    let stored = null;
+    try {
+      stored = this.store.loadLocalStorage(STORE_KEY);
+    } catch (err) {
+      console.error("Home Cards: could not read the open history", err);
+    }
+    this.paths = Array.isArray(stored) ? stored.filter((p) => typeof p === "string").slice(0, HISTORY_LIMIT) : [];
+    return this.paths;
+  }
+  save() {
+    try {
+      this.store.saveLocalStorage(STORE_KEY, this.paths);
+    } catch (err) {
+      console.error("Home Cards: could not save the open history", err);
+    }
+  }
+};
+function mergeOpened(recent, history) {
+  return [.../* @__PURE__ */ new Set([...recent, ...history])];
+}
+
 // src/compose/greeting.ts
 var PARTS = [
   { part: "night", from: 0, label: "the small hours of the night" },
@@ -439,7 +495,7 @@ function cleanModelGreeting(raw) {
 }
 
 // src/platform/greeting-source.ts
-var STORE_KEY = "home-cards-next-greeting";
+var STORE_KEY2 = "home-cards-next-greeting";
 var REST_AFTER_ERROR_MS = 10 * 6e4;
 function slotOf(now, occasions) {
   const h = now.getHours();
@@ -505,13 +561,13 @@ var GreetingSource = class {
     return cleanModelGreeting(reply);
   }
   take(slot) {
-    const stored = this.store.loadLocalStorage(STORE_KEY);
+    const stored = this.store.loadLocalStorage(STORE_KEY2);
     if (!stored || stored.slot !== slot || typeof stored.text !== "string") return null;
-    this.store.saveLocalStorage(STORE_KEY, null);
+    this.store.saveLocalStorage(STORE_KEY2, null);
     return stored.text;
   }
   keep(value) {
-    this.store.saveLocalStorage(STORE_KEY, value);
+    this.store.saveLocalStorage(STORE_KEY2, value);
   }
 };
 
@@ -742,7 +798,7 @@ function rankSection(vault, cfg, settings) {
     case "recent-opened": {
       const byPath = new Map(pool.map((f) => [f.path, f]));
       return plain(
-        vault.app.workspace.getLastOpenFiles().map((p) => byPath.get(p)).filter((f) => f !== void 0)
+        vault.openedPaths().map((p) => byPath.get(p)).filter((f) => f !== void 0)
       );
     }
     case "recent-created":
@@ -780,11 +836,16 @@ function rankSection(vault, cfg, settings) {
 
 // src/compose/vault.ts
 var VaultSnapshot = class {
-  constructor(app, now = /* @__PURE__ */ new Date()) {
+  constructor(app, now = /* @__PURE__ */ new Date(), history = []) {
     this.app = app;
     this.now = now;
+    this.history = history;
     this.inbound = null;
     this.files = app.vault.getMarkdownFiles();
+  }
+  /** Paths of recently opened files, newest first. */
+  openedPaths() {
+    return mergeOpened(this.app.workspace.getLastOpenFiles(), this.history);
   }
   cacheOf(file) {
     return this.app.metadataCache.getFileCache(file);
@@ -844,9 +905,9 @@ var MORE_PAGES = 3;
 async function iconsFor(app, settings) {
   return settings.showGlyph && settings.typifyIcons ? loadTypifyIcons(app, settings.typeProperty) : /* @__PURE__ */ new Map();
 }
-async function composeSections(app, settings, deks, now = /* @__PURE__ */ new Date()) {
+async function composeSections(app, settings, { deks, now = /* @__PURE__ */ new Date(), opened = [] } = {}) {
   const icons = await iconsFor(app, settings);
-  const vault = new VaultSnapshot(app, now);
+  const vault = new VaultSnapshot(app, now, opened);
   const taken = /* @__PURE__ */ new Set();
   const sections = settings.sections.filter((cfg) => cfg.enabled);
   const ranked = sections.map((cfg) => {
@@ -912,18 +973,43 @@ var import_obsidian2 = require("obsidian");
 function leafFor(app, newLeaf) {
   return app.workspace.getLeaf(newLeaf ? "tab" : false);
 }
-function cardActions(app, hoverParent, source) {
+function cardActions(app, owner, hoverParent, source) {
   return {
     open: (file, newLeaf) => void leafFor(app, newLeaf).openFile(file),
     menu: (file, evt) => showFileMenu(app, file, evt, source),
-    hover: (file, evt, el) => app.workspace.trigger("hover-link", {
-      event: evt,
+    hover: hoverTracker(app, owner, hoverParent, source)
+  };
+}
+function hoverTracker(app, owner, hoverParent, source) {
+  let current = null;
+  const listening = /* @__PURE__ */ new WeakSet();
+  const listen = (doc) => {
+    if (listening.has(doc)) return;
+    listening.add(doc);
+    owner.registerDomEvent(doc, "keydown", (evt) => {
+      if (current && !evt.repeat && (evt.key === "Meta" || evt.key === "Control")) show(evt);
+    });
+  };
+  const show = (event) => {
+    if (!current?.el.isConnected) return;
+    app.workspace.trigger("hover-link", {
+      event,
       source,
       hoverParent,
-      targetEl: el,
-      linktext: file.path,
+      targetEl: current.el,
+      linktext: current.file.path,
       sourcePath: ""
-    })
+    });
+  };
+  return {
+    enter: (file, el, evt) => {
+      listen(el.ownerDocument);
+      current = { file, el };
+      show(evt);
+    },
+    leave: (el) => {
+      if (current?.el === el) current = null;
+    }
   };
 }
 function showFileMenu(app, file, evt, source) {
@@ -1022,37 +1108,17 @@ function renderCard(parent, card, opts, actions) {
       menu(card.file, evt);
     });
   }
-  if (hover) el.addEventListener("mouseover", (evt) => hover(card.file, evt, el));
+  if (hover) {
+    el.addEventListener("mouseenter", (evt) => hover.enter(card.file, el, evt));
+    el.addEventListener("mouseleave", () => hover.leave(el));
+  }
   return el;
 }
 function renderSection(parent, title, cards, opts, actions, options = {}) {
-  const { emptyText = "", more = [], fold, onSeeMore } = options;
+  const { emptyText = "", more = [], fold, paging } = options;
   const section = parent.createDiv({ cls: "hc-section" });
   section.dataset.hcVisible = String(cards.length);
-  if (title) {
-    const head = section.createDiv({ cls: "hc-section-head" });
-    if (fold) {
-      const toggle = head.createEl("button", { cls: "hc-fold clickable-icon" });
-      (0, import_obsidian3.setIcon)(toggle, "chevron-down");
-      const label = (collapsed) => (0, import_obsidian3.setTooltip)(toggle, collapsed ? "Expand section" : "Collapse section", { placement: "left" });
-      label(fold.collapsed);
-      section.toggleClass("is-collapsed", fold.collapsed);
-      toggle.setAttr("aria-expanded", String(!fold.collapsed));
-      const flip = () => {
-        const collapsed = !section.hasClass("is-collapsed");
-        section.toggleClass("is-collapsed", collapsed);
-        toggle.setAttr("aria-expanded", String(!collapsed));
-        label(collapsed);
-        fold.onToggle(collapsed);
-      };
-      toggle.addEventListener("click", flip);
-      head.createEl("h2", { text: title }).addEventListener("click", flip);
-      head.addClass("is-foldable");
-    } else {
-      head.createEl("h2", { text: title });
-    }
-    head.createSpan({ cls: "hc-count", text: String(cards.length) });
-  }
+  if (title) renderHead(section, title, cards.length, fold);
   if (!cards.length && !more.length && emptyText) {
     section.createDiv({ cls: "hc-empty", text: emptyText });
     return section;
@@ -1061,11 +1127,38 @@ function renderSection(parent, title, cards, opts, actions, options = {}) {
   [...cards, ...more].forEach((card, i) => {
     renderCard(grid, card, opts, actions).dataset.hcIndex = String(i);
   });
-  if (more.length && onSeeMore) {
+  if (more.length && paging) {
     const row = section.createDiv({ cls: "hc-more-row" });
-    row.createEl("button", { cls: "hc-more", text: "See more" }).addEventListener("click", onSeeMore);
+    pagingButton(row, "hc-more", "See more", "chevron-down", paging.more);
+    pagingButton(row, "hc-less", "Show fewer", "chevron-up", paging.fewer);
   }
   return section;
+}
+function pagingButton(row, cls, text, icon, run) {
+  const btn = row.createEl("button", { cls });
+  (0, import_obsidian3.setIcon)(btn.createSpan({ cls: "hc-more-icon" }), icon);
+  btn.createSpan({ text });
+  btn.addEventListener("click", run);
+}
+function renderHead(section, title, count, fold) {
+  const head = section.createDiv({ cls: "hc-section-head" });
+  head.createEl("h2", { text: title });
+  head.createSpan({ cls: "hc-count", text: String(count) });
+  if (!fold) return;
+  head.addClass("is-foldable");
+  const toggle = head.createEl("button", { cls: "hc-fold clickable-icon" });
+  (0, import_obsidian3.setIcon)(toggle, "chevron-down");
+  const paint = (collapsed) => {
+    section.toggleClass("is-collapsed", collapsed);
+    toggle.setAttr("aria-expanded", String(!collapsed));
+    (0, import_obsidian3.setTooltip)(toggle, collapsed ? "Expand section" : "Collapse section", { placement: "left" });
+  };
+  paint(fold.collapsed);
+  head.addEventListener("click", () => {
+    const collapsed = !section.hasClass("is-collapsed");
+    paint(collapsed);
+    fold.onToggle(collapsed);
+  });
 }
 
 // src/render/lazy-deks.ts
@@ -1102,6 +1195,7 @@ var HomeCardsBasesView = class extends import_obsidian4.BasesView {
     /** Holds the hover preview Obsidian opens for a card. */
     this.hover = { hoverPopover: null };
     this.root = containerEl.createDiv({ cls: "hc-in-bases" });
+    this.actions = cardActions(plugin.app, this, this.hover, BASES_VIEW_ID);
     this.registerEvent(plugin.onRefresh(() => this.onDataUpdated()));
   }
   onunload() {
@@ -1148,9 +1242,8 @@ var HomeCardsBasesView = class extends import_obsidian4.BasesView {
     root.empty();
     applyAppearance(root, settings);
     root.dataset.view = "grid";
-    const actions = cardActions(app, this.hover, BASES_VIEW_ID);
     for (const { title, cards } of sections) {
-      renderSection(root, title, cards, settings, actions);
+      renderSection(root, title, cards, settings, this.actions);
     }
     this.disposeObserver = observeDeks(root, (path, el) => {
       const file = app.vault.getFileByPath(path);
@@ -1194,8 +1287,7 @@ var VIEW_MODES = [
 var SURFACES = [
   { id: "flat", label: "Flat" },
   { id: "elevated", label: "Elevated" },
-  { id: "frosted", label: "Frosted" },
-  { id: "outline", label: "Outline" }
+  { id: "frosted", label: "Frosted" }
 ];
 var BACKGROUNDS = [
   { id: "plain", label: "Plain" },
@@ -1342,6 +1434,8 @@ var HomeView = class extends import_obsidian5.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
+    /** The open hover preview, if any; Obsidian manages it. */
+    this.hoverPopover = null;
     this.shell = null;
     this.greeting = "";
     this.query = "";
@@ -1349,10 +1443,10 @@ var HomeView = class extends import_obsidian5.ItemView {
     /** Cards revealed by "See more", by section id; survives recomposes. */
     this.revealed = /* @__PURE__ */ new Map();
     this.disposeDeks = null;
-    this.actions = null;
     /** Invalidates composes that finish after a newer one or a close. */
     this.generation = 0;
     this.mode = plugin.settings.defaultView;
+    this.actions = cardActions(this.app, this, this, VIEW_TYPE_HOME);
   }
   getViewType() {
     return VIEW_TYPE_HOME;
@@ -1546,11 +1640,10 @@ var HomeView = class extends import_obsidian5.ItemView {
     const settings = plugin.settings;
     let sections;
     try {
-      sections = await composeSections(
-        app,
-        settings,
-        (file) => plugin.dekCache.get(app, file, settings)
-      );
+      sections = await composeSections(app, settings, {
+        deks: (file) => plugin.dekCache.get(app, file, settings),
+        opened: plugin.openHistory.list()
+      });
     } catch (err) {
       console.error("Home Cards: compose failed", err);
       if (token === this.generation) {
@@ -1569,7 +1662,6 @@ var HomeView = class extends import_obsidian5.ItemView {
     } else if (!app.vault.getMarkdownFiles().length) {
       next.createDiv({ cls: "hc-empty", text: "Cards appear here as you write notes." });
     } else {
-      this.actions ??= cardActions(app, this.leaf, VIEW_TYPE_HOME);
       const collapsed = new Set(this.collapsedIds());
       for (const { config, cards, more, claimed } of sections) {
         const emptyText = claimed ? "Every matching note already appears in a section above." : "This section has no matching notes.";
@@ -1580,10 +1672,17 @@ var HomeView = class extends import_obsidian5.ItemView {
             collapsed: collapsed.has(config.id),
             onToggle: (now) => this.rememberCollapsed(config.id, now)
           },
-          onSeeMore: () => {
-            const shown = this.revealed.get(config.id) ?? cards.length;
-            this.revealed.set(config.id, shown + config.count);
-            this.applyFilter();
+          paging: {
+            more: () => {
+              const shown = this.revealed.get(config.id) ?? cards.length;
+              this.revealed.set(config.id, shown + config.count);
+              this.applyFilter();
+            },
+            fewer: () => {
+              this.revealed.delete(config.id);
+              this.applyFilter();
+              el.find(".hc-more-row")?.scrollIntoView({ block: "nearest" });
+            }
           }
         });
         el.dataset.hcSection = config.id;
@@ -1634,7 +1733,11 @@ var HomeView = class extends import_obsidian5.ItemView {
         if (visible) shown++;
       }
       section.find(".hc-count")?.setText(String(shown));
-      section.find(".hc-more-row")?.toggleClass("is-hidden", q !== "" || limit >= cards.length);
+      const canMore = limit < cards.length;
+      const canFewer = limit > base;
+      section.find(".hc-more")?.toggleClass("is-hidden", !canMore);
+      section.find(".hc-less")?.toggleClass("is-hidden", !canFewer);
+      section.find(".hc-more-row")?.toggleClass("is-hidden", q !== "" || !(canMore || canFewer));
       section.toggleClass("is-hidden", q !== "" && shown === 0);
     }
   }
@@ -1675,7 +1778,12 @@ function migrate(raw) {
   if (typeof r.background === "string" && r.background in retiredPatterns) {
     r.background = retiredPatterns[r.background];
   }
-  const surfaceMap = { secondary: "flat", "primary-alt": "elevated", transparent: "outline" };
+  const surfaceMap = {
+    secondary: "flat",
+    "primary-alt": "elevated",
+    transparent: "frosted",
+    outline: "frosted"
+  };
   if (typeof r.cardSurface === "string" && r.cardSurface in surfaceMap) {
     r.cardSurface = surfaceMap[r.cardSurface];
   }
@@ -2120,7 +2228,7 @@ var HomeCardsSettingTab = class extends import_obsidian8.PluginSettingTab {
       })
     );
     new import_obsidian8.Setting(page).setName("Card surface").setDesc(
-      "Flat sits on the theme surface; Elevated lifts on a shadow; Frosted blurs whatever lies behind the card; Outline keeps only the border."
+      "Flat uses the theme's panel color and a thin border. Elevated lifts each card on a shadow. Frosted lets a background pattern show through, blurred."
     ).addDropdown(
       (d) => addChoices(d, SURFACES).setValue(s.cardSurface).onChange((v) => {
         if (!isChoice(SURFACES, v)) return;
@@ -2228,6 +2336,8 @@ var HomeCardsPlugin = class extends import_obsidian9.Plugin {
     this.settings = defaultSettings();
     /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
     this.dekCache = new DekCache();
+    /** Opened notes beyond the ten Obsidian remembers, for "Recently opened". */
+    this.openHistory = new OpenHistory(this.app);
     /** The masthead greeting: the built-in list, or Apple Intelligence. */
     this.greetings = new GreetingSource(this.app, () => this.settings, {
       supported: shortcutsSupported,
@@ -2254,6 +2364,12 @@ var HomeCardsPlugin = class extends import_obsidian9.Plugin {
     this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
     const settle = (0, import_obsidian9.debounce)(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
     this.registerEvent(this.app.metadataCache.on("resolved", settle));
+    this.registerEvent(
+      this.app.workspace.on("file-open", (file) => {
+        if (file?.extension === "md") this.openHistory.record(file.path);
+      })
+    );
+    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => this.openHistory.rename(oldPath, file.path)));
     this.app.workspace.onLayoutReady(() => void this.greetings.refill(/* @__PURE__ */ new Date()));
     if (this.settings.openOnStartup) {
       this.app.workspace.onLayoutReady(() => void this.activateView());

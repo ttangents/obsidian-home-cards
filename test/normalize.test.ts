@@ -39,7 +39,8 @@ test("migrations: views, backgrounds, surfaces, file size", () => {
   assert.equal(normalizeSettings({ backgroundPattern: true }).background, "suns");
   assert.equal(normalizeSettings({ cardSurface: "secondary" }).cardSurface, "flat");
   assert.equal(normalizeSettings({ cardSurface: "primary-alt" }).cardSurface, "elevated");
-  assert.equal(normalizeSettings({ cardSurface: "transparent" }).cardSurface, "outline");
+  assert.equal(normalizeSettings({ cardSurface: "transparent" }).cardSurface, "frosted");
+  assert.equal(normalizeSettings({ cardSurface: "outline" }).cardSurface, "frosted");
   assert.equal(normalizeSettings({ showWordCount: true }).showFileSize, true);
   assert.equal(normalizeSettings({ showWordCount: true, showFileSize: false }).showFileSize, false);
 });

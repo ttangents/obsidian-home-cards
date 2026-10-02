@@ -13,7 +13,7 @@ import { iconsFor } from "../compose/compose";
 import type HomeCardsPlugin from "../main";
 import { applyAppearance } from "./appearance";
 import { cardActions } from "./actions";
-import { renderSection, settleDek } from "./card";
+import { renderSection, settleDek, type CardActions } from "./card";
 import { observeDeks } from "./lazy-deks";
 
 const BASES_VIEW_ID = "home-cards";
@@ -27,6 +27,7 @@ class HomeCardsBasesView extends BasesView {
   private disposeObserver: (() => void) | null = null;
   /** Holds the hover preview Obsidian opens for a card. */
   private readonly hover: HoverParent = { hoverPopover: null };
+  private readonly actions: CardActions;
 
   constructor(
     controller: QueryController,
@@ -35,6 +36,7 @@ class HomeCardsBasesView extends BasesView {
   ) {
     super(controller);
     this.root = containerEl.createDiv({ cls: "hc-in-bases" });
+    this.actions = cardActions(plugin.app, this, this.hover, BASES_VIEW_ID);
     // Settings edits redraw the view; the Component releases the handler.
     this.registerEvent(plugin.onRefresh(() => this.onDataUpdated()));
   }
@@ -92,9 +94,8 @@ class HomeCardsBasesView extends BasesView {
     root.empty();
     applyAppearance(root, settings);
     root.dataset.view = "grid";
-    const actions = cardActions(app, this.hover, BASES_VIEW_ID);
     for (const { title, cards } of sections) {
-      renderSection(root, title, cards, settings, actions);
+      renderSection(root, title, cards, settings, this.actions);
     }
 
     this.disposeObserver = observeDeks(root, (path, el) => {

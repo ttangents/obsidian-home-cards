@@ -9,10 +9,20 @@
   gap: var(--hc-gap);
 }
 
+/* The card reads its materials from the surface tokens in
+   05-surfaces.css. Layers, top to bottom: the hover tint (an inset
+   shadow, so it animates), the surface fill, and the underlay that
+   keeps a pattern from showing through translucent theme surfaces. */
 .hc-card {
-  background: var(--hc-surface);
-  border: var(--border-width) solid var(--hc-hair);
+  --hc-card-tint: transparent;
+  background:
+    linear-gradient(var(--hc-surface), var(--hc-surface)),
+    linear-gradient(var(--hc-underlay), var(--hc-underlay));
+  border: var(--border-width) solid var(--hc-card-border);
   border-radius: var(--radius-m);
+  box-shadow: inset 0 0 0 100vmax var(--hc-card-tint), var(--hc-card-shadow);
+  -webkit-backdrop-filter: var(--hc-card-blur);
+  backdrop-filter: var(--hc-card-blur);
   padding: var(--size-4-4);
   display: flex;
   flex-direction: column;
@@ -23,15 +33,28 @@
   outline: none;
   transition:
     border-color var(--anim-duration-fast) var(--anim-motion-smooth),
-    background var(--anim-duration-fast) var(--anim-motion-smooth);
+    box-shadow var(--anim-duration-fast) var(--anim-motion-smooth),
+    translate var(--anim-duration-fast) var(--anim-motion-smooth);
 }
-.hc-card:hover {
-  border-color: var(--background-modifier-border-hover);
-  background: var(--background-modifier-hover);
+/* Pointer devices only: on touch screens a tapped card would keep its
+   hover state after the note opens. */
+@media (hover: hover) {
+  .hc-card:hover {
+    --hc-card-tint: var(--hc-card-tint-hover);
+    border-color: var(--hc-card-border-hover);
+    box-shadow: inset 0 0 0 100vmax var(--hc-card-tint), var(--hc-card-shadow-hover);
+    translate: var(--hc-card-lift);
+  }
 }
 .hc-card:focus-visible {
   border-color: var(--background-modifier-border-focus);
-  box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border-focus);
+  box-shadow:
+    inset 0 0 0 100vmax var(--hc-card-tint),
+    0 0 0 var(--border-width) var(--background-modifier-border-focus),
+    var(--hc-card-shadow);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hc-card { --hc-card-lift: none; }
 }
 .hc-card.is-hidden { display: none; }
 

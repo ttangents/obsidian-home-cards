@@ -251,7 +251,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     new Setting(page)
       .setName("Card surface")
       .setDesc(
-        "Flat sits on the theme surface; Elevated lifts on a shadow; Frosted blurs whatever lies behind the card; Outline keeps only the border."
+        "Flat uses the theme's panel color and a thin border. Elevated lifts each card on a shadow. Frosted lets a background pattern show through, blurred."
       )
       .addDropdown((d) =>
         addChoices(d, SURFACES)

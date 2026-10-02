@@ -11,7 +11,14 @@
  * a loading state over a page that is already showing.
  */
 
-import { ItemView, setIcon, setTooltip, type WorkspaceLeaf } from "obsidian";
+import {
+  ItemView,
+  setIcon,
+  setTooltip,
+  type HoverParent,
+  type HoverPopover,
+  type WorkspaceLeaf,
+} from "obsidian";
 import { composeSections, type ComposedSection } from "../compose/compose";
 import { withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
@@ -48,7 +55,9 @@ interface OpenPicker {
   grid: BackgroundPicker;
 }
 
-export class HomeView extends ItemView {
+export class HomeView extends ItemView implements HoverParent {
+  /** The open hover preview, if any; Obsidian manages it. */
+  hoverPopover: HoverPopover | null = null;
   private shell: Shell | null = null;
   private mode: ViewMode;
   private greeting = "";
@@ -57,7 +66,7 @@ export class HomeView extends ItemView {
   /** Cards revealed by "See more", by section id; survives recomposes. */
   private readonly revealed = new Map<string, number>();
   private disposeDeks: (() => void) | null = null;
-  private actions: CardActions | null = null;
+  private readonly actions: CardActions;
   /** Invalidates composes that finish after a newer one or a close. */
   private generation = 0;
 
@@ -67,6 +76,7 @@ export class HomeView extends ItemView {
   ) {
     super(leaf);
     this.mode = plugin.settings.defaultView;
+    this.actions = cardActions(this.app, this, this, VIEW_TYPE_HOME);
   }
 
   getViewType(): string {
@@ -288,9 +298,10 @@ export class HomeView extends ItemView {
 
     let sections: ComposedSection[];
     try {
-      sections = await composeSections(app, settings, (file) =>
-        plugin.dekCache.get(app, file, settings)
-      );
+      sections = await composeSections(app, settings, {
+        deks: (file) => plugin.dekCache.get(app, file, settings),
+        opened: plugin.openHistory.list(),
+      });
     } catch (err) {
       console.error("Home Cards: compose failed", err);
       if (token === this.generation) {
@@ -313,7 +324,6 @@ export class HomeView extends ItemView {
       // A new vault: one line beats a column of empty sections.
       next.createDiv({ cls: "hc-empty", text: "Cards appear here as you write notes." });
     } else {
-      this.actions ??= cardActions(app, this.leaf, VIEW_TYPE_HOME);
       const collapsed = new Set(this.collapsedIds());
       for (const { config, cards, more, claimed } of sections) {
         const emptyText = claimed
@@ -326,10 +336,19 @@ export class HomeView extends ItemView {
             collapsed: collapsed.has(config.id),
             onToggle: (now) => this.rememberCollapsed(config.id, now),
           },
-          onSeeMore: () => {
-            const shown = this.revealed.get(config.id) ?? cards.length;
-            this.revealed.set(config.id, shown + config.count);
-            this.applyFilter();
+          paging: {
+            more: () => {
+              const shown = this.revealed.get(config.id) ?? cards.length;
+              this.revealed.set(config.id, shown + config.count);
+              this.applyFilter();
+            },
+            fewer: () => {
+              this.revealed.delete(config.id);
+              this.applyFilter();
+              // The page just got shorter: keep the buttons in view rather
+              // than leaving the reader somewhere further down the page.
+              el.find(".hc-more-row")?.scrollIntoView({ block: "nearest" });
+            },
           },
         });
         el.dataset.hcSection = config.id;
@@ -385,7 +404,11 @@ export class HomeView extends ItemView {
         if (visible) shown++;
       }
       section.find(".hc-count")?.setText(String(shown));
-      section.find(".hc-more-row")?.toggleClass("is-hidden", q !== "" || limit >= cards.length);
+      const canMore = limit < cards.length;
+      const canFewer = limit > base;
+      section.find(".hc-more")?.toggleClass("is-hidden", !canMore);
+      section.find(".hc-less")?.toggleClass("is-hidden", !canFewer);
+      section.find(".hc-more-row")?.toggleClass("is-hidden", q !== "" || !(canMore || canFewer));
       // A section the filter emptied is noise. One that was empty to begin
       // with keeps its "no notes" line, which is the useful signal.
       section.toggleClass("is-hidden", q !== "" && shown === 0);

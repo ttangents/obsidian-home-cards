@@ -7,16 +7,15 @@
    Every typeface, size, weight, color and radius here resolves
    to an Obsidian variable, so the active theme decides how the
    page looks. The plugin adds only what a user elects in
-   settings: a background pattern, a card surface (Frosted
-   blurs what lies behind the card), and two custom properties
-   the views set, --hc-card-min and --hc-dek-lines.
+   settings: a background pattern, a card surface (the tokens in
+   05-surfaces.css), and two custom properties the views set,
+   --hc-card-min and --hc-dek-lines.
    ============================================================ */
 
 .home-cards {
   --hc-card-min: 262px;
   --hc-dek-lines: 3;
   --hc-gap: var(--size-4-3);
-  --hc-surface: var(--background-secondary);
   --hc-hair: var(--background-modifier-border);
 
   /* Anchor to the theme's own reading size so its em-based heading

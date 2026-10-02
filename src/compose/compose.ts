@@ -35,14 +35,22 @@ export async function iconsFor(
     : new Map();
 }
 
+export interface ComposeOptions {
+  /** Fills deks of the visible cards; without one they load lazily. */
+  deks?: DekSource;
+  /** The moment of the compose. */
+  now?: Date;
+  /** The plugin's open history, for "Recently opened" beyond Obsidian's ten. */
+  opened?: readonly string[];
+}
+
 export async function composeSections(
   app: App,
   settings: HomeCardsSettings,
-  deks?: DekSource,
-  now = new Date()
+  { deks, now = new Date(), opened = [] }: ComposeOptions = {}
 ): Promise<ComposedSection[]> {
   const icons = await iconsFor(app, settings);
-  const vault = new VaultSnapshot(app, now);
+  const vault = new VaultSnapshot(app, now, opened);
   const taken = new Set<string>();
   const sections = settings.sections.filter((cfg) => cfg.enabled);
 

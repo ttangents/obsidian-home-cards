@@ -13,7 +13,7 @@ export default defineConfig([
     rules: {
       "obsidianmd/ui/sentence-case": [
         "error",
-        { brands: ["Home Cards", "Typify", "Bases", "Settings", "Christmas", "New Year's Day"], enforceCamelCaseLower: true },
+        { brands: ["Home Cards Greeting", "Home Cards", "Apple Intelligence", "Obsidian", "Mac", "Shortcuts", "Typify", "Bases", "Settings", "Christmas", "New Year's Day"], enforceCamelCaseLower: true },
       ],
     },
   },

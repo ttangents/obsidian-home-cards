@@ -158,6 +158,8 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
     greetingEnabled: bool(r.greetingEnabled, d.greetingEnabled),
     greetingOccasions: bool(r.greetingOccasions, d.greetingOccasions),
     greetingName: str(r.greetingName, d.greetingName),
+    greetingAI: bool(r.greetingAI, d.greetingAI),
+    greetingShortcut: str(r.greetingShortcut, d.greetingShortcut).trim() || d.greetingShortcut,
     showNoteCount: bool(r.showNoteCount, d.showNoteCount),
     openOnStartup: bool(r.openOnStartup, d.openOnStartup),
 

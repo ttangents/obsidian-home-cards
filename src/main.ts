@@ -7,6 +7,7 @@
  *
  *   settings/      schema, defaults, and the normalizer for stored data
  *   compose/       vault queries and card models; no DOM
+ *   platform/      macOS integration (Shortcuts, for Apple Intelligence)
  *   render/        the Home view and the Bases view
  *   settings-tab/  the settings UI
  *   main.ts        wiring
@@ -14,6 +15,8 @@
 
 import { debounce, Events, Plugin, type EventRef } from "obsidian";
 import { DekCache } from "./compose/dek-cache";
+import { GreetingSource } from "./platform/greeting-source";
+import { runShortcut, shortcutsSupported } from "./platform/shortcuts";
 import { registerBasesView } from "./render/bases-view";
 import { HomeView, VIEW_TYPE_HOME } from "./render/home-view";
 import { normalizeSettings } from "./settings/normalize";
@@ -31,6 +34,12 @@ export default class HomeCardsPlugin extends Plugin {
 
   /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
   readonly dekCache = new DekCache();
+
+  /** The masthead greeting: the built-in list, or Apple Intelligence. */
+  readonly greetings = new GreetingSource(this.app, () => this.settings, {
+    supported: shortcutsSupported,
+    run: (shortcut, prompt) => runShortcut(shortcut, prompt),
+  });
 
   /**
    * Views subscribe here to redraw after a settings change or a metadata
@@ -58,6 +67,9 @@ export default class HomeCardsPlugin extends Plugin {
     // per burst is plenty.
     const settle = debounce(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
     this.registerEvent(this.app.metadataCache.on("resolved", settle));
+
+    // Write the first greeting while the workspace settles.
+    this.app.workspace.onLayoutReady(() => void this.greetings.refill(new Date()));
 
     if (this.settings.openOnStartup) {
       this.app.workspace.onLayoutReady(() => void this.activateView());

@@ -7,8 +7,9 @@
  * the change shows or hides other controls.
  */
 
-import { PluginSettingTab, Setting } from "obsidian";
+import { Notice, PluginSettingTab, Setting } from "obsidian";
 import type HomeCardsPlugin from "../main";
+import { shortcutsSupported } from "../platform/shortcuts";
 import { renderBackgroundPicker } from "../render/swatches";
 import { isChoice, LIMITS, SURFACES, VIEW_MODES } from "../settings/schema";
 import { SectionsPane } from "./sections";
@@ -309,6 +310,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
             this.plugin.touch();
           })
       );
+    this.appleIntelligence(header);
     new Setting(header).setName("Show note count").addToggle((t) =>
       t.setValue(s.showNoteCount).onChange((v) => {
         s.showNoteCount = v;
@@ -321,5 +323,71 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         this.plugin.touch();
       })
     );
+  }
+
+  /**
+   * Greetings from Apple Intelligence. Offered only where it can run (the
+   * desktop app on macOS); elsewhere a note explains why the option is
+   * missing, since these settings sync to phones and tablets too.
+   */
+  private appleIntelligence(group: HTMLElement): void {
+    const s = this.plugin.settings;
+    const name = "Greetings from Apple Intelligence";
+    if (!shortcutsSupported()) {
+      new Setting(group)
+        .setName(name)
+        .setDesc("Available in the Obsidian desktop app on a Mac with Apple Intelligence. This device uses the built-in greetings.");
+      return;
+    }
+
+    new Setting(group)
+      .setName(name)
+      .setDesc("Writes a fresh greeting on this Mac with the on-device model. The prompt holds only the date and time, and nothing leaves your Mac. The built-in greetings fill in whenever the model is unavailable.")
+      .addToggle((t) =>
+        t
+          .setValue(s.greetingAI)
+          .setDisabled(!s.greetingEnabled)
+          .onChange((v) => {
+            s.greetingAI = v;
+            void this.restructure();
+          })
+      );
+    if (!s.greetingAI || !s.greetingEnabled) return;
+
+    new Setting(group)
+      .setName("Shortcut")
+      .setDesc("The plugin runs this shortcut to reach the model. Test it once after you build it.")
+      .addText((t) =>
+        t
+          .setPlaceholder("Home Cards Greeting")
+          .setValue(s.greetingShortcut)
+          .onChange((v) => {
+            s.greetingShortcut = v.trim() || "Home Cards Greeting";
+            this.plugin.touch();
+          })
+      )
+      .addButton((b) =>
+        b.setButtonText("Test").onClick(async () => {
+          b.setDisabled(true).setButtonText("Running…");
+          try {
+            const greeting = await this.plugin.greetings.test();
+            new Notice(`Apple Intelligence says: ${greeting.replace("{name}", s.greetingName.trim() || "friend")}`);
+          } catch (err) {
+            new Notice(`The shortcut did not work. ${err instanceof Error ? err.message : String(err)}`, 10_000);
+          } finally {
+            b.setDisabled(false).setButtonText("Test");
+          }
+        })
+      );
+
+    const steps = group.createEl("ol", { cls: "hc-steps" });
+    for (const step of [
+      `In the Shortcuts app, create a shortcut named "${s.greetingShortcut}".`,
+      "Add Get Text from Input, with Shortcut Input as its input.",
+      "Add Use Model. Choose On-Device, and set its prompt to the Text from the previous step.",
+      "Add Stop and Output, and set it to the model's Response.",
+    ]) {
+      steps.createEl("li", { text: step });
+    }
   }
 }

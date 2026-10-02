@@ -11,7 +11,7 @@
  * a loading state over a page that is already showing.
  */
 
-import { ItemView, setIcon, type WorkspaceLeaf } from "obsidian";
+import { ItemView, setIcon, setTooltip, type WorkspaceLeaf } from "obsidian";
 import { composeSections, type ComposedSection } from "../compose/compose";
 import { withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
@@ -157,42 +157,38 @@ export class HomeView extends ItemView {
     });
 
     // One control cluster: the layout glyphs, a hairline, then the
-    // background picker and recompose. aria-label carries each name, and
-    // Obsidian shows it as the tooltip.
+    // background picker and recompose. Each button names itself in an
+    // Obsidian tooltip, which also sets its aria-label.
     const seg = controls.createDiv({ cls: "hc-seg" });
+    const button = (label: string, icon: string, cls?: string) => {
+      const btn = seg.createEl("button", cls ? { cls } : {});
+      setIcon(btn, icon);
+      setTooltip(btn, label, { placement: "bottom" });
+      return btn;
+    };
     const toggles = new Map<ViewMode, HTMLElement>();
     for (const mode of VIEW_MODES) {
-      const btn = seg.createEl("button", { attr: { "aria-label": `${mode.label} view` } });
-      setIcon(btn, mode.icon);
+      const btn = button(`${mode.label} view`, mode.icon);
       btn.addEventListener("click", () => this.setMode(mode.id));
       toggles.set(mode.id, btn);
     }
     seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
     const action = (cls: string, label: string, icon: string, run: (newLeaf: boolean) => void) => {
-      const btn = seg.createEl("button", { cls, attr: { "aria-label": label } });
-      setIcon(btn, icon);
-      btn.addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
+      button(label, icon, cls).addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
     };
     action("hc-new-note", "New note", "square-pen", (newLeaf) => void createNote(this.app, newLeaf));
     action("hc-rediscover", "Rediscover a note", "shuffle", (newLeaf) =>
       rediscoverNote(this.app, this.plugin.settings, newLeaf)
     );
-    const pickerToggle = seg.createEl("button", {
-      cls: "hc-picker-toggle",
-      attr: { "aria-label": "Background", "aria-haspopup": "dialog", "aria-expanded": "false" },
-    });
-    setIcon(pickerToggle, "swatch-book");
+    const pickerToggle = button("Background", "swatch-book", "hc-picker-toggle");
+    pickerToggle.setAttrs({ "aria-haspopup": "dialog", "aria-expanded": "false" });
     // Older Obsidian builds ship a Lucide set without swatch-book.
     if (!pickerToggle.firstElementChild) setIcon(pickerToggle, "palette");
     pickerToggle.addEventListener("click", () => {
       if (this.picker) this.closePicker();
       else this.openPicker(controls, pickerToggle);
     });
-    const recompose = seg.createEl("button", {
-      cls: "hc-reload",
-      attr: { "aria-label": "Recompose" },
-    });
-    setIcon(recompose, "refresh-cw");
+    const recompose = button("Recompose", "refresh-cw", "hc-reload");
     recompose.addEventListener("click", () => void this.recomposeNow(recompose));
 
     const body = wrap.createDiv({ cls: "hc-body" });

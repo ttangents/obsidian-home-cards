@@ -1032,18 +1032,17 @@ function renderSection(parent, title, cards, opts, actions, options = {}) {
   if (title) {
     const head = section.createDiv({ cls: "hc-section-head" });
     if (fold) {
-      const toggle = head.createEl("button", {
-        cls: "hc-fold clickable-icon",
-        attr: { "aria-label": fold.collapsed ? "Expand section" : "Collapse section" }
-      });
+      const toggle = head.createEl("button", { cls: "hc-fold clickable-icon" });
       (0, import_obsidian3.setIcon)(toggle, "chevron-down");
+      const label = (collapsed) => (0, import_obsidian3.setTooltip)(toggle, collapsed ? "Expand section" : "Collapse section", { placement: "left" });
+      label(fold.collapsed);
       section.toggleClass("is-collapsed", fold.collapsed);
       toggle.setAttr("aria-expanded", String(!fold.collapsed));
       const flip = () => {
         const collapsed = !section.hasClass("is-collapsed");
         section.toggleClass("is-collapsed", collapsed);
         toggle.setAttr("aria-expanded", String(!collapsed));
-        toggle.setAttr("aria-label", collapsed ? "Expand section" : "Collapse section");
+        label(collapsed);
         fold.onToggle(collapsed);
       };
       toggle.addEventListener("click", flip);
@@ -1427,18 +1426,21 @@ var HomeView = class extends import_obsidian5.ItemView {
       this.applyFilter();
     });
     const seg = controls.createDiv({ cls: "hc-seg" });
+    const button = (label, icon, cls) => {
+      const btn = seg.createEl("button", cls ? { cls } : {});
+      (0, import_obsidian5.setIcon)(btn, icon);
+      (0, import_obsidian5.setTooltip)(btn, label, { placement: "bottom" });
+      return btn;
+    };
     const toggles = /* @__PURE__ */ new Map();
     for (const mode of VIEW_MODES) {
-      const btn = seg.createEl("button", { attr: { "aria-label": `${mode.label} view` } });
-      (0, import_obsidian5.setIcon)(btn, mode.icon);
+      const btn = button(`${mode.label} view`, mode.icon);
       btn.addEventListener("click", () => this.setMode(mode.id));
       toggles.set(mode.id, btn);
     }
     seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
     const action = (cls, label, icon, run) => {
-      const btn = seg.createEl("button", { cls, attr: { "aria-label": label } });
-      (0, import_obsidian5.setIcon)(btn, icon);
-      btn.addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
+      button(label, icon, cls).addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
     };
     action("hc-new-note", "New note", "square-pen", (newLeaf) => void createNote(this.app, newLeaf));
     action(
@@ -1447,21 +1449,14 @@ var HomeView = class extends import_obsidian5.ItemView {
       "shuffle",
       (newLeaf) => rediscoverNote(this.app, this.plugin.settings, newLeaf)
     );
-    const pickerToggle = seg.createEl("button", {
-      cls: "hc-picker-toggle",
-      attr: { "aria-label": "Background", "aria-haspopup": "dialog", "aria-expanded": "false" }
-    });
-    (0, import_obsidian5.setIcon)(pickerToggle, "swatch-book");
+    const pickerToggle = button("Background", "swatch-book", "hc-picker-toggle");
+    pickerToggle.setAttrs({ "aria-haspopup": "dialog", "aria-expanded": "false" });
     if (!pickerToggle.firstElementChild) (0, import_obsidian5.setIcon)(pickerToggle, "palette");
     pickerToggle.addEventListener("click", () => {
       if (this.picker) this.closePicker();
       else this.openPicker(controls, pickerToggle);
     });
-    const recompose = seg.createEl("button", {
-      cls: "hc-reload",
-      attr: { "aria-label": "Recompose" }
-    });
-    (0, import_obsidian5.setIcon)(recompose, "refresh-cw");
+    const recompose = button("Recompose", "refresh-cw", "hc-reload");
     recompose.addEventListener("click", () => void this.recomposeNow(recompose));
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing\u2026" });

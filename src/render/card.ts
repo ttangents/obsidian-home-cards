@@ -4,7 +4,7 @@
  * markup from the same model.
  */
 
-import { setIcon, type TFile } from "obsidian";
+import { setIcon, setTooltip, type TFile } from "obsidian";
 import type { CardItem } from "../compose/card";
 import type { HomeCardsSettings } from "../settings/schema";
 
@@ -139,18 +139,18 @@ export function renderSection(
   if (title) {
     const head = section.createDiv({ cls: "hc-section-head" });
     if (fold) {
-      const toggle = head.createEl("button", {
-        cls: "hc-fold clickable-icon",
-        attr: { "aria-label": fold.collapsed ? "Expand section" : "Collapse section" },
-      });
+      const toggle = head.createEl("button", { cls: "hc-fold clickable-icon" });
       setIcon(toggle, "chevron-down");
+      const label = (collapsed: boolean) =>
+        setTooltip(toggle, collapsed ? "Expand section" : "Collapse section", { placement: "left" });
+      label(fold.collapsed);
       section.toggleClass("is-collapsed", fold.collapsed);
       toggle.setAttr("aria-expanded", String(!fold.collapsed));
       const flip = () => {
         const collapsed = !section.hasClass("is-collapsed");
         section.toggleClass("is-collapsed", collapsed);
         toggle.setAttr("aria-expanded", String(!collapsed));
-        toggle.setAttr("aria-label", collapsed ? "Expand section" : "Collapse section");
+        label(collapsed);
         fold.onToggle(collapsed);
       };
       toggle.addEventListener("click", flip);

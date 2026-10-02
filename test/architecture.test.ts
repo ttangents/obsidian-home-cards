@@ -51,6 +51,9 @@ test("every pattern has both tiles, a variable pair and a selector", () => {
       assert.ok(existsSync(`assets/tiles/${id}-${mode}.webp`), `${id}-${mode}.webp`);
       assert.ok(css.includes(`--hc-bg-${id}: url("@tile:${id}-${mode}@")`), `${id} ${mode} variable`);
     }
+    for (const block of css.split(/\n\}/).filter((b) => b.includes(`url("@tile:`))) {
+      assert.match(block, new RegExp(`--hc-veil-${id}: \\d+%;`), `${id} veil in every mode`);
+    }
     assert.ok(css.includes(`.home-cards[data-pattern="${id}"]`), `${id} selector`);
   }
 });

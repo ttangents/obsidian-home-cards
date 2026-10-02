@@ -56,7 +56,7 @@ export type Surface = (typeof SURFACES)[number]["id"];
  * 800px wide (drawn at 400 CSS px) and any height.
  *
  * Adding a pattern: drop `<id>-light.webp` and `<id>-dark.webp` into
- * assets/tiles/, add the two variable lines and one selector in
+ * assets/tiles/, add its tile and veil variables and one selector in
  * styles/10-backgrounds.css, and add the entry here. The test suite
  * refuses a registry entry whose tiles or selector are missing.
  */
@@ -66,6 +66,13 @@ export const BACKGROUNDS = [
   { id: "leaves", label: "Leaves" },
   { id: "stitches", label: "Stitches" },
   { id: "suns", label: "Suns" },
+  { id: "grid", label: "Grid" },
+  { id: "rain", label: "Rain" },
+  { id: "squares", label: "Squares" },
+  { id: "polka", label: "Polka" },
+  { id: "basket", label: "Basket" },
+  { id: "pebbles", label: "Pebbles" },
+  { id: "confetti", label: "Confetti" },
 ] as const satisfies readonly Choice[];
 export type Background = (typeof BACKGROUNDS)[number]["id"];
 

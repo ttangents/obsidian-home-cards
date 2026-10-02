@@ -77,7 +77,7 @@ test("Les's live data.json survives intact", () => {
   assert.equal(s.greetingName, "Leslie");
   assert.equal(s.cardMinWidth, 260);
   assert.equal(s.cardSurface, "frosted");
-  assert.equal(s.background, "regal");
+  assert.equal(s.background, "diamonds");
   assert.equal(s.showGlyph, false);
   assert.equal(s.dedupe, false);
   assert.equal(s.openOnStartup, true);
@@ -98,4 +98,10 @@ test("new settings default sensibly and blank type keys fall back", () => {
 test("the default page needs no configuration", () => {
   const kinds = defaultSettings().sections.map((c) => c.kind);
   assert.ok(!kinds.includes("property") && !kinds.includes("tag"));
+});
+
+test("retired background patterns move to their replacements", () => {
+  for (const [old, now] of [["regal", "diamonds"], ["hearts", "diamonds"], ["interlace", "diamonds"], ["crosses", "diamonds"], ["waves", "stitches"], ["leaves", "leaves"], ["suns", "suns"]]) {
+    assert.equal(normalizeSettings({ background: old }).background, now, old);
+  }
 });

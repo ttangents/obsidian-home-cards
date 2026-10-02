@@ -52,22 +52,20 @@ export type Surface = (typeof SURFACES)[number]["id"];
 
 /**
  * Page backgrounds. Plain leaves the theme canvas alone; every other
- * entry is a pattern with a light and a dark 400px tile.
+ * entry is a pattern with a light and a dark tile, each a seamless WebP
+ * 800px wide (drawn at 400 CSS px) and any height.
  *
- * Adding a pattern: drop `<id>-light.png` and `<id>-dark.png` into
+ * Adding a pattern: drop `<id>-light.webp` and `<id>-dark.webp` into
  * assets/tiles/, add the two variable lines and one selector in
  * styles/10-backgrounds.css, and add the entry here. The test suite
  * refuses a registry entry whose tiles or selector are missing.
  */
 export const BACKGROUNDS = [
   { id: "plain", label: "Plain" },
-  { id: "hearts", label: "Hearts" },
+  { id: "diamonds", label: "Diamonds" },
   { id: "leaves", label: "Leaves" },
+  { id: "stitches", label: "Stitches" },
   { id: "suns", label: "Suns" },
-  { id: "waves", label: "Waves" },
-  { id: "interlace", label: "Interlace" },
-  { id: "regal", label: "Regal" },
-  { id: "crosses", label: "Crosses" },
 ] as const satisfies readonly Choice[];
 export type Background = (typeof BACKGROUNDS)[number]["id"];
 

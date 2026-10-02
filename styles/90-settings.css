@@ -111,7 +111,8 @@
   border-radius: var(--radius-m);
   border: var(--border-width) solid var(--background-modifier-border);
   background-color: var(--background-primary);
-  background-size: 200px 200px;
+  /* Half the page scale, so a swatch previews more of the repeat. */
+  background-size: auto, 200px auto;
   background-position: center;
 }
 .home-cards-settings .hc-swatch-item:hover .hc-swatch {

@@ -1,8 +1,8 @@
 /**
  * Assemble styles.css from styles/*.css, in filename order.
  *
- * Background tiles live as PNGs in assets/tiles/ and are referenced from
- * the partials as `url("@tile:<id>-<mode>@")`. Obsidian loads a plugin's
+ * Background tiles live as WebP or PNG files in assets/tiles/ and are
+ * referenced from the partials as `url("@tile:<id>-<mode>@")`. Obsidian loads a plugin's
  * styles.css as one file with no asset path, so each placeholder becomes
  * an inline data URL here.
  *
@@ -19,6 +19,8 @@ const root = new URL("..", import.meta.url).pathname;
 const partialsDir = join(root, "styles");
 const tilesDir = join(root, "assets", "tiles");
 const PLACEHOLDER = /@tile:([a-z0-9-]+)@/g;
+/** Tile formats, in lookup order. */
+const MIME = { webp: "image/webp", png: "image/png" };
 
 function fail(message) {
   console.error(`build-css: ${message}`);
@@ -46,11 +48,12 @@ export function assembleCss() {
     css += text;
   }
 
-  const tiles = new Set(readdirSync(tilesDir).filter((f) => f.endsWith(".png")));
+  const tiles = new Set(readdirSync(tilesDir));
   css = css.replace(PLACEHOLDER, (_, id) => {
-    const file = `${id}.png`;
-    if (!tiles.has(file)) fail(`placeholder names a missing tile: ${file}`);
-    return `data:image/png;base64,${readFileSync(join(tilesDir, file)).toString("base64")}`;
+    const type = Object.keys(MIME).find((ext) => tiles.has(`${id}.${ext}`));
+    if (!type) fail(`placeholder names a missing tile: ${id}`);
+    const data = readFileSync(join(tilesDir, `${id}.${type}`)).toString("base64");
+    return `data:${MIME[type]};base64,${data}`;
   });
   if (css.includes("@tile:")) fail("a malformed @tile placeholder survived substitution");
   return css;

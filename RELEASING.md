@@ -27,4 +27,4 @@ Before submitting, confirm that:
 - the latest release carries the three assets above, and its tag matches `manifest.json`;
 - `manifest.json` has `authorUrl` set to the author's GitHub profile;
 - the README's BRAT instructions name the real repository;
-- the author holds redistribution rights to every image in `assets/tiles/`.
+- the license terms of the image generator used for `assets/tiles/` (ChatGPT, for the 1.22 set) allow redistribution under MIT.

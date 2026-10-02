@@ -7,12 +7,13 @@
  * viewport, through the plugin's shared dek cache.
  */
 
-import { BasesView, type QueryController } from "obsidian";
+import { BasesView, type HoverParent, type QueryController } from "obsidian";
 import { buildCard, type CardContext } from "../compose/card";
 import { iconsFor } from "../compose/compose";
 import type HomeCardsPlugin from "../main";
 import { applyAppearance } from "./appearance";
-import { noteOpener, renderSection, settleDek } from "./card";
+import { cardActions } from "./actions";
+import { renderSection, settleDek } from "./card";
 import { observeDeks } from "./lazy-deks";
 
 const BASES_VIEW_ID = "home-cards";
@@ -24,6 +25,8 @@ class HomeCardsBasesView extends BasesView {
   /** Invalidates async renders that land after newer data or an unload. */
   private generation = 0;
   private disposeObserver: (() => void) | null = null;
+  /** Holds the hover preview Obsidian opens for a card. */
+  private readonly hover: HoverParent = { hoverPopover: null };
 
   constructor(
     controller: QueryController,
@@ -89,9 +92,9 @@ class HomeCardsBasesView extends BasesView {
     root.empty();
     applyAppearance(root, settings);
     root.dataset.view = "grid";
-    const open = noteOpener(app);
+    const actions = cardActions(app, this.hover, BASES_VIEW_ID);
     for (const { title, cards } of sections) {
-      renderSection(root, title, cards, settings, open);
+      renderSection(root, title, cards, settings, actions);
     }
 
     this.disposeObserver = observeDeks(root, (path, el) => {

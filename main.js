@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => HomeCardsPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/compose/values.ts
 function frontmatterValue(cache, key) {
@@ -551,7 +551,7 @@ async function runShortcut(name, input, timeoutMs = 2e4) {
 }
 
 // src/render/bases-view.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/compose/scope.ts
 function globToTest(pattern) {
@@ -699,6 +699,41 @@ function byPopularity(vault, files, most, settings) {
   return files.map((file) => ({ file, n: counts.get(file.path) ?? 0, title: title(file) })).sort((a, b) => sign * (a.n - b.n) || collator.compare(a.title, b.title)).map(({ file, n }) => ({ file, lead: `${n} ${n === 1 ? "link" : "links"}` }));
 }
 var plain = (files) => files.map((file) => ({ file }));
+var DAY_MS = 864e5;
+function forgottenNotes(files, now, months) {
+  const cutoff = new Date(now);
+  cutoff.setMonth(cutoff.getMonth() - months);
+  return files.filter((f) => f.stat.mtime < cutoff.getTime());
+}
+function seeded(seed) {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = h << 13 | h >>> 19;
+  }
+  let a = h >>> 0;
+  return () => {
+    a = a + 1831565813 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function rediscover(files, now, months, salt) {
+  const day = Math.floor((now.getTime() - now.getTimezoneOffset() * 6e4) / DAY_MS);
+  const rng = seeded(`${day}/${salt}`);
+  const pool = forgottenNotes(files, now, months);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.map((file) => ({ file, lead: untouchedFor(file, now) }));
+}
+function untouchedFor(file, now) {
+  const months = Math.floor((now.getTime() - file.stat.mtime) / (30.44 * DAY_MS));
+  if (months < 24) return `Untouched for ${months} ${months === 1 ? "month" : "months"}`;
+  return `Untouched for ${Math.floor(months / 12)} years`;
+}
 function rankSection(vault, cfg, settings) {
   const scope = compileScope(cfg);
   const cacheOf = (f) => vault.cacheOf(f);
@@ -717,6 +752,8 @@ function rankSection(vault, cfg, settings) {
     case "most-linked":
     case "least-linked":
       return byPopularity(vault, pool, cfg.kind === "most-linked", settings);
+    case "rediscover":
+      return rediscover(pool, vault.now, settings.rediscoverMonths, cfg.id);
     case "tag": {
       const want = cfg.tag.replace(/^#/, "").toLowerCase();
       if (!want) return [];
@@ -743,8 +780,9 @@ function rankSection(vault, cfg, settings) {
 
 // src/compose/vault.ts
 var VaultSnapshot = class {
-  constructor(app) {
+  constructor(app, now = /* @__PURE__ */ new Date()) {
     this.app = app;
+    this.now = now;
     this.inbound = null;
     this.files = app.vault.getMarkdownFiles();
   }
@@ -756,6 +794,13 @@ var VaultSnapshot = class {
     return this.inbound ??= inboundCounts(this.app);
   }
 };
+function untitledPath(folder, exists) {
+  const prefix = folder ? `${folder}/` : "";
+  for (let n = 0; ; n++) {
+    const path = `${prefix}Untitled${n ? ` ${n}` : ""}.md`;
+    if (!exists(path)) return path;
+  }
+}
 function discoverProperties(app) {
   const keys = /* @__PURE__ */ new Set();
   for (const file of app.vault.getMarkdownFiles()) {
@@ -795,38 +840,58 @@ async function loadTypifyIcons(app, typeKey) {
 }
 
 // src/compose/compose.ts
+var MORE_PAGES = 3;
 async function iconsFor(app, settings) {
   return settings.showGlyph && settings.typifyIcons ? loadTypifyIcons(app, settings.typeProperty) : /* @__PURE__ */ new Map();
 }
-async function composeSections(app, settings, deks) {
+async function composeSections(app, settings, deks, now = /* @__PURE__ */ new Date()) {
   const icons = await iconsFor(app, settings);
-  const vault = new VaultSnapshot(app);
+  const vault = new VaultSnapshot(app, now);
   const taken = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const cfg of settings.sections) {
-    if (!cfg.enabled) continue;
+  const sections = settings.sections.filter((cfg) => cfg.enabled);
+  const ranked = sections.map((cfg) => {
+    const all = rankSection(vault, cfg, settings);
     const picked = [];
     let claimed = 0;
-    for (const r of rankSection(vault, cfg, settings)) {
+    let next = 0;
+    for (; next < all.length && picked.length < cfg.count; next++) {
+      const r = all[next];
       if (settings.dedupe && taken.has(r.file.path)) {
         claimed++;
         continue;
       }
       picked.push(r);
-      if (picked.length >= cfg.count) break;
     }
     for (const r of picked) taken.add(r.file.path);
-    const ctx = {
-      app,
-      settings,
-      metaKey: cfg.sortKey || cfg.propertyKey || "date",
-      icons,
-      deks
-    };
-    const cards = await Promise.all(picked.map((r) => buildCard(ctx, r.file, r.lead)));
-    out.push({ config: cfg, cards, claimed });
-  }
-  return out;
+    return { cfg, all, next, picked, claimed };
+  });
+  const extras = ranked.map(({ cfg, all, next }) => {
+    const more = [];
+    for (let i = next; i < all.length && more.length < cfg.count * MORE_PAGES; i++) {
+      const r = all[i];
+      if (settings.dedupe && taken.has(r.file.path)) continue;
+      more.push(r);
+      if (settings.dedupe) taken.add(r.file.path);
+    }
+    return more;
+  });
+  return Promise.all(
+    ranked.map(async ({ cfg, picked, claimed }, i) => {
+      const ctx = {
+        app,
+        settings,
+        metaKey: cfg.sortKey || cfg.propertyKey || "date",
+        icons,
+        deks
+      };
+      const lazy = { ...ctx, deks: void 0 };
+      const [cards, more] = await Promise.all([
+        Promise.all(picked.map((r) => buildCard(ctx, r.file, r.lead))),
+        Promise.all(extras[i].map((r) => buildCard(lazy, r.file, r.lead)))
+      ]);
+      return { config: cfg, cards, more, claimed };
+    })
+  );
 }
 
 // src/render/appearance.ts
@@ -842,16 +907,65 @@ function applyAppearance(root, s) {
   });
 }
 
-// src/render/card.ts
+// src/render/actions.ts
 var import_obsidian2 = require("obsidian");
-var NO_DEK = "No opening sentence.";
-function noteOpener(app) {
-  return (file, newLeaf) => void app.workspace.getLeaf(newLeaf ? "tab" : false).openFile(file);
+function leafFor(app, newLeaf) {
+  return app.workspace.getLeaf(newLeaf ? "tab" : false);
 }
+function cardActions(app, hoverParent, source) {
+  return {
+    open: (file, newLeaf) => void leafFor(app, newLeaf).openFile(file),
+    menu: (file, evt) => showFileMenu(app, file, evt, source),
+    hover: (file, evt, el) => app.workspace.trigger("hover-link", {
+      event: evt,
+      source,
+      hoverParent,
+      targetEl: el,
+      linktext: file.path,
+      sourcePath: ""
+    })
+  };
+}
+function showFileMenu(app, file, evt, source) {
+  const menu = new import_obsidian2.Menu();
+  const open = (title, icon, where) => menu.addItem(
+    (item) => item.setSection("open").setTitle(title).setIcon(icon).onClick(() => void app.workspace.getLeaf(where).openFile(file))
+  );
+  open("Open in new tab", "file-plus", "tab");
+  open("Open to the right", "separator-vertical", "split");
+  open("Open in new window", "picture-in-picture-2", "window");
+  app.workspace.trigger("file-menu", menu, file, source);
+  if (evt.clientX === 0 && evt.clientY === 0 && evt.target instanceof HTMLElement) {
+    const rect = evt.target.getBoundingClientRect();
+    menu.showAtPosition({ x: rect.left + 16, y: rect.top + 16 });
+  } else {
+    menu.showAtMouseEvent(evt);
+  }
+}
+async function createNote(app, newLeaf) {
+  const folder = app.fileManager.getNewFileParent("");
+  const path = untitledPath(folder.isRoot() ? "" : folder.path, (p) => !!app.vault.getAbstractFileByPath(p));
+  const file = await app.vault.create(path, "");
+  await leafFor(app, newLeaf).openFile(file, { active: true, eState: { rename: "all" } });
+}
+function rediscoverNote(app, settings, newLeaf) {
+  const months = settings.rediscoverMonths;
+  const pool = forgottenNotes(app.vault.getMarkdownFiles(), /* @__PURE__ */ new Date(), months);
+  if (!pool.length) {
+    new import_obsidian2.Notice(`Every note has changed in the last ${months} ${months === 1 ? "month" : "months"}.`);
+    return;
+  }
+  const file = pool[Math.floor(Math.random() * pool.length)];
+  void leafFor(app, newLeaf).openFile(file);
+}
+
+// src/render/card.ts
+var import_obsidian3 = require("obsidian");
+var NO_DEK = "No opening sentence.";
 function renderGlyph(head, card) {
   const glyph = head.createSpan({ cls: "hc-glyph" });
   if (card.icon) {
-    (0, import_obsidian2.setIcon)(glyph, card.icon);
+    (0, import_obsidian3.setIcon)(glyph, card.icon);
     if (glyph.firstElementChild) {
       glyph.addClass("has-icon");
       return;
@@ -883,7 +997,7 @@ function settleDek(el, dek) {
   el.toggleClass("is-empty", !dek);
   el.setText(dek || NO_DEK);
 }
-function renderCard(parent, card, opts, open) {
+function renderCard(parent, card, opts, actions) {
   const el = parent.createEl("article", { cls: "hc-card" });
   el.dataset.search = card.search;
   el.tabIndex = 0;
@@ -894,28 +1008,64 @@ function renderCard(parent, card, opts, open) {
   renderPills(text, card, opts);
   if (opts.showDeks) renderDek(el, card);
   if (card.meta) el.createEl("footer", { cls: "hc-foot", text: card.meta });
-  const go = (evt) => open(card.file, evt.metaKey || evt.ctrlKey);
+  const go = (evt) => actions.open(card.file, evt.metaKey || evt.ctrlKey);
   el.addEventListener("click", go);
   el.addEventListener("keydown", (evt) => {
     if (evt.key !== "Enter" && evt.key !== " ") return;
     evt.preventDefault();
     go(evt);
   });
+  const { menu, hover } = actions;
+  if (menu) {
+    el.addEventListener("contextmenu", (evt) => {
+      evt.preventDefault();
+      menu(card.file, evt);
+    });
+  }
+  if (hover) el.addEventListener("mouseover", (evt) => hover(card.file, evt, el));
   return el;
 }
-function renderSection(parent, title, cards, opts, open, emptyText = "") {
+function renderSection(parent, title, cards, opts, actions, options = {}) {
+  const { emptyText = "", more = [], fold, onSeeMore } = options;
   const section = parent.createDiv({ cls: "hc-section" });
+  section.dataset.hcVisible = String(cards.length);
   if (title) {
     const head = section.createDiv({ cls: "hc-section-head" });
-    head.createEl("h2", { text: title });
+    if (fold) {
+      const toggle = head.createEl("button", {
+        cls: "hc-fold clickable-icon",
+        attr: { "aria-label": fold.collapsed ? "Expand section" : "Collapse section" }
+      });
+      (0, import_obsidian3.setIcon)(toggle, "chevron-down");
+      section.toggleClass("is-collapsed", fold.collapsed);
+      toggle.setAttr("aria-expanded", String(!fold.collapsed));
+      const flip = () => {
+        const collapsed = !section.hasClass("is-collapsed");
+        section.toggleClass("is-collapsed", collapsed);
+        toggle.setAttr("aria-expanded", String(!collapsed));
+        toggle.setAttr("aria-label", collapsed ? "Expand section" : "Collapse section");
+        fold.onToggle(collapsed);
+      };
+      toggle.addEventListener("click", flip);
+      head.createEl("h2", { text: title }).addEventListener("click", flip);
+      head.addClass("is-foldable");
+    } else {
+      head.createEl("h2", { text: title });
+    }
     head.createSpan({ cls: "hc-count", text: String(cards.length) });
   }
-  if (!cards.length && emptyText) {
+  if (!cards.length && !more.length && emptyText) {
     section.createDiv({ cls: "hc-empty", text: emptyText });
     return section;
   }
   const grid = section.createDiv({ cls: "hc-grid" });
-  for (const card of cards) renderCard(grid, card, opts, open);
+  [...cards, ...more].forEach((card, i) => {
+    renderCard(grid, card, opts, actions).dataset.hcIndex = String(i);
+  });
+  if (more.length && onSeeMore) {
+    const row = section.createDiv({ cls: "hc-more-row" });
+    row.createEl("button", { cls: "hc-more", text: "See more" }).addEventListener("click", onSeeMore);
+  }
   return section;
 }
 
@@ -942,7 +1092,7 @@ function observeDeks(root, fill) {
 
 // src/render/bases-view.ts
 var BASES_VIEW_ID = "home-cards";
-var HomeCardsBasesView = class extends import_obsidian3.BasesView {
+var HomeCardsBasesView = class extends import_obsidian4.BasesView {
   constructor(controller, containerEl, plugin) {
     super(controller);
     this.plugin = plugin;
@@ -950,6 +1100,8 @@ var HomeCardsBasesView = class extends import_obsidian3.BasesView {
     /** Invalidates async renders that land after newer data or an unload. */
     this.generation = 0;
     this.disposeObserver = null;
+    /** Holds the hover preview Obsidian opens for a card. */
+    this.hover = { hoverPopover: null };
     this.root = containerEl.createDiv({ cls: "hc-in-bases" });
     this.registerEvent(plugin.onRefresh(() => this.onDataUpdated()));
   }
@@ -997,9 +1149,9 @@ var HomeCardsBasesView = class extends import_obsidian3.BasesView {
     root.empty();
     applyAppearance(root, settings);
     root.dataset.view = "grid";
-    const open = noteOpener(app);
+    const actions = cardActions(app, this.hover, BASES_VIEW_ID);
     for (const { title, cards } of sections) {
-      renderSection(root, title, cards, settings, open);
+      renderSection(root, title, cards, settings, actions);
     }
     this.disposeObserver = observeDeks(root, (path, el) => {
       const file = app.vault.getFileByPath(path);
@@ -1023,7 +1175,7 @@ function registerBasesView(plugin) {
 }
 
 // src/render/home-view.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/settings/schema.ts
 var SECTION_KINDS = [
@@ -1033,7 +1185,8 @@ var SECTION_KINDS = [
   { id: "property", label: "By property" },
   { id: "tag", label: "By tag" },
   { id: "most-linked", label: "Most popular" },
-  { id: "least-linked", label: "Least popular" }
+  { id: "least-linked", label: "Least popular" },
+  { id: "rediscover", label: "Rediscover" }
 ];
 var VIEW_MODES = [
   { id: "grid", label: "Grid", icon: "layout-grid" },
@@ -1094,6 +1247,7 @@ function defaultSettings() {
   return {
     sections: defaultSections(),
     dedupe: true,
+    rediscoverMonths: 6,
     greetingEnabled: true,
     greetingOccasions: true,
     greetingName: "",
@@ -1125,7 +1279,8 @@ var LIMITS = {
   count: { min: 1, max: 24 },
   cardMinWidth: { min: 180, max: 420 },
   maxTags: { min: 1, max: 6 },
-  dekLines: { min: 1, max: 8 }
+  dekLines: { min: 1, max: 8 },
+  rediscoverMonths: { min: 1, max: 36 }
 };
 function newSectionId() {
   return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -1183,7 +1338,8 @@ function renderBackgroundPicker(parent, plugin, onPick) {
 var VIEW_TYPE_HOME = "home-cards-view";
 var GREETING_SWAP_MS = 8e3;
 var RECOMPOSE_SPIN_MS = 600;
-var HomeView = class extends import_obsidian4.ItemView {
+var COLLAPSED_KEY = "home-cards-collapsed";
+var HomeView = class extends import_obsidian5.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -1191,6 +1347,10 @@ var HomeView = class extends import_obsidian4.ItemView {
     this.greeting = "";
     this.query = "";
     this.picker = null;
+    /** Cards revealed by "See more", by section id; survives recomposes. */
+    this.revealed = /* @__PURE__ */ new Map();
+    this.disposeDeks = null;
+    this.actions = null;
     /** Invalidates composes that finish after a newer one or a close. */
     this.generation = 0;
     this.mode = plugin.settings.defaultView;
@@ -1234,6 +1394,8 @@ var HomeView = class extends import_obsidian4.ItemView {
   }
   async onClose() {
     this.closePicker();
+    this.disposeDeks?.();
+    this.disposeDeks = null;
     this.generation++;
     this.shell = null;
     this.contentEl.empty();
@@ -1268,17 +1430,29 @@ var HomeView = class extends import_obsidian4.ItemView {
     const toggles = /* @__PURE__ */ new Map();
     for (const mode of VIEW_MODES) {
       const btn = seg.createEl("button", { attr: { "aria-label": `${mode.label} view` } });
-      (0, import_obsidian4.setIcon)(btn, mode.icon);
+      (0, import_obsidian5.setIcon)(btn, mode.icon);
       btn.addEventListener("click", () => this.setMode(mode.id));
       toggles.set(mode.id, btn);
     }
     seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
+    const action = (cls, label, icon, run) => {
+      const btn = seg.createEl("button", { cls, attr: { "aria-label": label } });
+      (0, import_obsidian5.setIcon)(btn, icon);
+      btn.addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
+    };
+    action("hc-new-note", "New note", "square-pen", (newLeaf) => void createNote(this.app, newLeaf));
+    action(
+      "hc-rediscover",
+      "Rediscover a note",
+      "shuffle",
+      (newLeaf) => rediscoverNote(this.app, this.plugin.settings, newLeaf)
+    );
     const pickerToggle = seg.createEl("button", {
       cls: "hc-picker-toggle",
       attr: { "aria-label": "Background", "aria-haspopup": "dialog", "aria-expanded": "false" }
     });
-    (0, import_obsidian4.setIcon)(pickerToggle, "swatch-book");
-    if (!pickerToggle.firstElementChild) (0, import_obsidian4.setIcon)(pickerToggle, "palette");
+    (0, import_obsidian5.setIcon)(pickerToggle, "swatch-book");
+    if (!pickerToggle.firstElementChild) (0, import_obsidian5.setIcon)(pickerToggle, "palette");
     pickerToggle.addEventListener("click", () => {
       if (this.picker) this.closePicker();
       else this.openPicker(controls, pickerToggle);
@@ -1287,7 +1461,7 @@ var HomeView = class extends import_obsidian4.ItemView {
       cls: "hc-reload",
       attr: { "aria-label": "Recompose" }
     });
-    (0, import_obsidian4.setIcon)(recompose, "refresh-cw");
+    (0, import_obsidian5.setIcon)(recompose, "refresh-cw");
     recompose.addEventListener("click", () => void this.recomposeNow(recompose));
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing\u2026" });
@@ -1400,28 +1574,72 @@ var HomeView = class extends import_obsidian4.ItemView {
     } else if (!app.vault.getMarkdownFiles().length) {
       next.createDiv({ cls: "hc-empty", text: "Cards appear here as you write notes." });
     } else {
-      const open = noteOpener(app);
-      for (const { config, cards, claimed } of sections) {
-        const empty = claimed ? "Every matching note already appears in a section above." : "This section has no matching notes.";
-        renderSection(next, sectionTitle(config), cards, settings, open, empty);
+      this.actions ??= cardActions(app, this.leaf, VIEW_TYPE_HOME);
+      const collapsed = new Set(this.collapsedIds());
+      for (const { config, cards, more, claimed } of sections) {
+        const emptyText = claimed ? "Every matching note already appears in a section above." : "This section has no matching notes.";
+        const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
+          emptyText,
+          more,
+          fold: {
+            collapsed: collapsed.has(config.id),
+            onToggle: (now) => this.rememberCollapsed(config.id, now)
+          },
+          onSeeMore: () => {
+            const shown = this.revealed.get(config.id) ?? cards.length;
+            this.revealed.set(config.id, shown + config.count);
+            this.applyFilter();
+          }
+        });
+        el.dataset.hcSection = config.id;
+        el.dataset.hcBase = String(cards.length);
       }
     }
+    this.disposeDeks?.();
     shell.body.replaceChildren(...Array.from(next.childNodes));
     this.applyFilter();
+    this.disposeDeks = observeDeks(shell.body, (path, el) => {
+      const file = app.vault.getFileByPath(path);
+      if (!file) return;
+      void plugin.dekCache.get(app, file, plugin.settings).then((dek) => settleDek(el, dek));
+    });
   }
+  // ------------------------------------------------------- section state
+  /** Folded sections, by id. Kept per device, in Obsidian's local storage. */
+  collapsedIds() {
+    const stored = this.app.loadLocalStorage(COLLAPSED_KEY);
+    return Array.isArray(stored) ? stored.filter((v) => typeof v === "string") : [];
+  }
+  rememberCollapsed(id, collapsed) {
+    const ids = new Set(this.collapsedIds());
+    if (collapsed) ids.add(id);
+    else ids.delete(id);
+    this.app.saveLocalStorage(COLLAPSED_KEY, [...ids]);
+  }
+  /**
+   * Decide which cards show. Unfiltered, a section shows its first cards
+   * plus any "See more" has revealed. Filtering searches every card,
+   * held back or not, and opens folded sections while the query lasts.
+   */
   applyFilter() {
     const body = this.shell?.body;
     if (!body) return;
     const q = this.query.trim().toLowerCase();
+    body.toggleClass("is-filtering", q !== "");
     for (const section of body.findAll(".hc-section")) {
+      const id = section.dataset.hcSection ?? "";
+      const base = Number(section.dataset.hcBase ?? "0");
+      const limit = this.revealed.get(id) ?? base;
       const cards = section.findAll(".hc-card");
       let shown = 0;
       for (const card of cards) {
-        const hit = !q || (card.dataset.search ?? "").includes(q);
-        card.toggleClass("is-hidden", !hit);
-        if (hit) shown++;
+        const index = Number(card.dataset.hcIndex ?? "0");
+        const visible = q ? (card.dataset.search ?? "").includes(q) : index < limit;
+        card.toggleClass("is-hidden", !visible);
+        if (visible) shown++;
       }
       section.find(".hc-count")?.setText(String(shown));
+      section.find(".hc-more-row")?.toggleClass("is-hidden", q !== "" || limit >= cards.length);
       section.toggleClass("is-hidden", q !== "" && shown === 0);
     }
   }
@@ -1513,6 +1731,7 @@ function normalizeSettings(stored) {
   return {
     sections: normalizeSections(r.sections),
     dedupe: bool(r.dedupe, d.dedupe),
+    rediscoverMonths: int(r.rediscoverMonths, d.rediscoverMonths, LIMITS.rediscoverMonths),
     greetingEnabled: bool(r.greetingEnabled, d.greetingEnabled),
     greetingOccasions: bool(r.greetingOccasions, d.greetingOccasions),
     greetingName: str(r.greetingName, d.greetingName),
@@ -1543,17 +1762,17 @@ function normalizeSettings(stored) {
 }
 
 // src/settings-tab/tab.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/settings-tab/sections.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/settings-tab/widgets.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 function settingGroup(parent, heading, cls) {
   const group = parent.createDiv({ cls: "setting-group" });
   if (cls) group.addClass(cls);
-  if (heading) new import_obsidian5.Setting(group).setName(heading).setHeading();
+  if (heading) new import_obsidian6.Setting(group).setName(heading).setHeading();
   return group.createDiv({ cls: "setting-items" });
 }
 function hint(parent, text) {
@@ -1599,9 +1818,15 @@ var SectionsPane = class {
       this.expanded.add(cfg.id);
       void this.restructure();
     });
-    new import_obsidian6.Setting(settingGroup(root)).setName("One section per note").setDesc("Stops a note filling a slot in more than one section.").addToggle(
+    new import_obsidian7.Setting(settingGroup(root)).setName("One section per note").setDesc("Stops a note filling a slot in more than one section.").addToggle(
       (t) => t.setValue(s.dedupe).onChange((v) => {
         s.dedupe = v;
+        this.plugin.touch();
+      })
+    );
+    new import_obsidian7.Setting(settingGroup(root)).setName("Rediscover notes untouched for").setDesc("In months. Rediscover sections and the shuffle button on the home page draw from these notes.").addSlider(
+      (sl) => sl.setLimits(LIMITS.rediscoverMonths.min, LIMITS.rediscoverMonths.max, 1).setValue(s.rediscoverMonths).setDynamicTooltip().onChange((v) => {
+        s.rediscoverMonths = v;
         this.plugin.touch();
       })
     );
@@ -1632,7 +1857,7 @@ var SectionsPane = class {
       else this.expanded.add(cfg.id);
       this.redraw();
     };
-    new import_obsidian6.ExtraButtonComponent(head).setIcon(open ? "chevron-down" : "chevron-right").setTooltip(open ? "Collapse" : "Expand").onClick(toggleOpen).extraSettingsEl.addClass("hc-twisty");
+    new import_obsidian7.ExtraButtonComponent(head).setIcon(open ? "chevron-down" : "chevron-right").setTooltip(open ? "Collapse" : "Expand").onClick(toggleOpen).extraSettingsEl.addClass("hc-twisty");
     const info = head.createDiv({ cls: "setting-item-info hc-sec-label" });
     info.addEventListener("click", toggleOpen);
     const name = info.createDiv({ cls: "setting-item-name" });
@@ -1646,13 +1871,13 @@ var SectionsPane = class {
     };
     paintSummary();
     const controls = head.createDiv({ cls: "setting-item-control" });
-    new import_obsidian6.ToggleComponent(controls).setValue(cfg.enabled).setTooltip("Show this section").onChange((on) => {
+    new import_obsidian7.ToggleComponent(controls).setValue(cfg.enabled).setTooltip("Show this section").onChange((on) => {
       cfg.enabled = on;
       head.toggleClass("is-off", !on);
       this.plugin.touch();
     });
     const index = position();
-    const button = (icon, label, disabled, action) => new import_obsidian6.ExtraButtonComponent(controls).setIcon(icon).setTooltip(label).setDisabled(disabled).onClick(action);
+    const button = (icon, label, disabled, action) => new import_obsidian7.ExtraButtonComponent(controls).setIcon(icon).setTooltip(label).setDisabled(disabled).onClick(action);
     button("arrow-up", "Move up", index === 0, () => move(-1));
     button("arrow-down", "Move down", index === sections.length - 1, () => move(1));
     button("trash-2", "Remove section", false, () => {
@@ -1670,7 +1895,7 @@ var SectionsPane = class {
       this.plugin.touch();
     };
     const row = (name, desc) => {
-      const setting = new import_obsidian6.Setting(items).setName(name).setClass("hc-subrow");
+      const setting = new import_obsidian7.Setting(items).setName(name).setClass("hc-subrow");
       if (desc) setting.setDesc(desc);
       return setting;
     };
@@ -1748,7 +1973,7 @@ var PANES = [
   { id: "cards", label: "Cards" },
   { id: "layout", label: "Layout" }
 ];
-var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
+var HomeCardsSettingTab = class extends import_obsidian8.PluginSettingTab {
   constructor(plugin) {
     super(plugin.app, plugin);
     this.plugin = plugin;
@@ -1801,7 +2026,7 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
     const s = this.plugin.settings;
     hint(root, "What each card carries, and where its text comes from.");
     const content = settingGroup(root);
-    new import_obsidian7.Setting(content).setName("Glyph").setDesc("A mark in the corner of each card.").addDropdown(
+    new import_obsidian8.Setting(content).setName("Glyph").setDesc("A mark in the corner of each card.").addDropdown(
       (d) => d.addOption("off", "None").addOption("letter", "Initial letter").addOption("typify", "Icon from Typify").setValue(!s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter").onChange((v) => {
         s.showGlyph = v !== "off";
         s.typifyIcons = v === "typify";
@@ -1814,7 +2039,7 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
         "Requires the Typify plugin. Home Cards reads Typify's icons and matches them on each note's type. Types without a Typify icon keep the initial letter."
       );
     }
-    new import_obsidian7.Setting(content).setName("Type label").setDesc("The value of this property, shown as the first pill on each card.").addText(
+    new import_obsidian8.Setting(content).setName("Type label").setDesc("The value of this property, shown as the first pill on each card.").addText(
       (t) => t.setValue(s.typeProperty).setDisabled(!s.showRubric).onChange((v) => {
         s.typeProperty = v.trim() || "type";
         this.plugin.touch();
@@ -1825,7 +2050,7 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
         void this.restructure();
       })
     );
-    new import_obsidian7.Setting(content).setName("Tags").setDesc("Frontmatter tags first, then inline tags.").addToggle(
+    new import_obsidian8.Setting(content).setName("Tags").setDesc("Frontmatter tags first, then inline tags.").addToggle(
       (t) => t.setValue(s.showTags).onChange((v) => {
         s.showTags = v;
         void this.restructure();
@@ -1836,7 +2061,7 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
         this.plugin.touch();
       })
     );
-    new import_obsidian7.Setting(content).setName("Opening sentence").setDesc("The first prose sentence, and how many lines it may run to.").addToggle(
+    new import_obsidian8.Setting(content).setName("Opening sentence").setDesc("The first prose sentence, and how many lines it may run to.").addToggle(
       (t) => t.setValue(s.showDeks).onChange((v) => {
         s.showDeks = v;
         void this.restructure();
@@ -1847,26 +2072,26 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
         this.plugin.touch();
       })
     );
-    new import_obsidian7.Setting(content).setName("File size in the footer").setDesc("The footer always carries the value the section sorts on.").addToggle(
+    new import_obsidian8.Setting(content).setName("File size in the footer").setDesc("The footer always carries the value the section sorts on.").addToggle(
       (t) => t.setValue(s.showFileSize).onChange((v) => {
         s.showFileSize = v;
         this.plugin.touch();
       })
     );
     const text = settingGroup(root, "Text extraction");
-    new import_obsidian7.Setting(text).setName("Summary property").setDesc("When a note defines it, it wins over the first sentence.").addText(
+    new import_obsidian8.Setting(text).setName("Summary property").setDesc("When a note defines it, it wins over the first sentence.").addText(
       (t) => t.setValue(s.summaryProperty).onChange((v) => {
         s.summaryProperty = v.trim();
         this.plugin.touch();
       })
     );
-    new import_obsidian7.Setting(text).setName("Skip openings beginning with").setDesc("Comma separated. Self-referential first sentences get passed over.").addTextArea(
+    new import_obsidian8.Setting(text).setName("Skip openings beginning with").setDesc("Comma separated. Self-referential first sentences get passed over.").addTextArea(
       (t) => t.setValue(s.boilerplateOpeners).onChange((v) => {
         s.boilerplateOpeners = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian7.Setting(text).setName("Strip from headlines").setDesc("Comma separated title prefixes. The toggle also strips trailing date stamps.").addText(
+    new import_obsidian8.Setting(text).setName("Strip from headlines").setDesc("Comma separated title prefixes. The toggle also strips trailing date stamps.").addText(
       (t) => t.setValue(s.titlePrefixes).onChange((v) => {
         s.titlePrefixes = v;
         this.plugin.touch();
@@ -1886,20 +2111,20 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
       "Color, type and spacing come from your active theme. These settings choose the surface cards sit on and how the grid reflows."
     );
     const page = settingGroup(root);
-    new import_obsidian7.Setting(page).setName("Default view").addDropdown(
+    new import_obsidian8.Setting(page).setName("Default view").addDropdown(
       (d) => addChoices(d, VIEW_MODES).setValue(s.defaultView).onChange((v) => {
         if (!isChoice(VIEW_MODES, v)) return;
         s.defaultView = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian7.Setting(page).setName("Minimum card width").setDesc("Cards reflow to fill the pane; this sets how narrow they may get.").addSlider(
+    new import_obsidian8.Setting(page).setName("Minimum card width").setDesc("Cards reflow to fill the pane; this sets how narrow they may get.").addSlider(
       (sl) => sl.setLimits(LIMITS.cardMinWidth.min, LIMITS.cardMinWidth.max, 2).setValue(s.cardMinWidth).setDynamicTooltip().onChange((v) => {
         s.cardMinWidth = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian7.Setting(page).setName("Card surface").setDesc(
+    new import_obsidian8.Setting(page).setName("Card surface").setDesc(
       "Flat sits on the theme surface; Elevated lifts on a shadow; Frosted blurs whatever lies behind the card; Outline keeps only the border."
     ).addDropdown(
       (d) => addChoices(d, SURFACES).setValue(s.cardSurface).onChange((v) => {
@@ -1908,17 +2133,17 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
         this.plugin.touch();
       })
     );
-    new import_obsidian7.Setting(page).setName("Type labels in accent color").setDesc("Off uses the theme's muted text color.").addToggle(
+    new import_obsidian8.Setting(page).setName("Type labels in accent color").setDesc("Off uses the theme's muted text color.").addToggle(
       (t) => t.setValue(s.accentRubrics).onChange((v) => {
         s.accentRubrics = v;
         this.plugin.touch();
       })
     );
     const background = settingGroup(root, "Background");
-    new import_obsidian7.Setting(background).setName("Pattern").setDesc("Plain follows the theme. Each pattern switches between a light and a dark tile with the theme's mode.");
+    new import_obsidian8.Setting(background).setName("Pattern").setDesc("Plain follows the theme. Each pattern switches between a light and a dark tile with the theme's mode.");
     renderBackgroundPicker(background, this.plugin);
     const header = settingGroup(root, "Header");
-    new import_obsidian7.Setting(header).setName("Greeting").setDesc("Follows the time of day and the calendar, with a word from another language now and then. Add a name to be greeted by it.").addText(
+    new import_obsidian8.Setting(header).setName("Greeting").setDesc("Follows the time of day and the calendar, with a word from another language now and then. Add a name to be greeted by it.").addText(
       (t) => t.setPlaceholder("Your name").setValue(s.greetingName).setDisabled(!s.greetingEnabled).onChange((v) => {
         s.greetingName = v;
         this.plugin.touch();
@@ -1929,20 +2154,20 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
         void this.restructure();
       })
     );
-    new import_obsidian7.Setting(header).setName("Holiday greetings").setDesc("On fixed-date holidays such as New Year's Day and Christmas, the greeting marks the day. Applies the next time you open the home page.").addToggle(
+    new import_obsidian8.Setting(header).setName("Holiday greetings").setDesc("On fixed-date holidays such as New Year's Day and Christmas, the greeting marks the day. Applies the next time you open the home page.").addToggle(
       (t) => t.setValue(s.greetingOccasions).setDisabled(!s.greetingEnabled).onChange((v) => {
         s.greetingOccasions = v;
         this.plugin.touch();
       })
     );
     this.appleIntelligence(header);
-    new import_obsidian7.Setting(header).setName("Show note count").addToggle(
+    new import_obsidian8.Setting(header).setName("Show note count").addToggle(
       (t) => t.setValue(s.showNoteCount).onChange((v) => {
         s.showNoteCount = v;
         this.plugin.touch();
       })
     );
-    new import_obsidian7.Setting(header).setName("Open on startup").addToggle(
+    new import_obsidian8.Setting(header).setName("Open on startup").addToggle(
       (t) => t.setValue(s.openOnStartup).onChange((v) => {
         s.openOnStartup = v;
         this.plugin.touch();
@@ -1958,17 +2183,17 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
     const s = this.plugin.settings;
     const name = "Greetings from Apple Intelligence";
     if (!shortcutsSupported()) {
-      new import_obsidian7.Setting(group).setName(name).setDesc("Available in the Obsidian desktop app on a Mac with Apple Intelligence. This device uses the built-in greetings.");
+      new import_obsidian8.Setting(group).setName(name).setDesc("Available in the Obsidian desktop app on a Mac with Apple Intelligence. This device uses the built-in greetings.");
       return;
     }
-    new import_obsidian7.Setting(group).setName(name).setDesc("Writes a fresh greeting on this Mac with the on-device model. The prompt holds only the date and time, and nothing leaves your Mac. The built-in greetings fill in whenever the model is unavailable.").addToggle(
+    new import_obsidian8.Setting(group).setName(name).setDesc("Writes a fresh greeting on this Mac with the on-device model. The prompt holds only the date and time, and nothing leaves your Mac. The built-in greetings fill in whenever the model is unavailable.").addToggle(
       (t) => t.setValue(s.greetingAI).setDisabled(!s.greetingEnabled).onChange((v) => {
         s.greetingAI = v;
         void this.restructure();
       })
     );
     if (!s.greetingAI || !s.greetingEnabled) return;
-    new import_obsidian7.Setting(group).setName("Shortcut").setDesc("The plugin runs this shortcut to reach the model. Test it once after you build it.").addText(
+    new import_obsidian8.Setting(group).setName("Shortcut").setDesc("The plugin runs this shortcut to reach the model. Test it once after you build it.").addText(
       (t) => t.setPlaceholder("Home Cards Greeting").setValue(s.greetingShortcut).onChange((v) => {
         s.greetingShortcut = v.trim() || "Home Cards Greeting";
         this.plugin.touch();
@@ -1978,9 +2203,9 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
         b.setDisabled(true).setButtonText("Running\u2026");
         try {
           const greeting = await this.plugin.greetings.test();
-          new import_obsidian7.Notice(`Apple Intelligence says: ${greeting.replace("{name}", s.greetingName.trim() || "friend")}`);
+          new import_obsidian8.Notice(`Apple Intelligence says: ${greeting.replace("{name}", s.greetingName.trim() || "friend")}`);
         } catch (err) {
-          new import_obsidian7.Notice(`The shortcut did not work. ${err instanceof Error ? err.message : String(err)}`, 1e4);
+          new import_obsidian8.Notice(`The shortcut did not work. ${err instanceof Error ? err.message : String(err)}`, 1e4);
         } finally {
           b.setDisabled(false).setButtonText("Test");
         }
@@ -2002,7 +2227,7 @@ var HomeCardsSettingTab = class extends import_obsidian7.PluginSettingTab {
 var REFRESH = "refresh";
 var SAVE_DELAY_MS = 400;
 var RESOLVE_DELAY_MS = 1500;
-var HomeCardsPlugin = class extends import_obsidian8.Plugin {
+var HomeCardsPlugin = class extends import_obsidian9.Plugin {
   constructor() {
     super(...arguments);
     this.settings = defaultSettings();
@@ -2018,20 +2243,21 @@ var HomeCardsPlugin = class extends import_obsidian8.Plugin {
      * update. The plugin holds no view references; each view's Component
      * releases its subscription when the view closes.
      */
-    this.events = new import_obsidian8.Events();
+    this.events = new import_obsidian9.Events();
     /** True while an edit sits in memory that data.json does not have. */
     this.dirty = false;
-    this.flushSoon = (0, import_obsidian8.debounce)(() => void this.flush(), SAVE_DELAY_MS, true);
+    this.flushSoon = (0, import_obsidian9.debounce)(() => void this.flush(), SAVE_DELAY_MS, true);
   }
   async onload() {
     await this.loadSettings();
     this.registerView(VIEW_TYPE_HOME, (leaf) => new HomeView(leaf, this));
+    this.registerHoverLinkSource(VIEW_TYPE_HOME, { display: "Home Cards", defaultMod: true });
     registerBasesView(this);
     this.addSettingTab(new HomeCardsSettingTab(this));
     this.addRibbonIcon("layout-grid", "Open home page", () => void this.activateView());
     this.addCommand({ id: "open", name: "Open", callback: () => void this.activateView() });
     this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
-    const settle = (0, import_obsidian8.debounce)(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
+    const settle = (0, import_obsidian9.debounce)(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
     this.registerEvent(this.app.metadataCache.on("resolved", settle));
     this.app.workspace.onLayoutReady(() => void this.greetings.refill(/* @__PURE__ */ new Date()));
     if (this.settings.openOnStartup) {

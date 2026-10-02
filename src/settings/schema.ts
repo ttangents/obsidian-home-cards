@@ -27,6 +27,7 @@ export const SECTION_KINDS = [
   { id: "tag", label: "By tag" },
   { id: "most-linked", label: "Most popular" },
   { id: "least-linked", label: "Least popular" },
+  { id: "rediscover", label: "Rediscover" },
 ] as const satisfies readonly Choice[];
 export type SectionKind = (typeof SECTION_KINDS)[number]["id"];
 
@@ -122,6 +123,8 @@ export interface SectionConfig {
 export interface HomeCardsSettings {
   sections: SectionConfig[];
   dedupe: boolean;
+  /** Rediscover draws from notes untouched for at least this many months. */
+  rediscoverMonths: number;
 
   greetingEnabled: boolean;
   /** Pin the greeting on fixed-date holidays (New Year, Christmas...). */
@@ -198,6 +201,7 @@ export function defaultSettings(): HomeCardsSettings {
   return {
     sections: defaultSections(),
     dedupe: true,
+    rediscoverMonths: 6,
 
     greetingEnabled: true,
     greetingOccasions: true,
@@ -236,6 +240,7 @@ export const LIMITS = {
   cardMinWidth: { min: 180, max: 420 },
   maxTags: { min: 1, max: 6 },
   dekLines: { min: 1, max: 8 },
+  rediscoverMonths: { min: 1, max: 36 },
 } as const;
 
 export function newSectionId(): string {

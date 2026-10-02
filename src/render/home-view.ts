@@ -17,7 +17,9 @@ import { withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
 import { sectionTitle, VIEW_MODES, type ViewMode } from "../settings/schema";
 import { applyAppearance } from "./appearance";
-import { noteOpener, renderSection } from "./card";
+import { createNote, cardActions, rediscoverNote } from "./actions";
+import { renderSection, settleDek, type CardActions } from "./card";
+import { observeDeks } from "./lazy-deks";
 import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
 
 export const VIEW_TYPE_HOME = "home-cards-view";
@@ -27,6 +29,9 @@ const GREETING_SWAP_MS = 8_000;
 
 /** One turn of the Recompose icon; see .hc-reload.is-spinning. */
 const RECOMPOSE_SPIN_MS = 600;
+
+/** Local-storage key for the ids of folded sections. */
+const COLLAPSED_KEY = "home-cards-collapsed";
 
 interface Shell {
   root: HTMLElement;
@@ -49,6 +54,10 @@ export class HomeView extends ItemView {
   private greeting = "";
   private query = "";
   private picker: OpenPicker | null = null;
+  /** Cards revealed by "See more", by section id; survives recomposes. */
+  private readonly revealed = new Map<string, number>();
+  private disposeDeks: (() => void) | null = null;
+  private actions: CardActions | null = null;
   /** Invalidates composes that finish after a newer one or a close. */
   private generation = 0;
 
@@ -109,6 +118,8 @@ export class HomeView extends ItemView {
 
   async onClose(): Promise<void> {
     this.closePicker();
+    this.disposeDeks?.();
+    this.disposeDeks = null;
     this.generation++;
     this.shell = null;
     this.contentEl.empty();
@@ -157,6 +168,15 @@ export class HomeView extends ItemView {
       toggles.set(mode.id, btn);
     }
     seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
+    const action = (cls: string, label: string, icon: string, run: (newLeaf: boolean) => void) => {
+      const btn = seg.createEl("button", { cls, attr: { "aria-label": label } });
+      setIcon(btn, icon);
+      btn.addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
+    };
+    action("hc-new-note", "New note", "square-pen", (newLeaf) => void createNote(this.app, newLeaf));
+    action("hc-rediscover", "Rediscover a note", "shuffle", (newLeaf) =>
+      rediscoverNote(this.app, this.plugin.settings, newLeaf)
+    );
     const pickerToggle = seg.createEl("button", {
       cls: "hc-picker-toggle",
       attr: { "aria-label": "Background", "aria-haspopup": "dialog", "aria-expanded": "false" },
@@ -297,31 +317,79 @@ export class HomeView extends ItemView {
       // A new vault: one line beats a column of empty sections.
       next.createDiv({ cls: "hc-empty", text: "Cards appear here as you write notes." });
     } else {
-      const open = noteOpener(app);
-      for (const { config, cards, claimed } of sections) {
-        const empty = claimed
+      this.actions ??= cardActions(app, this.leaf, VIEW_TYPE_HOME);
+      const collapsed = new Set(this.collapsedIds());
+      for (const { config, cards, more, claimed } of sections) {
+        const emptyText = claimed
           ? "Every matching note already appears in a section above."
           : "This section has no matching notes.";
-        renderSection(next, sectionTitle(config), cards, settings, open, empty);
+        const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
+          emptyText,
+          more,
+          fold: {
+            collapsed: collapsed.has(config.id),
+            onToggle: (now) => this.rememberCollapsed(config.id, now),
+          },
+          onSeeMore: () => {
+            const shown = this.revealed.get(config.id) ?? cards.length;
+            this.revealed.set(config.id, shown + config.count);
+            this.applyFilter();
+          },
+        });
+        el.dataset.hcSection = config.id;
+        el.dataset.hcBase = String(cards.length);
       }
     }
+    this.disposeDeks?.();
     shell.body.replaceChildren(...Array.from(next.childNodes));
     this.applyFilter();
+    // Held-back cards fetch their deks only once revealed and on screen.
+    this.disposeDeks = observeDeks(shell.body, (path, el) => {
+      const file = app.vault.getFileByPath(path);
+      if (!file) return;
+      void plugin.dekCache.get(app, file, plugin.settings).then((dek) => settleDek(el, dek));
+    });
   }
 
+  // ------------------------------------------------------- section state
+
+  /** Folded sections, by id. Kept per device, in Obsidian's local storage. */
+  private collapsedIds(): string[] {
+    const stored: unknown = this.app.loadLocalStorage(COLLAPSED_KEY);
+    return Array.isArray(stored) ? stored.filter((v): v is string => typeof v === "string") : [];
+  }
+
+  private rememberCollapsed(id: string, collapsed: boolean): void {
+    const ids = new Set(this.collapsedIds());
+    if (collapsed) ids.add(id);
+    else ids.delete(id);
+    this.app.saveLocalStorage(COLLAPSED_KEY, [...ids]);
+  }
+
+  /**
+   * Decide which cards show. Unfiltered, a section shows its first cards
+   * plus any "See more" has revealed. Filtering searches every card,
+   * held back or not, and opens folded sections while the query lasts.
+   */
   private applyFilter(): void {
     const body = this.shell?.body;
     if (!body) return;
     const q = this.query.trim().toLowerCase();
+    body.toggleClass("is-filtering", q !== "");
     for (const section of body.findAll(".hc-section")) {
+      const id = section.dataset.hcSection ?? "";
+      const base = Number(section.dataset.hcBase ?? "0");
+      const limit = this.revealed.get(id) ?? base;
       const cards = section.findAll(".hc-card");
       let shown = 0;
       for (const card of cards) {
-        const hit = !q || (card.dataset.search ?? "").includes(q);
-        card.toggleClass("is-hidden", !hit);
-        if (hit) shown++;
+        const index = Number(card.dataset.hcIndex ?? "0");
+        const visible = q ? (card.dataset.search ?? "").includes(q) : index < limit;
+        card.toggleClass("is-hidden", !visible);
+        if (visible) shown++;
       }
       section.find(".hc-count")?.setText(String(shown));
+      section.find(".hc-more-row")?.toggleClass("is-hidden", q !== "" || limit >= cards.length);
       // A section the filter emptied is noise. One that was empty to begin
       // with keeps its "no notes" line, which is the useful signal.
       section.toggleClass("is-hidden", q !== "" && shown === 0);

@@ -24,3 +24,63 @@
   color: var(--text-faint);
 }
 
+
+/* Folding: the chevron sits in the left margin, as Obsidian's own
+   heading fold indicator does, so headings stay aligned with the
+   greeting and the cards. It shows on hover, on keyboard focus, while
+   folded, and always on touch screens. */
+.hc-section-head { position: relative; }
+.hc-section-head.is-foldable h2 { cursor: pointer; }
+.hc-fold {
+  position: absolute;
+  inset-inline-end: 100%;
+  top: 50%;
+  translate: 0 -50%;
+  height: auto;
+  padding: var(--size-2-1);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity var(--anim-duration-fast) var(--anim-motion-smooth);
+}
+.hc-fold .svg-icon {
+  width: var(--icon-xs, 14px);
+  height: var(--icon-xs, 14px);
+  transition: rotate var(--anim-duration-fast) var(--anim-motion-smooth);
+}
+.hc-section-head:hover .hc-fold,
+.hc-fold:focus-visible,
+.hc-section.is-collapsed .hc-fold,
+body.is-mobile .hc-fold { opacity: 1; }
+.hc-section.is-collapsed .hc-fold .svg-icon { rotate: -90deg; }
+
+/* Folded: the heading stays, its cards go. A filter query opens every
+   section so matches are never hidden inside a fold. */
+.hc-body:not(.is-filtering) .hc-section.is-collapsed > :not(.hc-section-head) {
+  display: none;
+}
+.hc-body:not(.is-filtering) .hc-section.is-collapsed .hc-section-head {
+  margin-bottom: 0;
+}
+
+/* See more: a quiet text button under the section's cards. */
+.hc-more-row {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--size-4-3);
+}
+.hc-more-row.is-hidden { display: none; }
+button.hc-more {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: var(--size-2-2) var(--size-4-3);
+  cursor: pointer;
+}
+button.hc-more:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}

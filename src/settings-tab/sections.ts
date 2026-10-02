@@ -72,6 +72,20 @@ export class SectionsPane {
           this.plugin.touch();
         })
       );
+
+    new Setting(settingGroup(root))
+      .setName("Rediscover notes untouched for")
+      .setDesc("In months. Rediscover sections and the shuffle button on the home page draw from these notes.")
+      .addSlider((sl) =>
+        sl
+          .setLimits(LIMITS.rediscoverMonths.min, LIMITS.rediscoverMonths.max, 1)
+          .setValue(s.rediscoverMonths)
+          .setDynamicTooltip()
+          .onChange((v) => {
+            s.rediscoverMonths = v;
+            this.plugin.touch();
+          })
+      );
   }
 
   private async restructure(): Promise<void> {

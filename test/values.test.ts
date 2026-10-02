@@ -45,3 +45,11 @@ test("memoLast recomputes only when the input changes", () => {
   f("ab");
   assert.equal(calls, 3);
 });
+
+test("untitledPath counts up past existing notes, in the root or a folder", async () => {
+  const { untitledPath } = await import("../src/compose/vault");
+  const taken = new Set(["Untitled.md", "Untitled 1.md", "Inbox/Untitled.md"]);
+  assert.equal(untitledPath("", (p) => taken.has(p)), "Untitled 2.md");
+  assert.equal(untitledPath("Inbox", (p) => taken.has(p)), "Inbox/Untitled 1.md");
+  assert.equal(untitledPath("Notes", (p) => taken.has(p)), "Notes/Untitled.md");
+});

@@ -154,6 +154,7 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
   return {
     sections: normalizeSections(r.sections),
     dedupe: bool(r.dedupe, d.dedupe),
+    rediscoverMonths: int(r.rediscoverMonths, d.rediscoverMonths, LIMITS.rediscoverMonths),
 
     greetingEnabled: bool(r.greetingEnabled, d.greetingEnabled),
     greetingOccasions: bool(r.greetingOccasions, d.greetingOccasions),

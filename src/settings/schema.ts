@@ -39,15 +39,15 @@ export const VIEW_MODES = [
 export type ViewMode = (typeof VIEW_MODES)[number]["id"];
 
 /**
- * Card surface treatments. Each differs in kind: Flat sits on the theme
- * surface with a hairline, Elevated lifts on the theme shadow, Frosted
- * blurs whatever lies behind it, Outline keeps only the hairline.
+ * Card surface treatments, each different in kind: Flat sits on the
+ * theme's secondary surface inside a hairline, Elevated lifts on the
+ * theme's shadow, Frosted blurs the background pattern behind it. Their
+ * tokens live in styles/05-surfaces.css.
  */
 export const SURFACES = [
   { id: "flat", label: "Flat" },
   { id: "elevated", label: "Elevated" },
   { id: "frosted", label: "Frosted" },
-  { id: "outline", label: "Outline" },
 ] as const satisfies readonly Choice[];
 export type Surface = (typeof SURFACES)[number]["id"];
 

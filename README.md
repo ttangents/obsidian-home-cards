@@ -6,12 +6,12 @@ Home Cards gives your vault a start page. The page shows sections of note cards:
 
 ## Features
 
-- **Sections.** Recently opened, created or modified; notes by property (with an optional value) or by tag; most and least linked; and Rediscover, a daily sample of notes untouched for months. Each section sets its own card count, sort order, and filters on tags, properties and folders.
+- **Sections.** Recently opened (beyond the ten notes Obsidian itself remembers), created or modified; notes by property (with an optional value) or by tag; most and least linked; and Rediscover, a daily sample of notes untouched for months. Each section sets its own card count, sort order, and filters on tags, properties and folders.
 - **One note, one section.** By default, a note appears only in the first section that claims it, so the page does not repeat itself. Section order sets which section wins.
 - **Cards.** Each card shows the note's title, its type and tags, its first sentence (or a `summary` property), and a footer with the value the section sorts on.
 - **Header actions.** New note creates a note where Obsidian's settings put new notes. Rediscover opens a random note you haven't changed in months.
-- **Card actions.** Right-click a card for Obsidian's file menu; hold Cmd or Ctrl while hovering for a preview, through the Page Preview core plugin.
-- **Fold and see more.** Click a section heading to fold it; the page remembers. "See more" under a section shows further matches.
+- **Card actions.** Right-click a card for Obsidian's file menu. Hold Cmd or Ctrl over a card for a preview, through the Page Preview core plugin.
+- **Fold and see more.** Click a section heading to fold it; the chevron at its end shows the state, and the page remembers it. "See more" under a section shows further matches, one section's worth at a time, up to three times; "Show fewer" puts them back.
 - **Two layouts.** A grid of cards and a compact list of rows, switched from the header.
 - **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
 - **A Bases view.** Any base can show its results as "Home cards", with one section per group.
@@ -45,7 +45,7 @@ Home Cards requires Obsidian 1.10 or later and works on desktop and mobile.
 
 - **Sections:** the list of sections, in page order, and whether a note may appear in more than one.
 - **Cards:** the corner glyph, the type label and its property, tags, the first sentence and its length, file size, and how Home Cards cleans titles and picks sentences.
-- **Layout:** the default view, minimum card width, card surface, background pattern, greeting, note count, and whether Home Cards opens at startup.
+- **Layout:** the default view, minimum card width, card surface (Flat, Elevated or Frosted), background pattern, greeting, note count, and whether Home Cards opens at startup.
 
 ### Optional: Typify icons
 
@@ -71,7 +71,7 @@ Then press **Test** next to the shortcut name in settings. Home Cards writes the
 
 ## Privacy
 
-Home Cards makes no network requests and sends no data anywhere. It reads your notes' metadata and the first paragraph of each note it shows.
+Home Cards makes no network requests and sends no data anywhere. It reads your notes' metadata and the first paragraph of each note it shows. It keeps the paths of the last 100 notes you opened, and which sections you folded, in Obsidian's local storage on each device, outside your synced settings.
 
 With Apple Intelligence greetings turned on, Home Cards runs your shortcut through macOS's `shortcuts` command. The prompt holds only the date, the time and the name of any fixed-date holiday; it contains nothing from your vault, and the on-device model does not send it off your Mac. Home Cards keeps the next greeting in Obsidian's local storage on that Mac, outside your synced settings.
 

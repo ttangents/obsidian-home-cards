@@ -174,12 +174,8 @@
     var(--hc-tile);
 }
 
-.home-cards[data-pattern][data-surface="flat"]:not([data-view="rows"]) .hc-card {
-  background:
-    linear-gradient(var(--hc-surface), var(--hc-surface)),
-    linear-gradient(
-      color-mix(in srgb, var(--background-primary) 85%, transparent),
-      color-mix(in srgb, var(--background-primary) 85%, transparent)
-    );
+/* Frosted exists to show the pattern; the other surfaces cover it. */
+.home-cards[data-pattern]:not([data-surface="frosted"]) {
+  --hc-underlay: color-mix(in srgb, var(--background-primary) 85%, transparent);
 }
 

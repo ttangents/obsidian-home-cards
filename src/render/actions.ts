@@ -4,11 +4,11 @@
  * of the views so the home page and the Bases view behave the same.
  */
 
-import { Menu, Notice, type App, type HoverParent, type TFile } from "obsidian";
+import { Menu, Notice, type App, type Component, type HoverParent, type TFile } from "obsidian";
 import { forgottenNotes } from "../compose/rank";
 import { untitledPath } from "../compose/vault";
 import type { HomeCardsSettings } from "../settings/schema";
-import type { CardActions } from "./card";
+import type { CardActions, HoverTracker } from "./card";
 
 /** Where a click opens a note: in place, or a new tab with a modifier. */
 function leafFor(app: App, newLeaf: boolean) {
@@ -17,23 +17,67 @@ function leafFor(app: App, newLeaf: boolean) {
 
 /**
  * Card behavior that matches the rest of Obsidian: click to open, right
- * click for the standard file menu, and hover preview through the Page
- * Preview core plugin, which applies its own modifier-key setting for
- * `source`.
+ * click for the standard file menu, and hover preview.
+ *
+ * `owner` is the view the cards live in: it holds the preview's key
+ * listener and releases it when the view closes. Call once per view, not
+ * once per render.
  */
-export function cardActions(app: App, hoverParent: HoverParent, source: string): CardActions {
+export function cardActions(
+  app: App,
+  owner: Component,
+  hoverParent: HoverParent,
+  source: string
+): CardActions {
   return {
     open: (file, newLeaf) => void leafFor(app, newLeaf).openFile(file),
     menu: (file, evt) => showFileMenu(app, file, evt, source),
-    hover: (file, evt, el) =>
-      app.workspace.trigger("hover-link", {
-        event: evt,
-        source,
-        hoverParent,
-        targetEl: el,
-        linktext: file.path,
-        sourcePath: "",
-      }),
+    hover: hoverTracker(app, owner, hoverParent, source),
+  };
+}
+
+/**
+ * Hover preview through the Page Preview core plugin, which applies its
+ * own modifier-key setting for `source` (by default, Cmd or Ctrl held).
+ * Obsidian previews a link when the pointer arrives with the modifier
+ * held, and also when the modifier goes down while the pointer rests on
+ * the link. The tracker remembers the card under the pointer so cards get
+ * both, and asks once per visit rather than once per child element.
+ */
+function hoverTracker(app: App, owner: Component, hoverParent: HoverParent, source: string): HoverTracker {
+  let current: { file: TFile; el: HTMLElement } | null = null;
+  // The key listener goes on the document the cards are in, which is a
+  // popout window's own document when the view lives there. One per
+  // document, released with the view.
+  const listening = new WeakSet<Document>();
+  const listen = (doc: Document) => {
+    if (listening.has(doc)) return;
+    listening.add(doc);
+    owner.registerDomEvent(doc, "keydown", (evt) => {
+      if (current && !evt.repeat && (evt.key === "Meta" || evt.key === "Control")) show(evt);
+    });
+  };
+  const show = (event: MouseEvent | KeyboardEvent) => {
+    // A recompose may have replaced the card while the pointer sat on it.
+    if (!current?.el.isConnected) return;
+    app.workspace.trigger("hover-link", {
+      event,
+      source,
+      hoverParent,
+      targetEl: current.el,
+      linktext: current.file.path,
+      sourcePath: "",
+    });
+  };
+  return {
+    enter: (file, el, evt) => {
+      listen(el.ownerDocument);
+      current = { file, el };
+      show(evt);
+    },
+    leave: (el) => {
+      if (current?.el === el) current = null;
+    },
   };
 }
 

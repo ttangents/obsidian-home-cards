@@ -89,8 +89,14 @@ function migrate(raw: Raw): Raw {
     r.background = retiredPatterns[r.background];
   }
 
-  // ≤1.17 surfaces were three theme shades; map onto the nearest treatment.
-  const surfaceMap: Raw = { secondary: "flat", "primary-alt": "elevated", transparent: "outline" };
+  // ≤1.17 surfaces were three theme shades; ≤1.27 also had Outline, which
+  // left cards unreadable over patterns. Map each onto the nearest surface.
+  const surfaceMap: Raw = {
+    secondary: "flat",
+    "primary-alt": "elevated",
+    transparent: "frosted",
+    outline: "frosted",
+  };
   if (typeof r.cardSurface === "string" && r.cardSurface in surfaceMap) {
     r.cardSurface = surfaceMap[r.cardSurface];
   }

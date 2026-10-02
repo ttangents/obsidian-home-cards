@@ -153,8 +153,8 @@ export function rankSection(
     case "recent-opened": {
       const byPath = new Map(pool.map((f) => [f.path, f]));
       return plain(
-        vault.app.workspace
-          .getLastOpenFiles()
+        vault
+          .openedPaths()
           .map((p) => byPath.get(p))
           .filter((f): f is TFile => f !== undefined)
       );

@@ -28,6 +28,12 @@ test("recently opened follows the workspace order and skips missing paths", () =
   assert.deepEqual(paths(section({ kind: "recent-opened" })), ["c.md", "a.md"]);
 });
 
+test("recently opened continues past Obsidian's list with the plugin's history", () => {
+  const vault = new VaultSnapshot(v.app, new Date(), ["c.md", "a.md", "e.md", "gone.md", "b.md"]);
+  const got = rankSection(vault, section({ kind: "recent-opened" }), s).map((r) => r.file.path);
+  assert.deepEqual(got, ["c.md", "a.md", "e.md", "b.md"]);
+});
+
 test("recently created and modified order by stat", () => {
   assert.deepEqual(paths(section({ kind: "recent-created" })), ["b.md", "d.md", "a.md", "e.md", "c.md"]);
   assert.deepEqual(paths(section({ kind: "recent-modified" })), ["c.md", "d.md", "a.md", "e.md", "b.md"]);
@@ -87,7 +93,7 @@ test("compose leaves deks null without a source and fills them with one", async 
   const settings = { ...s, sections: [section({ kind: "recent-opened", count: 1 })] };
   const lazy = await composeSections(v.app, settings);
   assert.equal(lazy[0].cards[0].dek, null);
-  const eager = await composeSections(v.app, settings, async (f) => `dek of ${f.path}`);
+  const eager = await composeSections(v.app, settings, { deks: async (f) => `dek of ${f.path}` });
   assert.equal(eager[0].cards[0].dek, "dek of c.md");
 });
 
@@ -150,9 +156,9 @@ test("Rediscover draws untouched notes in an order that holds for a day", async 
   const old = (i: number) => ({ path: `old${i}.md`, mtime: base - (200 + i) * day, ctime: base - 400 * day });
   const w = fakeVault([...Array.from({ length: 12 }, (_, i) => old(i)), { path: "fresh.md", mtime: base - day }]);
   const settings = { ...s, rediscoverMonths: 6, sections: [section({ id: "r", kind: "rediscover", count: 12 })] };
-  const morning = await composeSections(w.app, settings, undefined, new Date(base));
-  const evening = await composeSections(w.app, settings, undefined, new Date(base + 10 * 3_600_000));
-  const tomorrow = await composeSections(w.app, settings, undefined, new Date(base + day));
+  const morning = await composeSections(w.app, settings, { now: new Date(base) });
+  const evening = await composeSections(w.app, settings, { now: new Date(base + 10 * 3_600_000) });
+  const tomorrow = await composeSections(w.app, settings, { now: new Date(base + day) });
   const order = (x: typeof morning) => x[0].cards.map((c) => c.file.path).join();
   assert.equal(morning[0].cards.length, 12);
   assert.ok(!order(morning).includes("fresh.md"));

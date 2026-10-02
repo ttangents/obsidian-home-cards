@@ -7,16 +7,15 @@
    Every typeface, size, weight, color and radius here resolves
    to an Obsidian variable, so the active theme decides how the
    page looks. The plugin adds only what a user elects in
-   settings: a background pattern, a card surface (Frosted
-   blurs what lies behind the card), and two custom properties
-   the views set, --hc-card-min and --hc-dek-lines.
+   settings: a background pattern, a card surface (the tokens in
+   05-surfaces.css), and two custom properties the views set,
+   --hc-card-min and --hc-dek-lines.
    ============================================================ */
 
 .home-cards {
   --hc-card-min: 262px;
   --hc-dek-lines: 3;
   --hc-gap: var(--size-4-3);
-  --hc-surface: var(--background-secondary);
   --hc-hair: var(--background-modifier-border);
 
   /* Anchor to the theme's own reading size so its em-based heading
@@ -31,30 +30,62 @@
 }
 
 /* --- Card surfaces ----------------------------------------
-   Four distinct treatments, all theme-derived. Flat is the
-   default: the theme's secondary surface with a hairline.
-   Elevated sits on the primary background and the theme's own
-   shadow, borderless. Frosted is translucent and blurs what
-   lies behind the card — patterns especially. Outline drops
-   the fill entirely and keeps only the hairline.
+   The CSS half of SURFACES in src/settings/schema.ts. A
+   surface is a set of tokens, nothing more: .hc-card in
+   40-cards.css reads them, so every surface shares one hover,
+   focus and preview behavior and differs only in material.
+
+   Flat: the theme's secondary surface inside a hairline, the
+   way Obsidian draws its own panels. Hover tints the fill.
+
+   Elevated: a borderless card on the theme's shadow. Hover
+   lifts the card and deepens the shadow. Dark themes show
+   little shadow, so there the card also takes a lighter fill
+   and a faint edge, as a raised panel catches light.
+
+   Frosted: a translucent fill that blurs the background
+   pattern behind it. Hover thickens the frost. Over the plain
+   background it reads as a quiet card with a faint edge.
    ---------------------------------------------------------- */
+
+.home-cards {
+  --hc-surface: var(--background-secondary);
+  /* Painted under the surface on patterned pages, so a theme with
+     translucent surfaces still keeps the pattern behind the text
+     (see 10-backgrounds.css). Transparent elsewhere. */
+  --hc-underlay: transparent;
+  --hc-card-border: var(--hc-hair);
+  --hc-card-border-hover: var(--background-modifier-border-hover);
+  /* Shadows are lists, so "no shadow" is a transparent one: the card
+     composes these with its hover tint and focus ring. */
+  --hc-card-shadow: 0 0 transparent;
+  --hc-card-shadow-hover: var(--hc-card-shadow);
+  --hc-card-tint-hover: var(--background-modifier-hover);
+  --hc-card-lift: none;
+  --hc-card-blur: none;
+}
 
 .home-cards[data-surface="elevated"] {
   --hc-surface: var(--background-primary);
+  --hc-card-border: transparent;
+  --hc-card-border-hover: transparent;
+  --hc-card-shadow: var(--shadow-s);
+  --hc-card-shadow-hover: var(--shadow-l);
+  --hc-card-tint-hover: transparent;
+  --hc-card-lift: 0 calc(-1 * var(--size-2-1));
 }
-.home-cards[data-surface="elevated"] .hc-card {
-  border-color: transparent;
-  box-shadow: var(--shadow-s);
+.theme-dark .home-cards[data-surface="elevated"] {
+  --hc-surface: color-mix(in srgb, var(--background-primary), var(--text-normal) 5%);
+  --hc-card-border: color-mix(in srgb, var(--text-normal) 7%, transparent);
+  --hc-card-border-hover: color-mix(in srgb, var(--text-normal) 12%, transparent);
 }
-.home-cards[data-surface="frosted"] {
-  --hc-surface: color-mix(in srgb, var(--background-primary) 55%, transparent);
-}
-.home-cards[data-surface="frosted"] .hc-card {
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-.home-cards[data-surface="outline"] { --hc-surface: transparent; }
 
+.home-cards[data-surface="frosted"] {
+  --hc-surface: color-mix(in srgb, var(--background-primary) 50%, transparent);
+  --hc-card-border: color-mix(in srgb, var(--hc-hair) 70%, transparent);
+  --hc-card-tint-hover: color-mix(in srgb, var(--background-primary) 35%, transparent);
+  --hc-card-blur: blur(12px) saturate(1.15);
+}
 /* --- Backgrounds ------------------------------------------
    The CSS half of BACKGROUNDS in src/settings/schema.ts. Each
    pattern is a pair of seamless tiles carried on one
@@ -231,13 +262,9 @@
     var(--hc-tile);
 }
 
-.home-cards[data-pattern][data-surface="flat"]:not([data-view="rows"]) .hc-card {
-  background:
-    linear-gradient(var(--hc-surface), var(--hc-surface)),
-    linear-gradient(
-      color-mix(in srgb, var(--background-primary) 85%, transparent),
-      color-mix(in srgb, var(--background-primary) 85%, transparent)
-    );
+/* Frosted exists to show the pattern; the other surfaces cover it. */
+.home-cards[data-pattern]:not([data-surface="frosted"]) {
+  --hc-underlay: color-mix(in srgb, var(--background-primary) 85%, transparent);
 }
 
 /* --- Page frame and header ------------------------------ */
@@ -444,9 +471,12 @@ input.hc-search {
 .hc-section { margin-top: var(--size-4-8); }
 .hc-section.is-hidden { display: none; }
 
+/* Heading, count and fold control share one centered line, so the
+   small count sits at the middle of the heading's capitals, not on
+   its baseline. */
 .hc-section-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--size-4-2);
   margin-bottom: var(--size-4-3);
 }
@@ -459,42 +489,38 @@ input.hc-search {
   line-height: var(--h2-line-height);
   color: var(--h2-color);
   margin: 0;
+  min-width: 0;
 }
 .hc-count {
+  flex: none;
   font-size: var(--font-ui-smaller);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
   color: var(--text-faint);
 }
 
-
-/* Folding: the chevron sits in the left margin, as Obsidian's own
-   heading fold indicator does, so headings stay aligned with the
-   greeting and the cards. It shows on hover, on keyboard focus, while
-   folded, and always on touch screens. */
-.hc-section-head { position: relative; }
-.hc-section-head.is-foldable h2 { cursor: pointer; }
+/* Folding. The whole heading row is the control; the chevron at the
+   row's end shows its state at all times, pointing down while open and
+   to the side while folded, as a callout's fold indicator does. */
+.hc-section-head.is-foldable { cursor: pointer; }
 .hc-fold {
-  position: absolute;
-  inset-inline-end: 100%;
-  top: 50%;
-  translate: 0 -50%;
+  flex: none;
+  margin-inline-start: auto;
+  /* The glyph, not the hit area, lines up with the cards' right edge. */
+  margin-inline-end: calc(-1 * var(--size-2-2));
   height: auto;
-  padding: var(--size-2-1);
+  padding: var(--size-2-2);
+  /* Some themes dress every button; this one is an icon, as
+     .clickable-icon is everywhere else in Obsidian. */
   background: transparent;
   border: none;
   box-shadow: none;
   color: var(--text-faint);
-  opacity: 0;
-  transition: opacity var(--anim-duration-fast) var(--anim-motion-smooth);
 }
+.hc-section-head.is-foldable:hover .hc-fold { color: var(--icon-color-hover); }
 .hc-fold .svg-icon {
-  width: var(--icon-xs, 14px);
-  height: var(--icon-xs, 14px);
   transition: rotate var(--anim-duration-fast) var(--anim-motion-smooth);
 }
-.hc-section-head:hover .hc-fold,
-.hc-fold:focus-visible,
-.hc-section.is-collapsed .hc-fold,
-body.is-mobile .hc-fold { opacity: 1; }
 .hc-section.is-collapsed .hc-fold .svg-icon { rotate: -90deg; }
 
 /* Folded: the heading stays, its cards go. A filter query opens every
@@ -505,25 +531,63 @@ body.is-mobile .hc-fold { opacity: 1; }
 .hc-body:not(.is-filtering) .hc-section.is-collapsed .hc-section-head {
   margin-bottom: 0;
 }
+/* While a filter holds every section open, the fold state would lie. */
+.hc-body.is-filtering .hc-fold { visibility: hidden; }
 
-/* See more: a quiet text button under the section's cards. */
+/* See more and Show fewer: small buttons centered under the cards, on
+   the card surface so they hold their own over a pattern. See more owns
+   the center column and never moves, so repeated clicks land on it;
+   Show fewer joins to its right, or takes the center once nothing more
+   is left. */
 .hc-more-row {
-  display: flex;
-  justify-content: center;
-  margin-top: var(--size-4-3);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-4);
 }
-.hc-more-row.is-hidden { display: none; }
-button.hc-more {
-  background: transparent;
-  box-shadow: none;
+.hc-more-row.is-hidden,
+.hc-more-row > .is-hidden { display: none; }
+.hc-more { grid-column: 2; }
+.hc-less { grid-column: 3; justify-self: start; }
+.hc-more.is-hidden + .hc-less { grid-column: 2; }
+.hc-more-row > button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  height: var(--input-height);
+  padding: 0 var(--size-4-3) 0 var(--size-4-2);
+  border: var(--border-width) solid var(--hc-card-border);
+  border-radius: var(--radius-l);
+  background:
+    linear-gradient(var(--hc-surface), var(--hc-surface)),
+    linear-gradient(var(--hc-underlay), var(--hc-underlay));
+  box-shadow: inset 0 0 0 100vmax var(--hc-card-tint, transparent), var(--hc-card-shadow);
+  -webkit-backdrop-filter: var(--hc-card-blur);
+  backdrop-filter: var(--hc-card-blur);
   color: var(--text-muted);
   font-size: var(--font-ui-small);
-  padding: var(--size-2-2) var(--size-4-3);
   cursor: pointer;
+  transition:
+    color var(--anim-duration-fast) var(--anim-motion-smooth),
+    box-shadow var(--anim-duration-fast) var(--anim-motion-smooth);
 }
-button.hc-more:hover {
+.hc-more-icon { display: flex; }
+.hc-more-row > button .svg-icon {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+.hc-more-row > button:hover {
+  --hc-card-tint: var(--hc-card-tint-hover);
   color: var(--text-normal);
-  background: var(--background-modifier-hover);
+  border-color: var(--hc-card-border-hover);
+}
+/* Rows have no card surface, so the buttons drop theirs too. */
+.home-cards[data-view="rows"] .hc-more-row > button {
+  background: transparent;
+  border-color: var(--hc-hair);
+  box-shadow: inset 0 0 0 100vmax var(--hc-card-tint, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 /* --- Grid ------------------------------------------------ */
 
@@ -536,10 +600,20 @@ button.hc-more:hover {
   gap: var(--hc-gap);
 }
 
+/* The card reads its materials from the surface tokens in
+   05-surfaces.css. Layers, top to bottom: the hover tint (an inset
+   shadow, so it animates), the surface fill, and the underlay that
+   keeps a pattern from showing through translucent theme surfaces. */
 .hc-card {
-  background: var(--hc-surface);
-  border: var(--border-width) solid var(--hc-hair);
+  --hc-card-tint: transparent;
+  background:
+    linear-gradient(var(--hc-surface), var(--hc-surface)),
+    linear-gradient(var(--hc-underlay), var(--hc-underlay));
+  border: var(--border-width) solid var(--hc-card-border);
   border-radius: var(--radius-m);
+  box-shadow: inset 0 0 0 100vmax var(--hc-card-tint), var(--hc-card-shadow);
+  -webkit-backdrop-filter: var(--hc-card-blur);
+  backdrop-filter: var(--hc-card-blur);
   padding: var(--size-4-4);
   display: flex;
   flex-direction: column;
@@ -550,15 +624,28 @@ button.hc-more:hover {
   outline: none;
   transition:
     border-color var(--anim-duration-fast) var(--anim-motion-smooth),
-    background var(--anim-duration-fast) var(--anim-motion-smooth);
+    box-shadow var(--anim-duration-fast) var(--anim-motion-smooth),
+    translate var(--anim-duration-fast) var(--anim-motion-smooth);
 }
-.hc-card:hover {
-  border-color: var(--background-modifier-border-hover);
-  background: var(--background-modifier-hover);
+/* Pointer devices only: on touch screens a tapped card would keep its
+   hover state after the note opens. */
+@media (hover: hover) {
+  .hc-card:hover {
+    --hc-card-tint: var(--hc-card-tint-hover);
+    border-color: var(--hc-card-border-hover);
+    box-shadow: inset 0 0 0 100vmax var(--hc-card-tint), var(--hc-card-shadow-hover);
+    translate: var(--hc-card-lift);
+  }
 }
 .hc-card:focus-visible {
   border-color: var(--background-modifier-border-focus);
-  box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border-focus);
+  box-shadow:
+    inset 0 0 0 100vmax var(--hc-card-tint),
+    0 0 0 var(--border-width) var(--background-modifier-border-focus),
+    var(--hc-card-shadow);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hc-card { --hc-card-lift: none; }
 }
 .hc-card.is-hidden { display: none; }
 
@@ -727,6 +814,10 @@ body.is-phone .home-cards[data-view="rows"] .hc-grid {
   border-radius: 0;
   padding: var(--size-4-3) var(--size-4-2);
   box-shadow: inset 2px 0 0 transparent;
+  /* Rows are one list on the page, not cards: no surface material. */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  translate: none;
   transition:
     background var(--anim-duration-fast) var(--anim-motion-smooth),
     box-shadow var(--anim-duration-fast) var(--anim-motion-smooth);
@@ -735,6 +826,7 @@ body.is-phone .home-cards[data-view="rows"] .hc-grid {
 .home-cards[data-view="rows"] .hc-card:hover {
   background: var(--background-modifier-hover);
   box-shadow: inset 2px 0 0 var(--interactive-accent);
+  translate: none;
 }
 
 /* The head dissolves so the glyph and the text place onto the

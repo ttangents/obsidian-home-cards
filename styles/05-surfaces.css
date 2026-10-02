@@ -1,25 +1,57 @@
 /* --- Card surfaces ----------------------------------------
-   Four distinct treatments, all theme-derived. Flat is the
-   default: the theme's secondary surface with a hairline.
-   Elevated sits on the primary background and the theme's own
-   shadow, borderless. Frosted is translucent and blurs what
-   lies behind the card — patterns especially. Outline drops
-   the fill entirely and keeps only the hairline.
+   The CSS half of SURFACES in src/settings/schema.ts. A
+   surface is a set of tokens, nothing more: .hc-card in
+   40-cards.css reads them, so every surface shares one hover,
+   focus and preview behavior and differs only in material.
+
+   Flat: the theme's secondary surface inside a hairline, the
+   way Obsidian draws its own panels. Hover tints the fill.
+
+   Elevated: a borderless card on the theme's shadow. Hover
+   lifts the card and deepens the shadow. Dark themes show
+   little shadow, so there the card also takes a lighter fill
+   and a faint edge, as a raised panel catches light.
+
+   Frosted: a translucent fill that blurs the background
+   pattern behind it. Hover thickens the frost. Over the plain
+   background it reads as a quiet card with a faint edge.
    ---------------------------------------------------------- */
+
+.home-cards {
+  --hc-surface: var(--background-secondary);
+  /* Painted under the surface on patterned pages, so a theme with
+     translucent surfaces still keeps the pattern behind the text
+     (see 10-backgrounds.css). Transparent elsewhere. */
+  --hc-underlay: transparent;
+  --hc-card-border: var(--hc-hair);
+  --hc-card-border-hover: var(--background-modifier-border-hover);
+  /* Shadows are lists, so "no shadow" is a transparent one: the card
+     composes these with its hover tint and focus ring. */
+  --hc-card-shadow: 0 0 transparent;
+  --hc-card-shadow-hover: var(--hc-card-shadow);
+  --hc-card-tint-hover: var(--background-modifier-hover);
+  --hc-card-lift: none;
+  --hc-card-blur: none;
+}
 
 .home-cards[data-surface="elevated"] {
   --hc-surface: var(--background-primary);
+  --hc-card-border: transparent;
+  --hc-card-border-hover: transparent;
+  --hc-card-shadow: var(--shadow-s);
+  --hc-card-shadow-hover: var(--shadow-l);
+  --hc-card-tint-hover: transparent;
+  --hc-card-lift: 0 calc(-1 * var(--size-2-1));
 }
-.home-cards[data-surface="elevated"] .hc-card {
-  border-color: transparent;
-  box-shadow: var(--shadow-s);
+.theme-dark .home-cards[data-surface="elevated"] {
+  --hc-surface: color-mix(in srgb, var(--background-primary), var(--text-normal) 5%);
+  --hc-card-border: color-mix(in srgb, var(--text-normal) 7%, transparent);
+  --hc-card-border-hover: color-mix(in srgb, var(--text-normal) 12%, transparent);
 }
-.home-cards[data-surface="frosted"] {
-  --hc-surface: color-mix(in srgb, var(--background-primary) 55%, transparent);
-}
-.home-cards[data-surface="frosted"] .hc-card {
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-.home-cards[data-surface="outline"] { --hc-surface: transparent; }
 
+.home-cards[data-surface="frosted"] {
+  --hc-surface: color-mix(in srgb, var(--background-primary) 50%, transparent);
+  --hc-card-border: color-mix(in srgb, var(--hc-hair) 70%, transparent);
+  --hc-card-tint-hover: color-mix(in srgb, var(--background-primary) 35%, transparent);
+  --hc-card-blur: blur(12px) saturate(1.15);
+}

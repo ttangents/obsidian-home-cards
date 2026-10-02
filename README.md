@@ -10,7 +10,7 @@ Home Cards gives your vault a start page. The page shows sections of note cards:
 - **One note, one section.** By default, a note appears only in the first section that claims it, so the page does not repeat itself. Section order sets which section wins.
 - **Cards.** Each card shows the note's title, its type and tags, its first sentence (or a `summary` property), and a footer with the value the section sorts on.
 - **Two layouts.** A grid of cards and a compact list of rows, switched from the header.
-- **Background patterns.** Eleven tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
+- **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
 - **A Bases view.** Any base can show its results as "Home cards", with one section per group.
 - **A greeting.** The greeting follows your local time of day and, optionally, fixed-date holidays. Now and then it greets you in another language, always in Latin script.
 

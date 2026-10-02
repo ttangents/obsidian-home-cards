@@ -73,6 +73,8 @@ export const BACKGROUNDS = [
   { id: "basket", label: "Basket" },
   { id: "pebbles", label: "Pebbles" },
   { id: "confetti", label: "Confetti" },
+  { id: "petals", label: "Petals" },
+  { id: "paws", label: "Paws" },
 ] as const satisfies readonly Choice[];
 export type Background = (typeof BACKGROUNDS)[number]["id"];
 

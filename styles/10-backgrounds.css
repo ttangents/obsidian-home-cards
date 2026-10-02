@@ -20,7 +20,7 @@
   padding: 0;
 }
 
-/* Scoped to the two roots that paint tiles, so some 1 MB of inline
+/* Scoped to the two roots that paint tiles, so some 1.4 MB of inline
    images never enters the cascade of every other element.
 
    Each tile carries its own veil: the share of the theme background
@@ -53,6 +53,10 @@
   --hc-veil-pebbles: 10%;
   --hc-bg-confetti: url("@tile:confetti-light@");
   --hc-veil-confetti: 20%;
+  --hc-bg-petals: url("@tile:petals-light@");
+  --hc-veil-petals: 65%;
+  --hc-bg-paws: url("@tile:paws-light@");
+  --hc-veil-paws: 65%;
 }
 .theme-dark .home-cards,
 .theme-dark .home-cards-settings {
@@ -78,6 +82,10 @@
   --hc-veil-pebbles: 70%;
   --hc-bg-confetti: url("@tile:confetti-dark@");
   --hc-veil-confetti: 75%;
+  --hc-bg-petals: url("@tile:petals-dark@");
+  --hc-veil-petals: 75%;
+  --hc-bg-paws: url("@tile:paws-dark@");
+  --hc-veil-paws: 75%;
 }
 
 .home-cards[data-pattern="diamonds"],
@@ -134,6 +142,17 @@
 .hc-swatch[data-pattern="confetti"] {
   --hc-tile: var(--hc-bg-confetti);
   --hc-veil: var(--hc-veil-confetti);
+}
+
+.home-cards[data-pattern="petals"],
+.hc-swatch[data-pattern="petals"] {
+  --hc-tile: var(--hc-bg-petals);
+  --hc-veil: var(--hc-veil-petals);
+}
+.home-cards[data-pattern="paws"],
+.hc-swatch[data-pattern="paws"] {
+  --hc-tile: var(--hc-bg-paws);
+  --hc-veil: var(--hc-veil-paws);
 }
 
 /* Tiles are stored 800px wide and drawn 400px wide, so they stay

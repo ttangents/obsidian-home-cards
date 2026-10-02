@@ -770,7 +770,9 @@ var BACKGROUNDS = [
   { id: "polka", label: "Polka" },
   { id: "basket", label: "Basket" },
   { id: "pebbles", label: "Pebbles" },
-  { id: "confetti", label: "Confetti" }
+  { id: "confetti", label: "Confetti" },
+  { id: "petals", label: "Petals" },
+  { id: "paws", label: "Paws" }
 ];
 function isChoice(registry, value) {
   return registry.some((c) => c.id === value);

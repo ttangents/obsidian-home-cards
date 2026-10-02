@@ -1,6 +1,6 @@
 {
   "name": "home-cards",
-  "version": "1.27.0",
+  "version": "1.27.1",
   "description": "A configurable start page for your Obsidian vault.",
   "private": true,
   "type": "module",

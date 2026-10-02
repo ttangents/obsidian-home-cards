@@ -136,3 +136,14 @@ input.hc-search {
 @media (prefers-reduced-motion: reduce) {
   .hc-greeting.is-fresh { animation: none; }
 }
+
+/* Recompose spins while it works; one turn matches RECOMPOSE_SPIN_MS. */
+.hc-reload.is-spinning .svg-icon {
+  animation: hc-spin 600ms linear infinite;
+}
+@keyframes hc-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hc-reload.is-spinning .svg-icon { animation: none; opacity: 0.5; }
+}

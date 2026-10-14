@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "./harness";
 import { GreetingSource, type LocalStore, type ModelRunner } from "../src/platform/greeting-source";
 import { defaultSettings, type HomeCardsSettings } from "../src/settings/schema";
 

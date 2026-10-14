@@ -1,6 +1,6 @@
 {
   "name": "home-cards",
-  "version": "1.28.1",
+  "version": "1.29.0",
   "description": "A configurable start page for your Obsidian vault.",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "bundle": "node esbuild.config.mjs",
     "build": "npm run css && npm run typecheck && npm run lint && npm run bundle",
     "dev": "npm run css && node esbuild.config.mjs watch",
-    "test": "tsc -p tsconfig.test.json && node scripts/test.mjs",
+    "test": "tsc -p test && node scripts/test.mjs",
     "lint": "eslint ."
   },
   "devDependencies": {
@@ -22,7 +22,8 @@
     "esbuild": "^0.28.2",
     "eslint": "^9.39.5",
     "eslint-plugin-obsidianmd": "^0.4.2",
-    "obsidian": "^1.13.1",
+    "globals": "^17.13.0",
+    "obsidian": "^1.14.4",
     "typescript": "~6.0.0",
     "typescript-eslint": "^8.70.1"
   }

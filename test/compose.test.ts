@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "./harness";
+import type { TFile } from "obsidian";
 import { composeSections } from "../src/compose/compose";
 import { rankSection } from "../src/compose/rank";
 import { VaultSnapshot } from "../src/compose/vault";
@@ -106,7 +107,7 @@ test("one compose walks the vault once and sums the link table once", async () =
     ...v.app,
     vault: { ...v.app.vault, getMarkdownFiles: () => (listings++, v.app.vault.getMarkdownFiles()) },
     metadataCache: {
-      getFileCache: v.app.metadataCache.getFileCache,
+      getFileCache: (file: TFile) => v.app.metadataCache.getFileCache(file),
       get resolvedLinks() {
         linkReads++;
         return links;

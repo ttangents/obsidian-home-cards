@@ -56,7 +56,6 @@
 @media (prefers-reduced-motion: reduce) {
   .hc-card { --hc-card-lift: none; }
 }
-.hc-card.is-hidden { display: none; }
 
 .hc-card-head {
   display: flex;

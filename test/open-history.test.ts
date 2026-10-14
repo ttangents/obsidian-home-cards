@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "./harness";
 import { HISTORY_LIMIT, mergeOpened, OpenHistory, type LocalStore } from "../src/compose/open-history";
 
 function memoryStore(initial?: unknown): LocalStore & { data: Map<string, unknown> } {

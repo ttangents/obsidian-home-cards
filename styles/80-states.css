@@ -7,3 +7,8 @@
   padding: var(--size-4-4) 0;
 }
 
+
+/* Cards a section holds back, and cards a filter rules out. Last in the
+   cascade and scoped to the page, so no layout's display rule (rows set
+   each card to a grid) can bring them back. */
+.home-cards .hc-card.is-hidden { display: none; }

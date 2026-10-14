@@ -15,7 +15,8 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const root = new URL("..", import.meta.url).pathname;
+/** The repository root: npm runs every script from there. */
+const root = process.cwd();
 const partialsDir = join(root, "styles");
 const tilesDir = join(root, "assets", "tiles");
 const PLACEHOLDER = /@tile:([a-z0-9-]+)@/g;

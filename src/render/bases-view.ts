@@ -38,7 +38,13 @@ class HomeCardsBasesView extends BasesView {
     this.root = containerEl.createDiv({ cls: "hc-in-bases" });
     this.actions = cardActions(plugin.app, this, this.hover, BASES_VIEW_ID);
     // Settings edits redraw the view; the Component releases the handler.
-    this.registerEvent(plugin.onRefresh(() => this.onDataUpdated()));
+    // Bases fills `data` only once the query first runs, which for a base
+    // in a background tab can come after a settings edit.
+    this.registerEvent(
+      plugin.onRefresh(() => {
+        if (this.hasData()) this.onDataUpdated();
+      })
+    );
   }
 
   onunload(): void {
@@ -69,7 +75,13 @@ class HomeCardsBasesView extends BasesView {
     });
   }
 
+  /** Whether Bases has delivered a query result yet. */
+  private hasData(): boolean {
+    return (this.data as typeof this.data | undefined) !== undefined;
+  }
+
   private async render(token: number): Promise<void> {
+    if (!this.hasData()) return;
     const { app } = this;
     const { plugin } = this;
     const settings = plugin.settings;

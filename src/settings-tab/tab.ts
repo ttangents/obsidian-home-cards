@@ -1,393 +1,459 @@
 /**
- * The settings tab: three panes behind a segmented switch.
+ * The settings tab, declared through Obsidian's settings definitions
+ * (1.13+), so Obsidian draws every row in its own style and lists each
+ * setting in its settings search.
  *
- * Every control writes through one of the plugin's two persistence verbs.
- * `touch()` coalesces a burst of keystrokes or slider ticks into one
- * write; `commit()` writes at once, and the pane redraws after it when
- * the change shows or hides other controls.
+ * Controls bind to settings keys. `getControlValue` and `setControlValue`
+ * route every read and write through this tab: writes go through the
+ * plugin's `touch()`, which saves once a burst of edits stops and redraws
+ * open views. A few keys are virtual (one dropdown standing for two
+ * stored flags); `VIRTUAL` maps them.
+ *
+ * Sections are a list: each row carries its visibility toggle, an edit
+ * button that opens the section editor, a delete button and a drag
+ * handle. Obsidian draws the last two for every row of a list.
  */
 
-import { Notice, PluginSettingTab, Setting } from "obsidian";
+import { Notice, PluginSettingTab, type Setting, type SettingDefinitionItem } from "obsidian";
 import type HomeCardsPlugin from "../main";
 import { shortcutsSupported } from "../platform/shortcuts";
 import { renderBackgroundPicker } from "../render/swatches";
-import { isChoice, LIMITS, SURFACES, VIEW_MODES } from "../settings/schema";
-import { SectionsPane } from "./sections";
-import { addChoices, hint, settingGroup } from "./widgets";
+import {
+  BLANK_SECTION,
+  defaultSettings,
+  isChoice,
+  labelOf,
+  LIMITS,
+  newSectionId,
+  SECTION_KINDS,
+  sectionTitle,
+  SURFACES,
+  VIEW_MODES,
+  type HomeCardsSettings,
+  type SectionConfig,
+} from "../settings/schema";
+import { SectionModal } from "./section-modal";
+import { choiceOptions } from "./widgets";
 
-const PANES = [
-  { id: "sections", label: "Sections" },
-  { id: "cards", label: "Cards" },
-  { id: "layout", label: "Layout" },
-] as const;
-type PaneId = (typeof PANES)[number]["id"];
+/** Settings a control binds to directly. */
+type ScalarKey = Exclude<keyof HomeCardsSettings, "sections">;
+
+const DEFAULTS = defaultSettings();
+
+/** Dropdown keys, with the registry each value must belong to. */
+const CHOICES = {
+  defaultView: VIEW_MODES,
+  cardSurface: SURFACES,
+} as const;
+
+/**
+ * Text fields whose stored form differs from what is typed: trimmed, and
+ * an empty entry falls back to the default rather than storing nothing.
+ */
+const TEXT_RULES: Partial<Record<ScalarKey, (typed: string) => string>> = {
+  typeProperty: (v) => v.trim() || DEFAULTS.typeProperty,
+  summaryProperty: (v) => v.trim(),
+  greetingShortcut: (v) => v.trim() || DEFAULTS.greetingShortcut,
+};
+
+/** The glyph dropdown stands for two stored flags. */
+const GLYPH = "glyph";
+const GLYPH_OPTIONS = { off: "None", letter: "Initial letter", typify: "Icon from Typify" };
 
 export class HomeCardsSettingTab extends PluginSettingTab {
-  /** Which pane is showing. View state: never persisted. */
-  private pane: PaneId = "sections";
-  private readonly sections: SectionsPane;
-
   constructor(private readonly plugin: HomeCardsPlugin) {
     super(plugin.app, plugin);
-    this.sections = new SectionsPane(plugin, () => this.display());
-  }
-
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
-    containerEl.addClass("home-cards-settings");
-
-    const bar = containerEl.createDiv({ cls: "hc-tabs", attr: { role: "tablist" } });
-    for (const pane of PANES) {
-      const on = pane.id === this.pane;
-      const b = bar.createEl("button", {
-        text: pane.label,
-        attr: { role: "tab", "aria-selected": String(on) },
-      });
-      b.toggleClass("is-active", on);
-      b.addEventListener("click", () => {
-        this.pane = pane.id;
-        this.display();
-      });
-    }
-
-    const body = containerEl.createDiv({ cls: "hc-tabbody" });
-    switch (this.pane) {
-      case "sections":
-        this.sections.render(body);
-        break;
-      case "cards":
-        this.cardsPane(body);
-        break;
-      case "layout":
-        this.layoutPane(body);
-        break;
-    }
   }
 
   /** Obsidian calls this when the tab closes: write any pending edit. */
   hide(): void {
-    this.sections.forget();
+    super.hide();
     void this.plugin.flush();
   }
 
-  /** Write now, then redraw so dependent controls appear or disappear. */
-  private async restructure(): Promise<void> {
-    await this.plugin.commit();
-    this.display();
+  // ------------------------------------------------------------ bindings
+
+  getControlValue(key: string): unknown {
+    const s = this.plugin.settings;
+    if (key === GLYPH) return !s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter";
+    return isScalarKey(key) ? s[key] : undefined;
   }
 
-  // ------------------------------------------------------------------ cards
-
-  private cardsPane(root: HTMLElement): void {
+  setControlValue(key: string, value: unknown): void {
     const s = this.plugin.settings;
-    hint(root, "What each card carries, and where its text comes from.");
-
-    const content = settingGroup(root);
-    new Setting(content)
-      .setName("Glyph")
-      .setDesc("A mark in the corner of each card.")
-      .addDropdown((d) =>
-        d
-          .addOption("off", "None")
-          .addOption("letter", "Initial letter")
-          .addOption("typify", "Icon from Typify")
-          .setValue(!s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter")
-          .onChange((v) => {
-            s.showGlyph = v !== "off";
-            s.typifyIcons = v === "typify";
-            void this.restructure();
-          })
-      );
-    if (s.showGlyph && s.typifyIcons) {
-      hint(
-        content,
-        "Requires the Typify plugin. Home Cards reads Typify's icons and matches them on each note's type. Types without a Typify icon keep the initial letter."
-      );
+    if (key === GLYPH) {
+      s.showGlyph = value !== "off";
+      s.typifyIcons = value === "typify";
+    } else if (isScalarKey(key)) {
+      const next = coerce(key, value, s[key]);
+      if (next === undefined) return;
+      (s as unknown as Record<ScalarKey, unknown>)[key] = next;
+    } else {
+      return;
     }
-
-    new Setting(content)
-      .setName("Type label")
-      .setDesc("The value of this property, shown as the first pill on each card.")
-      .addText((t) =>
-        t
-          .setValue(s.typeProperty)
-          .setDisabled(!s.showRubric)
-          .onChange((v) => {
-            s.typeProperty = v.trim() || "type";
-            this.plugin.touch();
-          })
-      )
-      .addToggle((t) =>
-        t.setValue(s.showRubric).onChange((v) => {
-          s.showRubric = v;
-          void this.restructure();
-        })
-      );
-
-    new Setting(content)
-      .setName("Tags")
-      .setDesc("Frontmatter tags first, then inline tags.")
-      .addToggle((t) =>
-        t.setValue(s.showTags).onChange((v) => {
-          s.showTags = v;
-          void this.restructure();
-        })
-      )
-      .addSlider((sl) =>
-        sl
-          .setLimits(LIMITS.maxTags.min, LIMITS.maxTags.max, 1)
-          .setValue(s.maxTags)
-          .setDynamicTooltip()
-          .setDisabled(!s.showTags)
-          .onChange((v) => {
-            s.maxTags = v;
-            this.plugin.touch();
-          })
-      );
-
-    new Setting(content)
-      .setName("Opening sentence")
-      .setDesc("The first prose sentence, and how many lines it may run to.")
-      .addToggle((t) =>
-        t.setValue(s.showDeks).onChange((v) => {
-          s.showDeks = v;
-          void this.restructure();
-        })
-      )
-      .addSlider((sl) =>
-        sl
-          .setLimits(LIMITS.dekLines.min, LIMITS.dekLines.max, 1)
-          .setValue(s.dekLines)
-          .setDynamicTooltip()
-          .setDisabled(!s.showDeks)
-          .onChange((v) => {
-            s.dekLines = v;
-            this.plugin.touch();
-          })
-      );
-
-    new Setting(content)
-      .setName("File size in the footer")
-      .setDesc("The footer always carries the value the section sorts on.")
-      .addToggle((t) =>
-        t.setValue(s.showFileSize).onChange((v) => {
-          s.showFileSize = v;
-          this.plugin.touch();
-        })
-      );
-
-    const text = settingGroup(root, "Text extraction");
-    new Setting(text)
-      .setName("Summary property")
-      .setDesc("When a note defines it, it wins over the first sentence.")
-      .addText((t) =>
-        t.setValue(s.summaryProperty).onChange((v) => {
-          s.summaryProperty = v.trim();
-          this.plugin.touch();
-        })
-      );
-    new Setting(text)
-      .setName("Skip openings beginning with")
-      .setDesc("Comma separated. Self-referential first sentences get passed over.")
-      .addTextArea((t) =>
-        t.setValue(s.boilerplateOpeners).onChange((v) => {
-          s.boilerplateOpeners = v;
-          this.plugin.touch();
-        })
-      );
-    new Setting(text)
-      .setName("Strip from headlines")
-      .setDesc("Comma separated title prefixes. The toggle also strips trailing date stamps.")
-      .addText((t) =>
-        t.setValue(s.titlePrefixes).onChange((v) => {
-          s.titlePrefixes = v;
-          this.plugin.touch();
-        })
-      )
-      .addToggle((t) =>
-        t
-          .setTooltip("Strip trailing dates")
-          .setValue(s.stripTrailingDates)
-          .onChange((v) => {
-            s.stripTrailingDates = v;
-            this.plugin.touch();
-          })
-      );
+    this.plugin.touch();
+    // Rows that show or hide with this value re-check their predicates.
+    this.refreshDomState();
   }
 
-  // ----------------------------------------------------------------- layout
+  // --------------------------------------------------------- definitions
 
-  private layoutPane(root: HTMLElement): void {
+  /**
+   * Called on every redraw and once at startup for the search index, so
+   * it only describes rows; the vault-wide work (the property list for
+   * the section editor) waits until a row is drawn or a modal opens.
+   */
+  getSettingDefinitions(): SettingDefinitionItem[] {
     const s = this.plugin.settings;
-    hint(
-      root,
-      "Color, type and spacing come from your active theme. These settings choose the surface cards sit on and how the grid reflows."
-    );
+    return [
+      ...this.general(),
+      this.sectionList(s),
+      this.cardsGroup(s),
+      this.textGroup(),
+      this.appearanceGroup(),
+      this.headerGroup(s),
+    ];
+  }
 
-    const page = settingGroup(root);
-    new Setting(page).setName("Default view").addDropdown((d) =>
-      addChoices(d, VIEW_MODES)
-        .setValue(s.defaultView)
-        .onChange((v) => {
-          if (!isChoice(VIEW_MODES, v)) return;
-          s.defaultView = v;
-          this.plugin.touch();
-        })
-    );
-    new Setting(page)
-      .setName("Minimum card width")
-      .setDesc("Cards reflow to fill the pane; this sets how narrow they may get.")
-      .addSlider((sl) =>
-        sl
-          .setLimits(LIMITS.cardMinWidth.min, LIMITS.cardMinWidth.max, 2)
-          .setValue(s.cardMinWidth)
-          .setDynamicTooltip()
-          .onChange((v) => {
-            s.cardMinWidth = v;
-            this.plugin.touch();
-          })
-      );
-    new Setting(page)
-      .setName("Card surface")
-      .setDesc(
-        "Flat uses the theme's panel color and a thin border. Elevated lifts each card on a shadow. Frosted lets a background pattern show through, blurred."
-      )
-      .addDropdown((d) =>
-        addChoices(d, SURFACES)
-          .setValue(s.cardSurface)
-          .onChange((v) => {
-            if (!isChoice(SURFACES, v)) return;
-            s.cardSurface = v;
-            this.plugin.touch();
-          })
-      );
-    new Setting(page)
-      .setName("Type labels in accent color")
-      .setDesc("Off uses the theme's muted text color.")
-      .addToggle((t) =>
-        t.setValue(s.accentRubrics).onChange((v) => {
-          s.accentRubrics = v;
-          this.plugin.touch();
-        })
-      );
-
-    const background = settingGroup(root, "Background");
-    new Setting(background)
-      .setName("Pattern")
-      .setDesc("Plain follows the theme. Each pattern switches between a light and a dark tile with the theme's mode.");
-    renderBackgroundPicker(background, this.plugin);
-
-    const header = settingGroup(root, "Header");
-    new Setting(header)
-      .setName("Greeting")
-      .setDesc("Follows the time of day and the calendar, with a word from another language now and then. Add a name to be greeted by it.")
-      .addText((t) =>
-        t
-          .setPlaceholder("Your name")
-          .setValue(s.greetingName)
-          .setDisabled(!s.greetingEnabled)
-          .onChange((v) => {
-            s.greetingName = v;
-            this.plugin.touch();
-          })
-      )
-      .addToggle((t) =>
-        t.setValue(s.greetingEnabled).onChange((v) => {
-          s.greetingEnabled = v;
-          void this.restructure();
-        })
-      );
-    new Setting(header)
-      .setName("Holiday greetings")
-      .setDesc("On fixed-date holidays such as New Year's Day and Christmas, the greeting marks the day. Applies the next time you open the home page.")
-      .addToggle((t) =>
-        t
-          .setValue(s.greetingOccasions)
-          .setDisabled(!s.greetingEnabled)
-          .onChange((v) => {
-            s.greetingOccasions = v;
-            this.plugin.touch();
-          })
-      );
-    this.appleIntelligence(header);
-    new Setting(header).setName("Show note count").addToggle((t) =>
-      t.setValue(s.showNoteCount).onChange((v) => {
-        s.showNoteCount = v;
-        this.plugin.touch();
-      })
-    );
-    new Setting(header).setName("Open on startup").addToggle((t) =>
-      t.setValue(s.openOnStartup).onChange((v) => {
-        s.openOnStartup = v;
-        this.plugin.touch();
-      })
-    );
+  private general(): SettingDefinitionItem[] {
+    return [
+      {
+        name: "Open on startup",
+        desc: "Show the home page when Obsidian opens.",
+        control: { type: "toggle", key: "openOnStartup" },
+      },
+      {
+        name: "Default view",
+        desc: "The layout the home page opens in. The header switches it for the current page.",
+        control: { type: "dropdown", key: "defaultView", options: choiceOptions(VIEW_MODES) },
+      },
+      {
+        name: "One section per note",
+        desc: "Show each note only in the first section that claims it, so section order sets precedence.",
+        control: { type: "toggle", key: "dedupe" },
+      },
+      {
+        name: "Rediscover notes untouched for",
+        desc: "In months. Rediscover sections and the shuffle button draw from these notes.",
+        aliases: ["random note", "forgotten notes"],
+        control: {
+          type: "slider",
+          key: "rediscoverMonths",
+          min: LIMITS.rediscoverMonths.min,
+          max: LIMITS.rediscoverMonths.max,
+          step: 1,
+        },
+      },
+    ];
   }
 
   /**
-   * Greetings from Apple Intelligence. Offered only where it can run (the
-   * desktop app on macOS); elsewhere a note explains why the option is
-   * missing, since these settings sync to phones and tablets too.
+   * One row per section, in page order. Obsidian adds the delete button
+   * and drag handle; each row adds its toggle and edit button. Callbacks
+   * look the section up by its id, which survives reordering.
    */
-  private appleIntelligence(group: HTMLElement): void {
-    const s = this.plugin.settings;
-    const name = "Greetings from Apple Intelligence";
-    if (!shortcutsSupported()) {
-      new Setting(group)
-        .setName(name)
-        .setDesc("Available in the Obsidian desktop app on a Mac with Apple Intelligence. This device uses the built-in greetings.");
-      return;
-    }
+  private sectionList(s: HomeCardsSettings): SettingDefinitionItem {
+    const find = (id: string) => this.plugin.settings.sections.find((c) => c.id === id);
+    return {
+      type: "list",
+      heading: "Sections",
+      emptyState: "No sections. Add one to fill the home page.",
+      addItem: {
+        name: "Add section",
+        action: () => {
+          const cfg: SectionConfig = { ...BLANK_SECTION, id: newSectionId() };
+          this.plugin.settings.sections.push(cfg);
+          void this.restructure();
+          this.editSection(cfg.id);
+        },
+      },
+      onReorder: (from, to) => {
+        const list = this.plugin.settings.sections;
+        const [moved] = list.splice(from, 1);
+        if (moved) list.splice(to, 0, moved);
+        void this.restructure();
+      },
+      onDelete: (index) => {
+        this.plugin.settings.sections.splice(index, 1);
+        void this.restructure();
+      },
+      items: s.sections.map((cfg) => ({
+        name: sectionTitle(cfg),
+        desc: sectionSummary(cfg),
+        searchable: false,
+        render: (setting: Setting) => {
+          setting
+            .addToggle((t) =>
+              t
+                .setTooltip("Show this section")
+                .setValue(cfg.enabled)
+                .onChange((on) => {
+                  const live = find(cfg.id);
+                  if (!live) return;
+                  live.enabled = on;
+                  this.plugin.touch();
+                })
+            )
+            .addExtraButton((b) =>
+              b
+                .setIcon("pencil")
+                .setTooltip("Edit section")
+                .onClick(() => this.editSection(cfg.id))
+            );
+        },
+      })),
+    };
+  }
 
-    new Setting(group)
-      .setName(name)
-      .setDesc("Writes a fresh greeting on this Mac with the on-device model. The prompt holds only the date and time, and nothing leaves your Mac. The built-in greetings fill in whenever the model is unavailable.")
-      .addToggle((t) =>
-        t
-          .setValue(s.greetingAI)
-          .setDisabled(!s.greetingEnabled)
-          .onChange((v) => {
-            s.greetingAI = v;
-            void this.restructure();
-          })
-      );
-    if (!s.greetingAI || !s.greetingEnabled) return;
+  private cardsGroup(s: HomeCardsSettings): SettingDefinitionItem {
+    return {
+      type: "group",
+      heading: "Cards",
+      items: [
+        {
+          name: "Glyph",
+          desc: "A mark in the corner of each card. Typify icons need the Typify plugin; types without one keep the letter.",
+          control: { type: "dropdown", key: GLYPH, options: GLYPH_OPTIONS },
+        },
+        {
+          name: "Type label",
+          desc: "Show the note's type as the first pill on each card.",
+          control: { type: "toggle", key: "showRubric" },
+        },
+        {
+          name: "Type property",
+          desc: "The property that holds each note's type.",
+          control: { type: "text", key: "typeProperty", placeholder: DEFAULTS.typeProperty },
+          visible: () => s.showRubric,
+        },
+        {
+          name: "Type label in accent color",
+          desc: "Off uses the theme's muted text color.",
+          control: { type: "toggle", key: "accentRubrics" },
+          visible: () => s.showRubric,
+        },
+        {
+          name: "Tags",
+          desc: "Frontmatter tags first, then inline tags.",
+          control: { type: "toggle", key: "showTags" },
+        },
+        {
+          name: "Tags per card",
+          control: { type: "slider", key: "maxTags", min: LIMITS.maxTags.min, max: LIMITS.maxTags.max, step: 1 },
+          visible: () => s.showTags,
+        },
+        {
+          name: "Opening sentence",
+          desc: "The note's first sentence of prose, or its summary property.",
+          control: { type: "toggle", key: "showDeks" },
+        },
+        {
+          name: "Lines of the opening sentence",
+          control: { type: "slider", key: "dekLines", min: LIMITS.dekLines.min, max: LIMITS.dekLines.max, step: 1 },
+          visible: () => s.showDeks,
+        },
+        {
+          name: "File size in the footer",
+          desc: "The footer always shows the value the section sorts on.",
+          control: { type: "toggle", key: "showFileSize" },
+        },
+      ],
+    };
+  }
 
-    new Setting(group)
-      .setName("Shortcut")
-      .setDesc("The plugin runs this shortcut to reach the model. Test it once after you build it.")
-      .addText((t) =>
-        t
-          .setPlaceholder("Home Cards Greeting")
-          .setValue(s.greetingShortcut)
-          .onChange((v) => {
-            s.greetingShortcut = v.trim() || "Home Cards Greeting";
-            this.plugin.touch();
-          })
-      )
-      .addButton((b) =>
-        b.setButtonText("Test").onClick(async () => {
-          b.setDisabled(true).setButtonText("Running…");
-          try {
-            const greeting = await this.plugin.greetings.test();
-            new Notice(`Apple Intelligence says: ${greeting.replace("{name}", s.greetingName.trim() || "friend")}`);
-          } catch (err) {
-            new Notice(`The shortcut did not work. ${err instanceof Error ? err.message : String(err)}`, 10_000);
-          } finally {
-            b.setDisabled(false).setButtonText("Test");
-          }
-        })
-      );
+  private textGroup(): SettingDefinitionItem {
+    return {
+      type: "group",
+      heading: "Card text",
+      items: [
+        {
+          name: "Summary property",
+          desc: "When a note has this property, its value replaces the opening sentence.",
+          control: { type: "text", key: "summaryProperty", placeholder: "summary" },
+        },
+        {
+          name: "Skip openings that begin with",
+          desc: "Comma separated. Home Cards passes over a first sentence that starts with one of these.",
+          control: { type: "text", key: "boilerplateOpeners", placeholder: "this note, this page" },
+        },
+        {
+          name: "Remove from titles",
+          desc: "Comma separated prefixes to drop from card titles.",
+          control: { type: "text", key: "titlePrefixes", placeholder: "(Draft)" },
+        },
+        {
+          name: "Remove trailing dates from titles",
+          desc: "Drops a date stamp at the end of a title, such as 2026-10-14.",
+          control: { type: "toggle", key: "stripTrailingDates" },
+        },
+      ],
+    };
+  }
 
-    const steps = group.createEl("ol", { cls: "hc-steps" });
+  private appearanceGroup(): SettingDefinitionItem {
+    return {
+      type: "group",
+      heading: "Appearance",
+      items: [
+        {
+          name: "Minimum card width",
+          desc: "Cards reflow to fill the page; this sets how narrow they may get.",
+          control: {
+            type: "slider",
+            key: "cardMinWidth",
+            min: LIMITS.cardMinWidth.min,
+            max: LIMITS.cardMinWidth.max,
+            step: 2,
+            displayFormat: (v) => `${v}px`,
+          },
+        },
+        {
+          name: "Card surface",
+          desc: "Flat uses the theme's panel color and a thin border. Elevated lifts each card on a shadow. Frosted lets a background pattern show through, blurred.",
+          control: { type: "dropdown", key: "cardSurface", options: choiceOptions(SURFACES) },
+        },
+        {
+          name: "Background",
+          desc: "Plain follows the theme. Each pattern has a light and a dark version that follow the theme's mode.",
+          aliases: ["pattern", "wallpaper"],
+          render: (setting: Setting) => {
+            setting.settingEl.addClass("hc-picker-row");
+            renderBackgroundPicker(setting.settingEl, this.plugin);
+          },
+        },
+      ],
+    };
+  }
+
+  private headerGroup(s: HomeCardsSettings): SettingDefinitionItem {
+    const supported = shortcutsSupported();
+    const ai = () => supported && s.greetingEnabled && s.greetingAI;
+    return {
+      type: "group",
+      heading: "Header",
+      items: [
+        {
+          name: "Greeting",
+          desc: "Follows the time of day and the calendar, with a word from another language now and then.",
+          control: { type: "toggle", key: "greetingEnabled" },
+        },
+        {
+          name: "Your name",
+          desc: "Some greetings address you by it.",
+          control: { type: "text", key: "greetingName", placeholder: "Your name" },
+          visible: () => s.greetingEnabled,
+        },
+        {
+          name: "Holiday greetings",
+          desc: "Mark fixed-date holidays, such as New Year's Day, from the next time the home page opens.",
+          control: { type: "toggle", key: "greetingOccasions" },
+          visible: () => s.greetingEnabled,
+        },
+        {
+          name: "Greetings from Apple Intelligence",
+          desc: "Write each greeting with the on-device model on this Mac. The prompt holds only the date and time. The built-in greetings fill in whenever the model is unavailable.",
+          control: { type: "toggle", key: "greetingAI" },
+          visible: () => supported && s.greetingEnabled,
+        },
+        {
+          name: "Greetings from Apple Intelligence",
+          desc: "Available in the desktop app on a Mac with Apple Intelligence. This device uses the built-in greetings.",
+          visible: () => !supported && s.greetingEnabled,
+        },
+        {
+          name: "Shortcut",
+          desc: shortcutSteps(),
+          control: { type: "text", key: "greetingShortcut", placeholder: DEFAULTS.greetingShortcut },
+          visible: ai,
+        },
+        {
+          name: "Test the shortcut",
+          desc: "Ask the model for one greeting now.",
+          searchable: false,
+          visible: ai,
+          render: (setting: Setting) => {
+            setting.addButton((b) =>
+              b.setButtonText("Test").onClick(async () => {
+                b.setDisabled(true).setButtonText("Running…");
+                try {
+                  const greeting = await this.plugin.greetings.test();
+                  const name = this.plugin.settings.greetingName.trim() || "friend";
+                  new Notice(`Apple Intelligence says: ${greeting.replace("{name}", name)}`);
+                } catch (err) {
+                  const reason = err instanceof Error ? err.message : String(err);
+                  new Notice(`The shortcut did not work. ${reason}`, 10_000);
+                } finally {
+                  b.setDisabled(false).setButtonText("Test");
+                }
+              })
+            );
+          },
+        },
+        {
+          name: "Note count",
+          desc: "Show how many notes the vault holds, after the date.",
+          control: { type: "toggle", key: "showNoteCount" },
+        },
+      ],
+    };
+  }
+
+  // ------------------------------------------------------------- actions
+
+  /** Write now and rebuild the rows, for changes to the section list. */
+  private async restructure(): Promise<void> {
+    await this.plugin.commit();
+    this.update();
+  }
+
+  /** Open the editor for one section; its row redraws when it closes. */
+  private editSection(id: string): void {
+    const cfg = this.plugin.settings.sections.find((c) => c.id === id);
+    if (!cfg) return;
+    new SectionModal(this.plugin, cfg, () => void this.restructure()).open();
+  }
+}
+
+// ----------------------------------------------------------------- helpers
+
+function isScalarKey(key: string): key is ScalarKey {
+  return key !== "sections" && key in DEFAULTS;
+}
+
+/**
+ * The stored form of a control's value, or undefined to refuse it. The
+ * controls only produce values of the right kind; this guards the
+ * registries and the text rules.
+ */
+function coerce(key: ScalarKey, value: unknown, current: unknown): unknown {
+  if (key in CHOICES) {
+    const registry = CHOICES[key as keyof typeof CHOICES];
+    return typeof value === "string" && isChoice(registry, value) ? value : undefined;
+  }
+  if (typeof value !== typeof current) return undefined;
+  const rule = TEXT_RULES[key];
+  return rule && typeof value === "string" ? rule(value) : value;
+}
+
+/** The second line of a section's row: its source and card count. */
+function sectionSummary(cfg: SectionConfig): string {
+  const cards = `${cfg.count} ${cfg.count === 1 ? "card" : "cards"}`;
+  const source = labelOf(SECTION_KINDS, cfg.kind);
+  return cfg.title.trim() && source !== sectionTitle(cfg) ? `${source} · ${cards}` : cards;
+}
+
+/** How to build the shortcut, as the description of its name field. */
+function shortcutSteps(): DocumentFragment {
+  return createFragment((frag) => {
+    frag.appendText("Home Cards runs this shortcut to reach the model. To build it in the Shortcuts app:");
+    const steps = frag.createEl("ol", { cls: "hc-steps" });
     for (const step of [
-      `In the Shortcuts app, create a shortcut named "${s.greetingShortcut}".`,
+      "Create a shortcut with the name above.",
       "Add Get Text from Input, with Shortcut Input as its input.",
       "Add Use Model. Choose On-Device, and set its prompt to the Text from the previous step.",
       "Add Stop and Output, and set it to the model's Response.",
     ]) {
       steps.createEl("li", { text: step });
     }
-  }
+  });
 }

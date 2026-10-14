@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "./harness";
 import { cleanTitle, dekSignature, extractDek, splitSentences } from "../src/compose/text";
 import { defaultSettings } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";
@@ -56,7 +56,7 @@ test("extractDek returns empty for no prose, deks off, or a failed read", async 
   const prose = v.file("prose.md");
   const off = { ...s, showDeks: false };
   assert.equal(await extractDek(v.app, prose, v.app.metadataCache.getFileCache(prose), off), "");
-  const ghost = { ...prose, path: "ghost.md" } as typeof prose;
+  const ghost = { ...prose, path: "ghost.md" };
   assert.equal(await extractDek(v.app, ghost, v.app.metadataCache.getFileCache(prose), s), "");
 });
 

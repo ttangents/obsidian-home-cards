@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "./harness";
 import { DekCache } from "../src/compose/dek-cache";
 import { defaultSettings } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";

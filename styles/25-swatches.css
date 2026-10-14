@@ -9,10 +9,10 @@
   flex-wrap: wrap;
   gap: var(--size-4-4);
 }
-.home-cards-settings .hc-swatches {
+.setting-item.hc-picker-row .hc-swatches {
   padding: var(--size-4-3) 0 var(--size-4-4);
 }
-.hc-swatch-item {
+button.hc-swatch-item {
   background: none;
   border: none;
   box-shadow: none;

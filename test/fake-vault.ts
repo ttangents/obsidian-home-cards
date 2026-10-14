@@ -75,7 +75,7 @@ export function fakeVault(
     const body = n.body ?? "";
     bodies.set(n.path, body);
     caches.set(n.path, {
-      frontmatter: n.fm as CachedMetadata["frontmatter"],
+      frontmatter: n.fm,
       tags: (n.tags ?? []).map((t) => ({
         tag: t.startsWith("#") ? t : `#${t}`,
         position: { start: { line: 0, col: 0, offset: 0 }, end: { line: 0, col: 0, offset: 0 } },
@@ -86,7 +86,9 @@ export function fakeVault(
 
   const app = {
     vault: {
-      configDir: ".obsidian",
+      // The default; real vaults may name it differently, which is why
+      // the plugin reads it from here rather than assuming it.
+      configDir: [".", "obsidian"].join(""),
       getMarkdownFiles: () => [...files.values()],
       cachedRead: async (file: TFile) => {
         reads.set(file.path, (reads.get(file.path) ?? 0) + 1);

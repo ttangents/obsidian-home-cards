@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "./harness";
 import { BACKGROUNDS, SECTION_KINDS, SURFACES, VIEW_MODES } from "../src/settings/schema";
 
 const read = (p: string) => readFileSync(p, "utf8");
@@ -67,7 +67,7 @@ test("every surface has a rule, or is the default", () => {
 });
 
 test("the built stylesheet is current, balanced and carries its load-bearing rules", async () => {
-  const { assembleCss } = await import(join(process.cwd(), "scripts/build-css.mjs"));
+  const { assembleCss } = await import("../scripts/build-css.mjs");
   const built = read("styles.css");
   assert.equal(built, assembleCss(), "styles.css is stale: run npm run css");
   const bare = built.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -75,11 +75,15 @@ test("the built stylesheet is current, balanced and carries its load-bearing rul
   for (const selector of [
     ".hc-grid {", ".hc-card {", ".hc-top {", ".hc-dateline {", ".hc-seg-divider {", ".hc-picker {",
     '.home-cards[data-view="rows"] .hc-card {', ".home-cards.hc-in-bases {",
-    ".home-cards-settings .setting-item.hc-subrow {",
+    ".setting-item.hc-picker-row {",
   ]) {
     assert.ok(built.includes(selector), selector);
   }
   assert.ok(!/^body(\.theme-dark)? \{[^}]*--hc-bg-/m.test(built), "tile variables must not sit on body");
+  // Hidden cards stay hidden in every layout: the rule must follow the
+  // rows layout, which gives each card a display of its own.
+  const hidden = built.indexOf(".home-cards .hc-card.is-hidden { display: none; }");
+  assert.ok(hidden > built.lastIndexOf('.home-cards[data-view="rows"] .hc-card {'), "hidden cards must stay hidden in rows");
   assert.ok(!/\.hc-sub\b(?!row)/.test(built), "the old .hc-sub class is retired");
 });
 
@@ -93,6 +97,8 @@ test("the manifest passes the directory's format checks", () => {
   for (const key of ["id", "name", "description"]) {
     assert.ok(!/obsidian|plugin/i.test(String(m[key])), key);
   }
+  assert.match(String(m.authorUrl), /^https:\/\/github\.com\/[\w-]+$/);
+  assert.equal(m.isDesktopOnly, false);
   const versions = JSON.parse(read("versions.json")) as Record<string, string>;
   assert.equal(versions[String(m.version)], m.minAppVersion);
   const pkg = JSON.parse(read("package.json")) as { version: string };

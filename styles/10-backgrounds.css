@@ -2,7 +2,7 @@
    The CSS half of BACKGROUNDS in src/settings/schema.ts. Each
    pattern is a pair of seamless tiles carried on one
    custom property per pattern id, declared only on the page
-   and settings roots that paint them: the light tile by
+   and on swatch grids, the two roots that paint them: the light tile by
    default, the dark tile under .theme-dark. The page and every
    swatch (settings and the header picker) resolve the same
    property, so a preview always shows exactly what the page will
@@ -30,7 +30,7 @@
    pattern takes a heavier veil than a sparse one of the same ink.
    Tiles drawn fainter than the target stay as drawn. */
 .home-cards,
-.home-cards-settings {
+.hc-swatches {
   --hc-bg-diamonds: url("@tile:diamonds-light@");
   --hc-veil-diamonds: 70%;
   --hc-bg-leaves: url("@tile:leaves-light@");
@@ -59,7 +59,7 @@
   --hc-veil-paws: 65%;
 }
 .theme-dark .home-cards,
-.theme-dark .home-cards-settings {
+.theme-dark .hc-swatches {
   --hc-bg-diamonds: url("@tile:diamonds-dark@");
   --hc-veil-diamonds: 70%;
   --hc-bg-leaves: url("@tile:leaves-dark@");

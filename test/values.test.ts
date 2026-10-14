@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "./harness";
 import { asStringList, firstValue, memoLast, parseDateLike, splitList } from "../src/compose/values";
 
 test("asStringList keeps scalars and drops objects and nulls", () => {

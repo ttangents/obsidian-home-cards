@@ -4,7 +4,7 @@
  * of the views so the home page and the Bases view behave the same.
  */
 
-import { Menu, Notice, type App, type Component, type HoverParent, type TFile } from "obsidian";
+import { Menu, normalizePath, Notice, type App, type Component, type HoverParent, type TFile } from "obsidian";
 import { forgottenNotes } from "../compose/rank";
 import { untitledPath } from "../compose/vault";
 import type { HomeCardsSettings } from "../settings/schema";
@@ -46,18 +46,12 @@ export function cardActions(
  */
 function hoverTracker(app: App, owner: Component, hoverParent: HoverParent, source: string): HoverTracker {
   let current: { file: TFile; el: HTMLElement } | null = null;
-  // The key listener goes on the document the cards are in, which is a
-  // popout window's own document when the view lives there. One per
-  // document, released with the view.
-  const listening = new WeakSet<Document>();
-  const listen = (doc: Document) => {
-    if (listening.has(doc)) return;
-    listening.add(doc);
-    owner.registerDomEvent(doc, "keydown", (evt) => {
-      if (current && !evt.repeat && (evt.key === "Meta" || evt.key === "Control")) show(evt);
-    });
-  };
-  const show = (event: MouseEvent | KeyboardEvent) => {
+  // The pointer's last position over a card. Page Preview reads the
+  // position from the event it receives, and a key press carries none.
+  let x = 0;
+  let y = 0;
+
+  const show = (event: MouseEvent) => {
     // A recompose may have replaced the card while the pointer sat on it.
     if (!current?.el.isConnected) return;
     app.workspace.trigger("hover-link", {
@@ -69,10 +63,34 @@ function hoverTracker(app: App, owner: Component, hoverParent: HoverParent, sour
       sourcePath: "",
     });
   };
+
+  // Listeners go on the document the cards are in, which is a popout
+  // window's own document when the view lives there. One set per
+  // document, released with the view.
+  const listening = new WeakSet<Document>();
+  const listen = (doc: Document) => {
+    if (listening.has(doc)) return;
+    listening.add(doc);
+    owner.registerDomEvent(doc, "mousemove", (evt) => {
+      if (!current) return;
+      x = evt.clientX;
+      y = evt.clientY;
+    });
+    owner.registerDomEvent(doc, "keydown", (evt) => {
+      if (!current || evt.repeat || (evt.key !== "Meta" && evt.key !== "Control")) return;
+      // The key press as a pointer event at the pointer's position, with
+      // the modifier state Page Preview checks.
+      const view = doc.defaultView ?? undefined;
+      show(new MouseEvent("mouseover", { view, clientX: x, clientY: y, metaKey: evt.metaKey, ctrlKey: evt.ctrlKey }));
+    });
+  };
+
   return {
     enter: (file, el, evt) => {
       listen(el.ownerDocument);
       current = { file, el };
+      x = evt.clientX;
+      y = evt.clientY;
       show(evt);
     },
     leave: (el) => {
@@ -82,13 +100,14 @@ function hoverTracker(app: App, owner: Component, hoverParent: HoverParent, sour
 }
 
 /**
- * The opening choices Obsidian's file explorer offers, then whatever
- * Obsidian and other plugins add for a file (bookmarking, revealing it in
- * a file browser, and so on), through the standard file-menu event.
+ * The opening choices Obsidian's file explorer offers that the standard
+ * file menu leaves to its caller, then the standard file menu itself:
+ * through the file-menu event, Obsidian and other plugins add their items
+ * (opening in a new window, bookmarking, revealing the file, and so on).
  */
 function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): void {
   const menu = new Menu();
-  const open = (title: string, icon: string, where: "tab" | "split" | "window") =>
+  const open = (title: string, icon: string, where: "tab" | "split") =>
     menu.addItem((item) =>
       item
         .setSection("open")
@@ -98,7 +117,6 @@ function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): v
     );
   open("Open in new tab", "file-plus", "tab");
   open("Open to the right", "separator-vertical", "split");
-  open("Open in new window", "picture-in-picture-2", "window");
   app.workspace.trigger("file-menu", menu, file, source);
 
   // A menu key or Shift+F10 fires contextmenu with no pointer position.
@@ -116,7 +134,8 @@ function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): v
  */
 export async function createNote(app: App, newLeaf: boolean): Promise<void> {
   const folder = app.fileManager.getNewFileParent("");
-  const path = untitledPath(folder.isRoot() ? "" : folder.path, (p) => !!app.vault.getAbstractFileByPath(p));
+  const exists = (p: string) => !!app.vault.getAbstractFileByPath(normalizePath(p));
+  const path = normalizePath(untitledPath(folder.isRoot() ? "" : folder.path, exists));
   const file = await app.vault.create(path, "");
   await leafFor(app, newLeaf).openFile(file, { active: true, eState: { rename: "all" } });
 }

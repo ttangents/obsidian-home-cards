@@ -27,8 +27,6 @@ Home Cards gives your vault a start page. The page shows sections of note cards:
 4. If your notes record their kind in a property other than `type`, set **Cards → Type property** to that property.
 5. Turn on **Open on startup** to make Home Cards your start page.
 
-<img src="docs/phone-dark.webp" alt="Home Cards on a phone, dark mode" width="300">
-
 ## Installation
 
 Search for **Home Cards** under **Settings → Community plugins → Browse**, then install and enable it.

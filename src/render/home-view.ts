@@ -20,7 +20,7 @@ import {
   type WorkspaceLeaf,
 } from "obsidian";
 import { composeSections, type ComposedSection } from "../compose/compose";
-import { withName } from "../compose/greeting";
+import { greetingFor, withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
 import { sectionTitle, VIEW_MODES, type ViewMode } from "../settings/schema";
 import { applyAppearance } from "./appearance";
@@ -30,9 +30,6 @@ import { observeDeks } from "./lazy-deks";
 import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
 
 export const VIEW_TYPE_HOME = "home-cards-view";
-
-/** How long after opening a late AI greeting may still replace the first. */
-const GREETING_SWAP_MS = 8_000;
 
 /** One turn of the Recompose icon; see .hc-reload.is-spinning. */
 const RECOMPOSE_SPIN_MS = 600;
@@ -92,19 +89,8 @@ export class HomeView extends ItemView implements HoverParent {
   }
 
   async onOpen(): Promise<void> {
-    const openedAt = Date.now();
-    const { text, later } = this.plugin.greetings.pick(new Date());
-    this.greeting = text;
+    this.greeting = this.pickGreeting();
     this.shell = this.buildShell(this.contentEl);
-    // Apple Intelligence's line replaces the list's if it arrives while
-    // the page is fresh; later than that, a change would only distract.
-    void later?.then((fresh) => {
-      const shell = this.shell;
-      if (!fresh || !shell || Date.now() - openedAt > GREETING_SWAP_MS) return;
-      this.greeting = fresh;
-      shell.greeting.addClass("is-fresh");
-      this.paintHeader(shell);
-    });
     this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
 
     // The picker closes on a press outside it or on Escape. Registered
@@ -266,12 +252,17 @@ export class HomeView extends ItemView implements HoverParent {
     if (button.hasClass("is-spinning")) return;
     button.addClass("is-spinning");
     const minimum = new Promise((resolve) => window.setTimeout(resolve, RECOMPOSE_SPIN_MS));
-    this.greeting = this.plugin.greetings.pick(new Date()).text;
+    this.greeting = this.pickGreeting();
     try {
       await Promise.all([this.refresh(), minimum]);
     } finally {
       button.removeClass("is-spinning");
     }
+  }
+
+  /** A greeting for this moment, drawn from the built-in list. */
+  private pickGreeting(): string {
+    return greetingFor(new Date(), { occasions: this.plugin.settings.greetingOccasions });
   }
 
   /** Layout switches are pure CSS: no recompose, no network of listeners. */

@@ -4,11 +4,6 @@
  * "Konnichiwa"), so the masthead keeps one typographic voice whatever the
  * theme's fonts cover.
  *
- * Two sources share this module. The built-in list below always works.
- * On macOS, Apple Intelligence can write a fresh line instead; this module
- * supplies its prompt (`greetingPrompt`) and vets its reply
- * (`cleanModelGreeting`), and platform/greeting-source.ts runs it.
- *
  * Templates may carry `{name}` where the reader's name reads naturally.
  * `withName` fills it, or drops it cleanly when no name is set. A short
  * salutation without the token ("Good morning") gets ", name" appended;
@@ -21,17 +16,16 @@
 
 export type PartOfDay = "night" | "early" | "morning" | "midday" | "afternoon" | "evening" | "late";
 
-const PARTS: readonly { part: PartOfDay; from: number; label: string }[] = [
-  { part: "night", from: 0, label: "the small hours of the night" },
-  { part: "early", from: 5, label: "early morning" },
-  { part: "morning", from: 8, label: "morning" },
-  { part: "midday", from: 12, label: "around lunchtime" },
-  { part: "afternoon", from: 14, label: "afternoon" },
-  { part: "evening", from: 17, label: "evening" },
-  { part: "late", from: 21, label: "late evening" },
+const PARTS: readonly { part: PartOfDay; from: number }[] = [
+  { part: "night", from: 0 },
+  { part: "early", from: 5 },
+  { part: "morning", from: 8 },
+  { part: "midday", from: 12 },
+  { part: "afternoon", from: 14 },
+  { part: "evening", from: 17 },
+  { part: "late", from: 21 },
 ];
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -272,55 +266,4 @@ export function withName(template: string, name: string): string {
   // A short salutation takes the name; a sentence stands on its own.
   const short = template.split(/\s+/).length <= 3 && !/[.?!]$/.test(template);
   return n && short ? `${template}, ${n}` : template;
-}
-
-// ---------------------------------------------------- Apple Intelligence
-
-/**
- * The prompt for the on-device model. It carries the date, time and any
- * fixed-date occasion, and nothing from the vault.
- */
-export function greetingPrompt(now: Date, options: { occasions: boolean }): string {
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  const when = `${WEEKDAYS[now.getDay()]}, ${now.getDate()} ${MONTHS[now.getMonth()]}, ${hh}:${mm} (${partOf(now.getHours()).label})`;
-  const occasion = options.occasions ? occasionOn(now) : undefined;
-  return [
-    "Write one greeting for the top of a personal notes app's home page.",
-    `It is ${when}.`,
-    occasion ? `Today is ${occasion.name}.` : "",
-    "Keep it between 1 and 7 words, in English, warm and a little dry or funny.",
-    "It may use a greeting word from another language, written in Latin letters, such as Namaste or Hola.",
-    "If it reads naturally, write {name} once where the reader's name goes.",
-    "No emoji, no quotation marks, no hashtags, no other names.",
-    "Reply with the greeting only.",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-/** Latin letters (with diacritics), digits, spaces and plain punctuation. */
-const ALLOWED = /^[\p{Script=Latin}\p{N}\p{Zs}.,!?'’:;\-{}]+$/u;
-
-/**
- * Vet a model reply: first line, wrapping quotes and labels removed,
- * trailing full stop dropped. Returns null for anything that does not
- * look like a short greeting, so the caller falls back to the list.
- */
-export function cleanModelGreeting(raw: string): string | null {
-  const line = raw.split(/\r?\n/).map((l) => l.trim()).find(Boolean);
-  if (!line) return null;
-  let text = line
-    .replace(/^(greeting|here'?s? (is )?(a|your) greeting)\s*:\s*/i, "")
-    .replace(/^["'“‘`]+|["'”’`]+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  // One trailing full stop goes; an ellipsis stays.
-  if (text.endsWith(".") && !text.endsWith("..")) text = text.slice(0, -1);
-  text = text.replace(/\{\s*name\s*\}/gi, NAME);
-  if (!text || text.length > 60 || text.split(" ").length > 10) return null;
-  if (!ALLOWED.test(text)) return null;
-  // Braces only as the one name slot.
-  if (text.replace(NAME, "").includes("{") || text.replace(NAME, "").includes("}")) return null;
-  return text;
 }

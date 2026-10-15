@@ -130,10 +130,6 @@ export interface HomeCardsSettings {
   /** Pin the greeting on fixed-date holidays (New Year, Christmas...). */
   greetingOccasions: boolean;
   greetingName: string;
-  /** Let Apple Intelligence write greetings, on macOS, through a shortcut. */
-  greetingAI: boolean;
-  /** The shortcut that runs the on-device model. */
-  greetingShortcut: string;
   showNoteCount: boolean;
   openOnStartup: boolean;
 
@@ -206,8 +202,6 @@ export function defaultSettings(): HomeCardsSettings {
     greetingEnabled: true,
     greetingOccasions: true,
     greetingName: "",
-    greetingAI: false,
-    greetingShortcut: "Home Cards Greeting",
     showNoteCount: true,
     openOnStartup: false,
 

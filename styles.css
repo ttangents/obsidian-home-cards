@@ -393,19 +393,6 @@ input.hc-search {
 }
 
 
-/* A greeting from Apple Intelligence that replaces the first one fades
-   in, so the change reads as intended. */
-.hc-greeting.is-fresh {
-  animation: hc-fade-in var(--anim-duration-moderate, 300ms) var(--anim-motion-smooth, ease) both;
-}
-@keyframes hc-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hc-greeting.is-fresh { animation: none; }
-}
-
 /* Recompose spins while it works; one turn matches RECOMPOSE_SPIN_MS. */
 .hc-reload.is-spinning .svg-icon {
   animation: hc-spin 600ms linear infinite;
@@ -927,10 +914,9 @@ body.is-phone .home-cards[data-view="rows"] .hc-card.has-glyph .hc-dek { padding
 .home-cards .hc-card.is-hidden { display: none; }
 /* --- Settings ---------------------------------------------
    Obsidian draws the settings tab from its definitions (see
-   src/settings-tab/tab.ts), so only two things here are the
-   plugin's own: the background row, whose swatch grid wraps
-   onto a line of its own under the row's name, and the setup
-   steps in the shortcut row's description.
+   src/settings-tab/tab.ts), so only the background row here is
+   the plugin's own: its swatch grid wraps onto a line of its
+   own under the row's name.
    ---------------------------------------------------------- */
 
 .setting-item.hc-picker-row {
@@ -939,9 +925,3 @@ body.is-phone .home-cards[data-view="rows"] .hc-card.has-glyph .hc-dek { padding
 .setting-item.hc-picker-row .hc-swatches {
   flex-basis: 100%;
 }
-
-.setting-item-description .hc-steps {
-  margin: var(--size-2-2) 0 0;
-  padding-inline-start: var(--size-4-5);
-}
-.setting-item-description .hc-steps li { margin: var(--size-2-1) 0; }

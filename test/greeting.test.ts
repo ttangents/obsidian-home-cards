@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "./harness";
 import {
   allListGreetings,
-  cleanModelGreeting,
   greetingFor,
-  greetingPrompt,
   withName,
 } from "../src/compose/greeting";
 
@@ -61,23 +59,4 @@ test("withName fills, appends, or drops the name", () => {
   // Sentences stand alone.
   assert.equal(withName("Your notes missed you", "Leslie"), "Your notes missed you");
   assert.equal(withName("Happy Monday. Mostly.", "Leslie"), "Happy Monday. Mostly.");
-});
-
-test("the model prompt carries the moment and nothing else", () => {
-  const p = greetingPrompt(new Date(2026, 11, 25, 7, 5), { occasions: true });
-  assert.match(p, /Friday, 25 December, 07:05/);
-  assert.match(p, /early morning/);
-  assert.match(p, /Today is Christmas Day/);
-  assert.doesNotMatch(greetingPrompt(new Date(2026, 11, 25, 7, 5), { occasions: false }), /Christmas/);
-});
-
-test("model replies are vetted before display", () => {
-  assert.equal(cleanModelGreeting('"Rise and shine, {name}."\n'), "Rise and shine, {name}");
-  assert.equal(cleanModelGreeting("Greeting: Hola, night owl!"), "Hola, night owl!");
-  assert.equal(cleanModelGreeting("Here is your greeting: Coffee first"), "Coffee first");
-  assert.equal(cleanModelGreeting("Well, well, well..."), "Well, well, well...");
-  assert.equal(cleanModelGreeting("{ name }, it's Friday"), "{name}, it's Friday");
-  for (const bad of ["", "   ", "Good morning 🌞", "नमस्ते", "Hello {user}", "x".repeat(70), "one two three four five six seven eight nine ten eleven"]) {
-    assert.equal(cleanModelGreeting(bad), null, bad);
-  }
 });

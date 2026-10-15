@@ -6,17 +6,16 @@
  * Controls bind to settings keys. `getControlValue` and `setControlValue`
  * route every read and write through this tab: writes go through the
  * plugin's `touch()`, which saves once a burst of edits stops and redraws
- * open views. A few keys are virtual (one dropdown standing for two
- * stored flags); `VIRTUAL` maps them.
+ * open views. One key is virtual: the glyph dropdown (`GLYPH`) stands
+ * for two stored flags.
  *
  * Sections are a list: each row carries its visibility toggle, an edit
  * button that opens the section editor, a delete button and a drag
  * handle. Obsidian draws the last two for every row of a list.
  */
 
-import { Notice, PluginSettingTab, type Setting, type SettingDefinitionItem } from "obsidian";
+import { PluginSettingTab, type Setting, type SettingDefinitionItem } from "obsidian";
 import type HomeCardsPlugin from "../main";
-import { shortcutsSupported } from "../platform/shortcuts";
 import { renderBackgroundPicker } from "../render/swatches";
 import {
   BLANK_SECTION,
@@ -53,7 +52,6 @@ const CHOICES = {
 const TEXT_RULES: Partial<Record<ScalarKey, (typed: string) => string>> = {
   typeProperty: (v) => v.trim() || DEFAULTS.typeProperty,
   summaryProperty: (v) => v.trim(),
-  greetingShortcut: (v) => v.trim() || DEFAULTS.greetingShortcut,
 };
 
 /** The glyph dropdown stands for two stored flags. */
@@ -326,8 +324,6 @@ export class HomeCardsSettingTab extends PluginSettingTab {
   }
 
   private headerGroup(s: HomeCardsSettings): SettingDefinitionItem {
-    const supported = shortcutsSupported();
-    const ai = () => supported && s.greetingEnabled && s.greetingAI;
     return {
       type: "group",
       heading: "Header",
@@ -348,46 +344,6 @@ export class HomeCardsSettingTab extends PluginSettingTab {
           desc: "Mark fixed-date holidays, such as New Year's Day, from the next time the home page opens.",
           control: { type: "toggle", key: "greetingOccasions" },
           visible: () => s.greetingEnabled,
-        },
-        {
-          name: "Greetings from Apple Intelligence",
-          desc: "Write each greeting with the on-device model on this Mac. The prompt holds only the date and time. The built-in greetings fill in whenever the model is unavailable.",
-          control: { type: "toggle", key: "greetingAI" },
-          visible: () => supported && s.greetingEnabled,
-        },
-        {
-          name: "Greetings from Apple Intelligence",
-          desc: "Available in the desktop app on a Mac with Apple Intelligence. This device uses the built-in greetings.",
-          visible: () => !supported && s.greetingEnabled,
-        },
-        {
-          name: "Shortcut",
-          desc: shortcutSteps(),
-          control: { type: "text", key: "greetingShortcut", placeholder: DEFAULTS.greetingShortcut },
-          visible: ai,
-        },
-        {
-          name: "Test the shortcut",
-          desc: "Ask the model for one greeting now.",
-          searchable: false,
-          visible: ai,
-          render: (setting: Setting) => {
-            setting.addButton((b) =>
-              b.setButtonText("Test").onClick(async () => {
-                b.setDisabled(true).setButtonText("Running…");
-                try {
-                  const greeting = await this.plugin.greetings.test();
-                  const name = this.plugin.settings.greetingName.trim() || "friend";
-                  new Notice(`Apple Intelligence says: ${greeting.replace("{name}", name)}`);
-                } catch (err) {
-                  const reason = err instanceof Error ? err.message : String(err);
-                  new Notice(`The shortcut did not work. ${reason}`, 10_000);
-                } finally {
-                  b.setDisabled(false).setButtonText("Test");
-                }
-              })
-            );
-          },
         },
         {
           name: "Note count",
@@ -440,20 +396,4 @@ function sectionSummary(cfg: SectionConfig): string {
   const cards = `${cfg.count} ${cfg.count === 1 ? "card" : "cards"}`;
   const source = labelOf(SECTION_KINDS, cfg.kind);
   return cfg.title.trim() && source !== sectionTitle(cfg) ? `${source} · ${cards}` : cards;
-}
-
-/** How to build the shortcut, as the description of its name field. */
-function shortcutSteps(): DocumentFragment {
-  return createFragment((frag) => {
-    frag.appendText("Home Cards runs this shortcut to reach the model. To build it in the Shortcuts app:");
-    const steps = frag.createEl("ol", { cls: "hc-steps" });
-    for (const step of [
-      "Create a shortcut with the name above.",
-      "Add Get Text from Input, with Shortcut Input as its input.",
-      "Add Use Model. Choose On-Device, and set its prompt to the Text from the previous step.",
-      "Add Stop and Output, and set it to the model's Response.",
-    ]) {
-      steps.createEl("li", { text: step });
-    }
-  });
 }

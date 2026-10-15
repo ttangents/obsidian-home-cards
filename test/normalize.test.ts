@@ -107,8 +107,7 @@ test("retired background patterns move to their replacements", () => {
   }
 });
 
-test("Apple Intelligence is off by default and the shortcut name never blank", () => {
-  assert.equal(defaultSettings().greetingAI, false);
-  assert.equal(normalizeSettings({ greetingShortcut: "  " }).greetingShortcut, "Home Cards Greeting");
-  assert.equal(normalizeSettings({ greetingAI: true }).greetingAI, true);
+test("settings from the retired Apple Intelligence greeting drop out", () => {
+  const s = normalizeSettings({ greetingAI: true, greetingShortcut: "Home Cards Greeting" });
+  assert.ok(!("greetingAI" in s) && !("greetingShortcut" in s));
 });

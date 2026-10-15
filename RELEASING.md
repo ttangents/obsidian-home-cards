@@ -33,6 +33,6 @@ The directory reads the listing from the repository: the name, author and descri
 ### What the directory checks, and where this repository answers it
 
 - **Manifest:** `id`, `name` and `description` avoid "Obsidian" and "plugin"; the description starts with a verb, ends with a period and stays under 250 characters; `minAppVersion` is the oldest version the plugin runs on (1.13.1, for the settings definitions API). `test/architecture.test.ts` checks the format.
-- **Code:** `eslint.config.mjs` applies `eslint-plugin-obsidianmd`'s recommended rules to every file. Node's modules load only on the desktop, behind `Platform.isDesktop` (`src/platform/shortcuts.ts`), so `isDesktopOnly` stays `false`.
-- **Disclosures:** the README's "Privacy and access" section covers the one option that works with files outside the vault. The plugin makes no network requests, shows no ads, collects no telemetry and needs no account.
+- **Code:** `eslint.config.mjs` applies `eslint-plugin-obsidianmd`'s recommended rules to every file. The plugin uses only Obsidian's API, no Node.js modules, so `isDesktopOnly` stays `false`.
+- **Disclosures:** the README's "Privacy and access" section states what the plugin reads and stores. The plugin makes no network requests, works with no files outside the vault, shows no ads, collects no telemetry and needs no account.
 - **License:** MIT, in `LICENSE`. The background tiles in `assets/tiles/` were generated with ChatGPT for this project; OpenAI's terms of use assign the rights in generated output to the user, so the tiles ship under the same license.

@@ -7,9 +7,7 @@ import globals from "globals";
 
 /** Proper nouns the sentence-case rule must leave capitalized. */
 const BRANDS = [
-  "Home Cards Greeting", "Home Cards", "Apple Intelligence", "Obsidian", "Mac", "Shortcuts",
-  "Get Text from Input", "Shortcut Input", "Use Model", "On-Device", "Stop and Output", "Response",
-  "Typify", "Bases", "Settings", "See more", "Christmas", "New Year's Day",
+  "Home Cards", "Obsidian", "Typify", "Bases", "Settings", "See more", "New Year's Day",
 ];
 
 export default defineConfig([

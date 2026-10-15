@@ -15,7 +15,7 @@ Home Cards gives your vault a start page. The page shows sections of note cards:
 - **Two layouts.** A grid of cards and a compact list of rows, switched from the header.
 - **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
 - **A Bases view.** Any base can show its results as "Home cards", with one section per group.
-- **A greeting.** About 180 built-in greetings follow your local time of day, the day of the week and, optionally, fixed-date holidays, some in other languages, always in Latin script. On a Mac with Apple Intelligence, the on-device model can write a fresh one instead.
+- **A greeting.** About 180 built-in greetings follow your local time of day, the day of the week and, optionally, fixed-date holidays, some in other languages, always in Latin script.
 
 ![Rows view, dark mode](docs/rows-dark.webp)
 
@@ -44,24 +44,11 @@ Every setting appears in Obsidian's settings search.
 - **Cards:** the corner glyph, the type label and the property it reads, tags, the opening sentence and its length, and file size.
 - **Card text:** the summary property, and the openings and title prefixes Home Cards passes over.
 - **Appearance:** minimum card width, card surface (Flat, Elevated or Frosted) and background pattern.
-- **Header:** the greeting and your name, holiday greetings, Apple Intelligence, and the note count.
+- **Header:** the greeting and your name, holiday greetings, and the note count.
 
 ### Optional: Typify icons
 
 If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, set **Cards → Glyph** to **Icon from Typify**. Home Cards then reads Typify's icon settings and shows the icon for each note's type. Home Cards only reads Typify's settings file, and only while this option is on. Without Typify, the option falls back to each note's initial letter.
-
-### Optional: greetings from Apple Intelligence
-
-On a Mac running macOS 26 or later with Apple Intelligence turned on, Home Cards can ask the on-device model for each greeting. The option is off until you turn it on under **Settings → Home Cards → Header**.
-
-Obsidian plugins cannot call Apple's model directly, so Home Cards runs a shortcut you build once in the Shortcuts app:
-
-1. Create a shortcut named **Home Cards Greeting**.
-2. Add **Get Text from Input**, with Shortcut Input as its input.
-3. Add **Use Model**. Choose **On-Device**, and set its prompt to the Text from the previous step.
-4. Add **Stop and Output**, and set it to the model's Response.
-
-Then press **Test** under the shortcut's name in settings. Home Cards writes the next greeting ahead of time, so the page does not wait for the model, and it falls back to the built-in greetings whenever the shortcut or the model is unavailable. Phones, tablets and other computers always use the built-in greetings.
 
 ## Commands
 
@@ -70,21 +57,18 @@ Then press **Test** under the shortcut's name in settings. Home Cards writes the
 
 ## Privacy and access
 
-Home Cards makes no network requests, sends no data anywhere, shows no ads and needs no account. It reads your notes' metadata and the first paragraph of each note it shows. On each device, it keeps the paths of the last 100 notes you opened, and which sections you folded, in Obsidian's local storage, outside your synced settings.
-
-One option works with files outside your vault, and it is off by default. **Greetings from Apple Intelligence**, on a Mac only, writes the prompt to a new folder in your system's temporary directory, runs your shortcut through macOS's `/usr/bin/shortcuts` command, reads the reply from that folder, and deletes the folder. The prompt holds only the date, the time and the name of any fixed-date holiday; it contains nothing from your vault, and the on-device model does not send it off your Mac. Home Cards keeps the next greeting in Obsidian's local storage on that Mac.
+Home Cards makes no network requests, works with no files outside your vault, sends no data anywhere, shows no ads and needs no account. It reads your notes' metadata and the first paragraph of each note it shows. On each device, it keeps the paths of the last 100 notes you opened, and which sections you folded, in Obsidian's local storage, outside your synced settings.
 
 With **Icon from Typify** on, Home Cards also reads the Typify plugin's settings file in your vault's configuration folder.
 
 ## Architecture
 
-The source divides into five layers. Each imports only from the layers above it; the views and settings tab also hold a type-only reference to the plugin class.
+The source divides into four layers. Each imports only from the layers above it; the views and settings tab also hold a type-only reference to the plugin class.
 
 | Layer | Directory | Responsibility |
 | --- | --- | --- |
 | Settings | `src/settings/` | The schema, defaults and choice registries (`schema.ts`), and the normalizer that turns untrusted `data.json` into valid settings (`normalize.ts`). No imports from Obsidian. |
 | Compose | `src/compose/` | Ranking, filtering, text extraction, the card model, the dek cache and the open history. Type-only imports from Obsidian; no DOM. |
-| Platform | `src/platform/` | The greeting source and the macOS Shortcuts bridge for Apple Intelligence. |
 | Render | `src/render/` | The home page view, the Bases view, the card DOM they share, and the card actions. |
 | Settings tab | `src/settings-tab/` | The settings tab, declared through Obsidian's settings definitions, and the section editor. |
 

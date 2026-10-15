@@ -81,6 +81,8 @@ function renderCard(
   actions: CardActions
 ): HTMLElement {
   const el = parent.createEl("article", { cls: "hc-card" });
+  // Lets the rows layout indent the sentence under a glyph.
+  el.toggleClass("has-glyph", opts.showGlyph);
   el.dataset.search = card.search;
   el.tabIndex = 0;
 

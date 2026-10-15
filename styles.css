@@ -783,42 +783,31 @@ button.hc-swatch-item {
 }
 
 /* --- Rows -------------------------------------------------
-   The RowsView mock, faithfully: each note is two lines on a
-   three-track grid shared by the whole list — a narrow icon
-   track, the content track carrying the title with its type
-   label run in and the opening sentence beneath, and a date
-   track in tabular figures. Hover is a full-width band with
-   an accent bar on the leading edge. The track model lives in
-   one custom property; rows subgrid onto the list's tracks so
-   columns align even when a row has no date, and fall back to
-   identical per-row tracks where subgrid is unsupported.
+   Each note is two lines: the title with its type label run
+   in and the date at the far end, then the opening sentence
+   beneath. A glyph, when the setting shows one, leads the
+   title and the sentence indents to match. Hover is a
+   full-width band with an accent bar on the leading edge.
+
+   Plain grid and flex only, which every Obsidian release the
+   plugin supports draws the same way.
    ---------------------------------------------------------- */
 
 .home-cards[data-view="rows"] .hc-grid {
-  --hc-row-cols: max-content minmax(0, 1fr) max-content;
+  /* The glyph's width, which the sentence indents by. */
+  --hc-row-glyph: var(--size-4-5);
+  --hc-row-gap: var(--size-4-3);
   display: block;
-}
-body.is-phone .home-cards[data-view="rows"] .hc-grid {
-  --hc-row-cols: minmax(0, 1fr) max-content;
-}
-
-@supports (grid-template-columns: subgrid) {
-  .home-cards[data-view="rows"] .hc-grid {
-    display: grid;
-    grid-template-columns: var(--hc-row-cols);
-  }
-  .home-cards[data-view="rows"] .hc-card {
-    grid-column: 1 / -1;
-    grid-template-columns: subgrid;
-  }
 }
 
 .home-cards[data-view="rows"] .hc-card {
   display: grid;
-  grid-template-columns: var(--hc-row-cols);
-  align-items: start;
-  column-gap: var(--size-4-3);
-  row-gap: var(--size-2-1);
+  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "head foot"
+    "dek  dek";
+  align-items: baseline;
+  gap: var(--size-2-1) var(--hc-row-gap);
   background: transparent;
   border: none;
   border-bottom: var(--divider-width) solid var(--hc-hair);
@@ -840,31 +829,33 @@ body.is-phone .home-cards[data-view="rows"] .hc-grid {
   translate: none;
 }
 
-/* The head dissolves so the glyph and the text place onto the
-   list's tracks directly; the glyph spans both lines, unboxed. */
-.home-cards[data-view="rows"] .hc-card-head { display: contents; }
+/* Line one: glyph, title, type label. */
+.home-cards[data-view="rows"] .hc-card-head {
+  grid-area: head;
+  align-items: baseline;
+  gap: var(--hc-row-gap);
+  min-width: 0;
+}
 .home-cards[data-view="rows"] .hc-glyph {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  background: transparent;
-  width: auto;
+  width: var(--hc-row-glyph);
   height: auto;
-  margin-top: 0.2em;
+  background: transparent;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
 }
 .home-cards[data-view="rows"] .hc-card-headtext {
-  grid-column: 2;
-  display: flex;
   flex-direction: row;
   align-items: baseline;
   gap: var(--size-4-2);
   min-width: 0;
 }
-/* In the index the pills collapse to run inline with the title: the
-   type becomes a plain label (its filled pill would be too loud on one
-   line) and the tags drop out entirely, as the mock has them. */
-.home-cards[data-view="rows"] .hc-pills { display: contents; }
+/* In the index the type label runs inline with the title as plain
+   text (a filled pill would be too loud on one line), and the tags
+   drop out. */
+.home-cards[data-view="rows"] .hc-pills {
+  flex: none;
+  flex-wrap: nowrap;
+}
 .home-cards[data-view="rows"] .hc-pill.is-tag { display: none; }
 .home-cards[data-view="rows"] .hc-pill.is-type {
   background: transparent;
@@ -875,11 +866,6 @@ body.is-phone .home-cards[data-view="rows"] .hc-grid {
 }
 .home-cards.hc-accent-rubrics[data-view="rows"] .hc-pill.is-type {
   color: var(--text-accent);
-}
-/* With the glyph setting off, content claims the icon track too. */
-.home-cards[data-view="rows"] .hc-card:not(:has(.hc-glyph)) .hc-card-headtext,
-.home-cards[data-view="rows"] .hc-card:not(:has(.hc-glyph)) .hc-dek {
-  grid-column: 1 / 3;
 }
 
 .home-cards[data-view="rows"] .hc-title {
@@ -892,17 +878,20 @@ body.is-phone .home-cards[data-view="rows"] .hc-grid {
   text-overflow: ellipsis;
   text-wrap: nowrap;
 }
-/* The description, beneath the heading, one line. */
+
+/* Line two: the opening sentence, one line, aligned with the title. */
 .home-cards[data-view="rows"] .hc-dek {
-  grid-column: 2;
+  grid-area: dek;
   -webkit-line-clamp: 1;
   margin: 0;
+}
+.home-cards[data-view="rows"] .hc-card.has-glyph .hc-dek {
+  padding-inline-start: calc(var(--hc-row-glyph) + var(--hc-row-gap));
 }
 .home-cards[data-view="rows"] .hc-dek.is-empty { display: none; }
 
 .home-cards[data-view="rows"] .hc-foot {
-  grid-column: -2;
-  grid-row: 1;
+  grid-area: foot;
   border: none;
   padding: 0;
   margin: 0;
@@ -919,11 +908,9 @@ body.is-phone .home-cards[data-view="rows"] .hc-grid {
   padding: 0 var(--size-4-3);
 }
 
-/* Phones: no icon track; the sentence runs the full width. */
+/* Phones: no glyph; the sentence runs the full width. */
 body.is-phone .home-cards[data-view="rows"] .hc-glyph { display: none; }
-body.is-phone .home-cards[data-view="rows"] .hc-card-headtext { grid-column: 1; }
-body.is-phone .home-cards[data-view="rows"] .hc-dek { grid-column: 1 / -1; }
-
+body.is-phone .home-cards[data-view="rows"] .hc-card.has-glyph .hc-dek { padding-inline-start: 0; }
 /* --- States ---------------------------------------------- */
 
 .hc-empty,

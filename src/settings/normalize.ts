@@ -15,7 +15,10 @@
  * directly.
  */
 
+import { CUSTOM_BACKGROUNDS, isCustomId, isStoredFileName } from "./custom-background";
+import { normalizeFolderPath } from "./folder-pages";
 import {
+  BACKGROUND_FITS,
   BACKGROUNDS,
   BLANK_SECTION,
   defaultSections,
@@ -25,6 +28,8 @@ import {
   SECTION_KINDS,
   SURFACES,
   VIEW_MODES,
+  type CustomBackground,
+  type FolderPage,
   type HomeCardsSettings,
   type SectionConfig,
 } from "./schema";
@@ -150,6 +155,53 @@ export function normalizeSections(raw: unknown): SectionConfig[] {
   return out.length ? out : defaultSections();
 }
 
+/**
+ * Folder pages with sections of their own. An entry without a usable
+ * folder path or without sections is dropped: that folder then inherits
+ * the home page's sections, which is what an entry-less folder does.
+ */
+export function normalizeFolderPages(raw: unknown): FolderPage[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: FolderPage[] = [];
+  for (const entry of raw) {
+    if (!isObject(entry)) continue;
+    const path = normalizeFolderPath(str(entry.path, ""));
+    if (!path || seen.has(path) || !Array.isArray(entry.sections) || !entry.sections.length) continue;
+    seen.add(path);
+    out.push({ path, sections: normalizeSections(entry.sections) });
+  }
+  return out;
+}
+
+/**
+ * Custom backgrounds. The file name is checked as hard as the id: it
+ * becomes a path inside the plugin's folder, so it must never carry a
+ * separator or a dot-segment, whatever data.json says.
+ */
+export function normalizeCustomBackgrounds(raw: unknown): CustomBackground[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: CustomBackground[] = [];
+  for (const entry of raw) {
+    if (out.length >= CUSTOM_BACKGROUNDS.max) break;
+    if (!isObject(entry)) continue;
+    const id = str(entry.id, "");
+    const file = str(entry.file, "");
+    if (!isCustomId(id) || seen.has(id) || !isStoredFileName(file)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      label: str(entry.label, "").trim().slice(0, CUSTOM_BACKGROUNDS.maxLabel) || "Background",
+      file,
+      fit: choice(BACKGROUND_FITS, entry.fit, "pattern"),
+      width: int(entry.width, 400, { min: CUSTOM_BACKGROUNDS.minEdge, max: CUSTOM_BACKGROUNDS.pictureEdge }),
+      fade: int(entry.fade, CUSTOM_BACKGROUNDS.defaultFade, LIMITS.fade),
+    });
+  }
+  return out;
+}
+
 // --------------------------------------------------------------- settings
 
 export function normalizeSettings(stored: unknown): HomeCardsSettings {
@@ -157,8 +209,12 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
   if (!isObject(stored)) return d;
   const r = migrate(stored);
 
+  const customBackgrounds = normalizeCustomBackgrounds(r.customBackgrounds);
+  const background = str(r.background, d.background);
+
   return {
     sections: normalizeSections(r.sections),
+    folderPages: normalizeFolderPages(r.folderPages),
     dedupe: bool(r.dedupe, d.dedupe),
     rediscoverMonths: int(r.rediscoverMonths, d.rediscoverMonths, LIMITS.rediscoverMonths),
 
@@ -171,7 +227,12 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
     defaultView: choice(VIEW_MODES, r.defaultView, d.defaultView),
     cardMinWidth: int(r.cardMinWidth, d.cardMinWidth, LIMITS.cardMinWidth),
     cardSurface: choice(SURFACES, r.cardSurface, d.cardSurface),
-    background: choice(BACKGROUNDS, r.background, d.background),
+    // A stored custom id survives only while its record does.
+    background:
+      BACKGROUNDS.some((b) => b.id === background) || customBackgrounds.some((b) => b.id === background)
+        ? background
+        : d.background,
+    customBackgrounds,
     accentRubrics: bool(r.accentRubrics, d.accentRubrics),
 
     // Blank falls back to the default: a card always has a type key.

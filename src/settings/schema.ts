@@ -79,6 +79,17 @@ export const BACKGROUNDS = [
 ] as const satisfies readonly Choice[];
 export type Background = (typeof BACKGROUNDS)[number]["id"];
 
+/**
+ * How an image the user adds fills the page. A pattern repeats, like the
+ * built-in tiles; a picture covers the page once. The choice is made when
+ * the image is added, because each is stored at its own size.
+ */
+export const BACKGROUND_FITS = [
+  { id: "pattern", label: "Repeating pattern" },
+  { id: "picture", label: "Single picture" },
+] as const satisfies readonly Choice[];
+export type BackgroundFit = (typeof BACKGROUND_FITS)[number]["id"];
+
 /** Type guard: is `value` one of the registry's ids? */
 export function isChoice<R extends readonly Choice[]>(
   registry: R,
@@ -120,8 +131,37 @@ export interface SectionConfig {
   filterFolders: string;
 }
 
+/**
+ * An image the user added as a page background. The image itself sits in
+ * the plugin's own folder (see render/backgrounds.ts); settings hold only
+ * this record of it.
+ */
+export interface CustomBackground {
+  /** Starts with `custom-`; never collides with a built-in id. */
+  id: string;
+  label: string;
+  /** File name inside the plugin's backgrounds folder; no path. */
+  file: string;
+  fit: BackgroundFit;
+  /** Pixel width of the stored image; a pattern draws at half of it. */
+  width: number;
+  /** Percent of the theme's background laid over the image. */
+  fade: number;
+}
+
+/**
+ * A folder page that has sections of its own. A folder with no entry here
+ * still opens a page: the home page's sections, limited to that folder.
+ */
+export interface FolderPage {
+  /** Vault path of the folder, without a leading or trailing slash. */
+  path: string;
+  sections: SectionConfig[];
+}
+
 export interface HomeCardsSettings {
   sections: SectionConfig[];
+  folderPages: FolderPage[];
   dedupe: boolean;
   /** Rediscover draws from notes untouched for at least this many months. */
   rediscoverMonths: number;
@@ -136,7 +176,9 @@ export interface HomeCardsSettings {
   defaultView: ViewMode;
   cardMinWidth: number;
   cardSurface: Surface;
-  background: Background;
+  /** A built-in `Background` id, or the id of a custom background. */
+  background: string;
+  customBackgrounds: CustomBackground[];
   accentRubrics: boolean;
 
   /** Frontmatter key whose value becomes the card's type label. */
@@ -196,6 +238,7 @@ export function defaultSections(): SectionConfig[] {
 export function defaultSettings(): HomeCardsSettings {
   return {
     sections: defaultSections(),
+    folderPages: [],
     dedupe: true,
     rediscoverMonths: 6,
 
@@ -209,6 +252,7 @@ export function defaultSettings(): HomeCardsSettings {
     cardMinWidth: 262,
     cardSurface: "flat",
     background: "plain",
+    customBackgrounds: [],
     accentRubrics: true,
 
     typeProperty: "type",
@@ -235,6 +279,8 @@ export const LIMITS = {
   maxTags: { min: 1, max: 6 },
   dekLines: { min: 1, max: 8 },
   rediscoverMonths: { min: 1, max: 36 },
+  /** Percent of the theme background over a custom image. */
+  fade: { min: 0, max: 95 },
 } as const;
 
 export function newSectionId(): string {

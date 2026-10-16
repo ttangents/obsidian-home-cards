@@ -12,13 +12,16 @@
  *   main.ts        wiring
  */
 
-import { debounce, Events, Plugin, type EventRef } from "obsidian";
+import { debounce, Events, Plugin, TFolder, type EventRef } from "obsidian";
 import { DekCache } from "./compose/dek-cache";
 import { OpenHistory } from "./compose/open-history";
 import { registerBasesView } from "./render/bases-view";
+import { pickFolder } from "./render/folder-picker";
 import { HomeView, VIEW_TYPE_HOME } from "./render/home-view";
+import { normalizeFolderPath, renameFolderPages } from "./settings/folder-pages";
 import { normalizeSettings } from "./settings/normalize";
 import { defaultSettings, type HomeCardsSettings } from "./settings/schema";
+import { FolderPageModal } from "./settings-tab/folder-page-modal";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
 
 const REFRESH = "refresh";
@@ -61,6 +64,36 @@ export default class HomeCardsPlugin extends Plugin {
     this.addCommand({ id: "open", name: "Open", callback: () => void this.activateView() });
     this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
 
+    // Folder pages. The folder is named by the open note, by a list, or by
+    // the folder's own context menu, so any file browser can reach it.
+    this.addCommand({
+      id: "open-current-folder",
+      name: "Open page for current folder",
+      checkCallback: (checking) => {
+        const folder = this.app.workspace.getActiveFile()?.parent;
+        if (!folder || folder.isRoot()) return false;
+        if (!checking) void this.activateView(folder.path);
+        return true;
+      },
+    });
+    this.addCommand({
+      id: "open-folder",
+      name: "Open page for a folder",
+      callback: () => pickFolder(this.app, (folder) => void this.activateView(folder.path)),
+    });
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (!(file instanceof TFolder) || file.isRoot()) return;
+        menu.addItem((item) =>
+          item
+            .setSection("action")
+            .setTitle("Open Home Cards page")
+            .setIcon("layout-grid")
+            .onClick(() => void this.activateView(file.path))
+        );
+      })
+    );
+
     // "resolved" fires after every batch of metadata changes; one redraw
     // per burst is plenty.
     const settle = debounce(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
@@ -72,7 +105,15 @@ export default class HomeCardsPlugin extends Plugin {
         if (file?.extension === "md") this.openHistory.record(file.path);
       })
     );
-    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => this.openHistory.rename(oldPath, file.path)));
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        this.openHistory.rename(oldPath, file.path);
+        // A folder with its own sections keeps them when it is renamed.
+        if (file instanceof TFolder && renameFolderPages(this.settings.folderPages, oldPath, file.path)) {
+          this.touch();
+        }
+      })
+    );
 
     if (this.settings.openOnStartup) {
       this.app.workspace.onLayoutReady(() => void this.activateView());
@@ -130,17 +171,31 @@ export default class HomeCardsPlugin extends Plugin {
 
   // ------------------------------------------------------------------ views
 
-  /** Reveal the Home view, opening it in a new tab if none exists. */
-  async activateView(): Promise<void> {
+  /**
+   * Reveal the home page, or the page of `folder`, opening it in a new tab
+   * if it is not open. Each folder has at most one tab.
+   */
+  async activateView(folder = ""): Promise<void> {
     const { workspace } = this.app;
-    const existing = workspace.getLeavesOfType(VIEW_TYPE_HOME)[0];
+    const want = normalizeFolderPath(folder);
+    // The saved view state names the folder even for a tab that Obsidian
+    // has not loaded yet, so this never wakes a deferred view.
+    const existing = workspace.getLeavesOfType(VIEW_TYPE_HOME).find((leaf) => {
+      const stored = (leaf.getViewState().state as { folder?: unknown } | undefined)?.folder;
+      return (typeof stored === "string" ? normalizeFolderPath(stored) : "") === want;
+    });
     if (existing) {
       await workspace.revealLeaf(existing);
       return;
     }
     const leaf = workspace.getLeaf("tab");
-    await leaf.setViewState({ type: VIEW_TYPE_HOME, active: true });
+    await leaf.setViewState({ type: VIEW_TYPE_HOME, active: true, state: want ? { folder: want } : {} });
     await workspace.revealLeaf(leaf);
+  }
+
+  /** Open the settings for one folder page; its edits apply as they are made. */
+  editFolderPage(folder: string): void {
+    if (folder) new FolderPageModal(this, folder, () => void this.flush()).open();
   }
 
   /** Subscribe to redraw requests; pass the result to `registerEvent`. */

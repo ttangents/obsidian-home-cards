@@ -1,7 +1,8 @@
 /**
- * The background picker: one swatch per entry in BACKGROUNDS, used by
- * both the settings tab and the home page's header picker, so the two
- * offer the same choices and write the same setting.
+ * The background picker: one swatch per built-in background, then one
+ * per image the user added, used by both the settings tab and the home
+ * page's header picker, so the two offer the same choices and write the
+ * same setting.
  *
  * Each swatch paints with the custom property the page itself uses, so a
  * preview cannot drift from the real background, and the theme's mode
@@ -11,6 +12,7 @@
 
 import type HomeCardsPlugin from "../main";
 import { BACKGROUNDS } from "../settings/schema";
+import { backgroundProps, backgroundUrl } from "./backgrounds";
 
 export interface BackgroundPicker {
   /** Move the selection mark to the stored background. */
@@ -32,10 +34,20 @@ export function renderBackgroundPicker(
     attr: { role: "radiogroup", "aria-label": "Background" },
   });
 
-  const items = BACKGROUNDS.map((bg) => {
+  const choices = [
+    ...BACKGROUNDS.map((bg) => ({ id: bg.id, label: bg.label, custom: null })),
+    ...plugin.settings.customBackgrounds.map((bg) => ({ id: bg.id, label: bg.label, custom: bg })),
+  ];
+  const items = choices.map((bg) => {
     const item = grid.createEl("button", { cls: "hc-swatch-item", attr: { role: "radio" } });
     const face = item.createDiv({ cls: "hc-swatch" });
-    if (bg.id !== "plain") face.dataset.pattern = bg.id;
+    if (bg.custom) {
+      face.dataset.pattern = "custom";
+      face.dataset.fit = bg.custom.fit;
+      face.setCssProps(backgroundProps(backgroundUrl(plugin, bg.custom), bg.custom));
+    } else if (bg.id !== "plain") {
+      face.dataset.pattern = bg.id;
+    }
     item.createDiv({ cls: "hc-swatch-label", text: bg.label });
     item.addEventListener("click", () => {
       if (plugin.settings.background === bg.id) return;

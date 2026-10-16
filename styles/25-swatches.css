@@ -48,3 +48,10 @@ button.hc-swatch-item {
   color: var(--text-accent);
   font-weight: var(--font-semibold);
 }
+
+/* The add-background dialog's preview: a swatch the width of the dialog. */
+.hc-swatch.hc-bg-preview {
+  width: 100%;
+  height: 140px;
+  margin-bottom: var(--size-4-4);
+}

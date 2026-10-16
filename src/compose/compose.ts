@@ -5,6 +5,7 @@
  */
 
 import type { App } from "obsidian";
+import { sectionsFor } from "../settings/folder-pages";
 import type { HomeCardsSettings, SectionConfig } from "../settings/schema";
 import { buildCard, type CardContext, type CardItem, type DekSource } from "./card";
 import { rankSection, type Ranked } from "./rank";
@@ -42,17 +43,19 @@ export interface ComposeOptions {
   now?: Date;
   /** The plugin's open history, for "Recently opened" beyond Obsidian's ten. */
   opened?: readonly string[];
+  /** Compose a folder page: that folder's notes, under its sections. */
+  folder?: string;
 }
 
 export async function composeSections(
   app: App,
   settings: HomeCardsSettings,
-  { deks, now = new Date(), opened = [] }: ComposeOptions = {}
+  { deks, now = new Date(), opened = [], folder = "" }: ComposeOptions = {}
 ): Promise<ComposedSection[]> {
   const icons = await iconsFor(app, settings);
-  const vault = new VaultSnapshot(app, now, opened);
+  const vault = new VaultSnapshot(app, now, opened, folder);
   const taken = new Set<string>();
-  const sections = settings.sections.filter((cfg) => cfg.enabled);
+  const sections = sectionsFor(settings, folder).filter((cfg) => cfg.enabled);
 
   // First pass: each section claims its visible cards, in order, so
   // section order sets precedence.

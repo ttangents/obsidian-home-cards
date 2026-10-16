@@ -11,31 +11,41 @@
  *
  * Sections are a list: each row carries its visibility toggle, an edit
  * button that opens the section editor, a delete button and a drag
- * handle. Obsidian draws the last two for every row of a list.
+ * handle. Obsidian draws the last two for every row of a list. Folder
+ * pages with sections of their own, and the images added as backgrounds,
+ * are lists too.
  */
 
 import { PluginSettingTab, type Setting, type SettingDefinitionItem } from "obsidian";
 import type HomeCardsPlugin from "../main";
+import { backgroundExists, chooseImage, removeBackground } from "../render/backgrounds";
+import { pickFolder } from "../render/folder-picker";
 import { renderBackgroundPicker } from "../render/swatches";
+import { cloneSections } from "../settings/folder-pages";
 import {
+  BACKGROUND_FITS,
   BLANK_SECTION,
   defaultSettings,
   isChoice,
   labelOf,
   LIMITS,
   newSectionId,
-  SECTION_KINDS,
   sectionTitle,
   SURFACES,
   VIEW_MODES,
   type HomeCardsSettings,
   type SectionConfig,
 } from "../settings/schema";
+import { BackgroundModal } from "./background-modal";
+import { FolderPageModal } from "./folder-page-modal";
 import { SectionModal } from "./section-modal";
-import { choiceOptions } from "./widgets";
+import { choiceOptions, sectionSummary } from "./widgets";
+
+/** Settings the tab keeps in lists and editors of their own, not in a control. */
+const COLLECTIONS = ["sections", "folderPages", "customBackgrounds"] as const;
 
 /** Settings a control binds to directly. */
-type ScalarKey = Exclude<keyof HomeCardsSettings, "sections">;
+type ScalarKey = Exclude<keyof HomeCardsSettings, (typeof COLLECTIONS)[number]>;
 
 const DEFAULTS = defaultSettings();
 
@@ -106,9 +116,11 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     return [
       ...this.general(),
       this.sectionList(s),
+      this.folderList(s),
       this.cardsGroup(s),
       this.textGroup(),
       this.appearanceGroup(),
+      this.backgroundList(s),
       this.headerGroup(s),
     ];
   }
@@ -200,6 +212,59 @@ export class HomeCardsSettingTab extends PluginSettingTab {
             );
         },
       })),
+    };
+  }
+
+  /**
+   * Folders with sections of their own. Every other folder still opens a
+   * page, with the sections above limited to it, so this list holds only
+   * the exceptions.
+   */
+  private folderList(s: HomeCardsSettings): SettingDefinitionItem {
+    const { app } = this.plugin;
+    return {
+      type: "list",
+      heading: "Folder pages",
+      emptyState:
+        "No folder has sections of its own. A folder's page shows the sections above, limited to that folder.",
+      addItem: {
+        name: "Add folder page",
+        action: () =>
+          pickFolder(
+            app,
+            (folder) => {
+              const settings = this.plugin.settings;
+              settings.folderPages.push({ path: folder.path, sections: cloneSections(settings.sections) });
+              void this.restructure();
+              this.editFolderPage(folder.path);
+            },
+            new Set(s.folderPages.map((page) => page.path))
+          ),
+      },
+      onDelete: (index) => {
+        this.plugin.settings.folderPages.splice(index, 1);
+        void this.restructure();
+      },
+      items: s.folderPages.map((page) => {
+        const count = `${page.sections.length} ${page.sections.length === 1 ? "section" : "sections"}`;
+        return {
+          name: page.path,
+          desc: app.vault.getFolderByPath(page.path) ? count : `${count} · folder not found`,
+          searchable: false,
+          render: (setting: Setting) => {
+            setting
+              .addExtraButton((b) =>
+                b
+                  .setIcon("layout-grid")
+                  .setTooltip("Open page")
+                  .onClick(() => void this.plugin.activateView(page.path))
+              )
+              .addExtraButton((b) =>
+                b.setIcon("pencil").setTooltip("Edit page").onClick(() => this.editFolderPage(page.path))
+              );
+          },
+        };
+      }),
     };
   }
 
@@ -316,10 +381,57 @@ export class HomeCardsSettingTab extends PluginSettingTab {
           aliases: ["pattern", "wallpaper"],
           render: (setting: Setting) => {
             setting.settingEl.addClass("hc-picker-row");
+            // A redraw of the tab can render this row into the element it
+            // already filled; clear the old grid so there is only ever one.
+            setting.settingEl.findAll(".hc-swatches").forEach((grid) => grid.remove());
             renderBackgroundPicker(setting.settingEl, this.plugin);
           },
         },
       ],
+    };
+  }
+
+  /**
+   * Images the user added as backgrounds. Their files live in the
+   * plugin's own folder; deleting a row deletes its file.
+   */
+  private backgroundList(s: HomeCardsSettings): SettingDefinitionItem {
+    return {
+      type: "list",
+      heading: "Your backgrounds",
+      emptyState:
+        "Add a PNG, JPEG, WebP or GIF to use as the page background. Home Cards keeps a resized copy in its own plugin folder and leaves your vault's files alone.",
+      addItem: {
+        name: "Add image",
+        action: () =>
+          chooseImage((file) =>
+            new BackgroundModal(this.plugin, { kind: "add", file }, () => void this.restructure()).open()
+          ),
+      },
+      onDelete: (index) => void this.deleteBackground(index),
+      items: s.customBackgrounds.map((bg) => ({
+        name: bg.label,
+        desc: `${labelOf(BACKGROUND_FITS, bg.fit)} · ${bg.fade}% fade`,
+        searchable: false,
+        render: (setting: Setting) => {
+          setting.addExtraButton((b) =>
+            b
+              .setIcon("pencil")
+              .setTooltip("Edit background")
+              .onClick(() =>
+                new BackgroundModal(
+                  this.plugin,
+                  { kind: "edit", background: bg },
+                  () => void this.restructure()
+                ).open()
+              )
+          );
+          // A sync may bring the settings before the image; say so rather than show a blank swatch.
+          void backgroundExists(this.plugin, bg).then((found) => {
+            if (!found) setting.setDesc("The image file is missing. Remove this entry or add the image again.");
+          });
+        },
+      })),
     };
   }
 
@@ -362,6 +474,22 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     this.update();
   }
 
+  /** Remove an added background and its file. */
+  private async deleteBackground(index: number): Promise<void> {
+    const settings = this.plugin.settings;
+    const [bg] = settings.customBackgrounds.splice(index, 1);
+    if (!bg) return;
+    if (settings.background === bg.id) settings.background = "plain";
+    await this.plugin.commit();
+    await removeBackground(this.plugin, bg);
+    this.update();
+  }
+
+  /** Open the editor for one folder page; its row redraws when it closes. */
+  private editFolderPage(path: string): void {
+    new FolderPageModal(this.plugin, path, () => void this.restructure()).open();
+  }
+
   /** Open the editor for one section; its row redraws when it closes. */
   private editSection(id: string): void {
     const cfg = this.plugin.settings.sections.find((c) => c.id === id);
@@ -373,7 +501,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
 // ----------------------------------------------------------------- helpers
 
 function isScalarKey(key: string): key is ScalarKey {
-  return key !== "sections" && key in DEFAULTS;
+  return !(COLLECTIONS as readonly string[]).includes(key) && key in DEFAULTS;
 }
 
 /**
@@ -389,11 +517,4 @@ function coerce(key: ScalarKey, value: unknown, current: unknown): unknown {
   if (typeof value !== typeof current) return undefined;
   const rule = TEXT_RULES[key];
   return rule && typeof value === "string" ? rule(value) : value;
-}
-
-/** The second line of a section's row: its source and card count. */
-function sectionSummary(cfg: SectionConfig): string {
-  const cards = `${cfg.count} ${cfg.count === 1 ? "card" : "cards"}`;
-  const source = labelOf(SECTION_KINDS, cfg.kind);
-  return cfg.title.trim() && source !== sectionTitle(cfg) ? `${source} · ${cards}` : cards;
 }

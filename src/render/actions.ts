@@ -7,6 +7,7 @@
 import { Menu, normalizePath, Notice, type App, type Component, type HoverParent, type TFile } from "obsidian";
 import { forgottenNotes } from "../compose/rank";
 import { untitledPath } from "../compose/vault";
+import { isInside } from "../settings/folder-pages";
 import type { HomeCardsSettings } from "../settings/schema";
 import type { CardActions, HoverTracker } from "./card";
 
@@ -129,21 +130,29 @@ function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): v
 }
 
 /**
- * Create an empty note where Obsidian's "Default location for new notes"
- * setting puts it, open it, and select its title for naming.
+ * Create an empty note, open it, and select its title for naming. A folder
+ * page passes its folder and the note goes there; otherwise the note goes
+ * where Obsidian's "Default location for new notes" setting puts it.
  */
-export async function createNote(app: App, newLeaf: boolean): Promise<void> {
-  const folder = app.fileManager.getNewFileParent("");
+export async function createNote(app: App, newLeaf: boolean, folderPath = ""): Promise<void> {
+  const chosen = folderPath ? app.vault.getFolderByPath(folderPath) : null;
+  const folder = chosen ?? app.fileManager.getNewFileParent("");
   const exists = (p: string) => !!app.vault.getAbstractFileByPath(normalizePath(p));
   const path = normalizePath(untitledPath(folder.isRoot() ? "" : folder.path, exists));
   const file = await app.vault.create(path, "");
   await leafFor(app, newLeaf).openFile(file, { active: true, eState: { rename: "all" } });
 }
 
-/** Open a random note from the Rediscover pool. */
-export function rediscoverNote(app: App, settings: HomeCardsSettings, newLeaf: boolean): void {
+/** Open a random note from the Rediscover pool, limited to a folder on a folder page. */
+export function rediscoverNote(
+  app: App,
+  settings: HomeCardsSettings,
+  newLeaf: boolean,
+  folder = ""
+): void {
   const months = settings.rediscoverMonths;
-  const pool = forgottenNotes(app.vault.getMarkdownFiles(), new Date(), months);
+  const notes = app.vault.getMarkdownFiles().filter((f) => isInside(f.path, folder));
+  const pool = forgottenNotes(notes, new Date(), months);
   if (!pool.length) {
     new Notice(`Every note has changed in the last ${months} ${months === 1 ? "month" : "months"}.`);
     return;

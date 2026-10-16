@@ -13,7 +13,9 @@ Home Cards gives your vault a start page. The page shows sections of note cards:
 - **Card actions.** Right-click a card for Obsidian's file menu. Hold Cmd or Ctrl over a card for a preview, through the Page Preview core plugin.
 - **Fold and see more.** Click a section heading to fold it; the chevron at its end shows the state, and the page remembers it. "See more" under a section shows further matches, one section's worth at a time, up to three times; "Show fewer" puts them back.
 - **Two layouts.** A grid of cards and a compact list of rows, switched from the header.
+- **Folder pages.** Right-click a folder and choose **Open Home Cards page**, or run **Open page for current folder** or **Open page for a folder** from the command palette. The page shows the home page's sections, limited to that folder and the folders under it, titled with the folder's name. Each folder page opens in its own tab. The **Page settings** button in its header gives the folder sections of its own, and **New note** and the shuffle button work inside the folder.
 - **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
+- **Your own backgrounds.** Add a PNG, JPEG, WebP or GIF from **Settings → Home Cards → Your backgrounds**, as a repeating pattern or a single picture, with a fade that sets how much of the theme's background covers it. Home Cards keeps a resized copy in its own plugin folder, so your vault gains no files or folders. Up to twelve images.
 - **A Bases view.** Any base can show its results as "Home cards", with one section per group.
 - **A greeting.** About 180 built-in greetings follow your local time of day, the day of the week and, optionally, fixed-date holidays, some in other languages, always in Latin script.
 
@@ -41,9 +43,11 @@ Every setting appears in Obsidian's settings search.
 
 - **General:** whether the home page opens at startup, the layout it opens in, whether a note may appear in more than one section, and how long a note must sit untouched before Rediscover offers it.
 - **Sections:** the sections, in page order. Drag a row to reorder it, use its toggle to show or hide it, and press its pencil to edit its source, card count, filters and sort order.
+- **Folder pages:** the folders that have sections of their own. Every other folder's page uses the sections above, limited to that folder. A folder page follows its folder when you rename or move it.
 - **Cards:** the corner glyph, the type label and the property it reads, tags, the opening sentence and its length, and file size.
 - **Card text:** the summary property, and the openings and title prefixes Home Cards passes over.
 - **Appearance:** minimum card width, card surface (Flat, Elevated or Frosted) and background pattern.
+- **Your backgrounds:** the images you added. Each has a name and a fade; deleting a row deletes its stored copy.
 - **Header:** the greeting and your name, holiday greetings, and the note count.
 
 ### Optional: Typify icons
@@ -54,10 +58,14 @@ If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, se
 
 - **Home Cards: Open** shows the home page, opening it in a new tab if needed.
 - **Home Cards: Recompose** redraws every open home page and Home cards base view.
+- **Home Cards: Open page for current folder** opens the page for the folder of the note you are reading. It appears when that note sits in a folder.
+- **Home Cards: Open page for a folder** lists every folder and opens the one you choose.
 
 ## Privacy and access
 
 Home Cards makes no network requests, works with no files outside your vault, sends no data anywhere, shows no ads and needs no account. It reads your notes' metadata and the first paragraph of each note it shows. On each device, it keeps the paths of the last 100 notes you opened, and which sections you folded, in Obsidian's local storage, outside your synced settings.
+
+When you add a background image, Home Cards decodes it, scales it down, and saves a copy without its metadata (such as camera and location) in a `backgrounds` folder inside its own plugin folder. It creates that folder with the first image and removes it with the last. Your original file stays where it is, and your vault's notes and attachments stay untouched.
 
 With **Icon from Typify** on, Home Cards also reads the Typify plugin's settings file in your vault's configuration folder.
 
@@ -67,10 +75,10 @@ The source divides into four layers. Each imports only from the layers above it;
 
 | Layer | Directory | Responsibility |
 | --- | --- | --- |
-| Settings | `src/settings/` | The schema, defaults and choice registries (`schema.ts`), and the normalizer that turns untrusted `data.json` into valid settings (`normalize.ts`). No imports from Obsidian. |
-| Compose | `src/compose/` | Ranking, filtering, text extraction, the card model, the dek cache and the open history. Type-only imports from Obsidian; no DOM. |
-| Render | `src/render/` | The home page view, the Bases view, the card DOM they share, and the card actions. |
-| Settings tab | `src/settings-tab/` | The settings tab, declared through Obsidian's settings definitions, and the section editor. |
+| Settings | `src/settings/` | The schema, defaults and choice registries (`schema.ts`), the normalizer that turns untrusted `data.json` into valid settings (`normalize.ts`), the folder-page path rules (`folder-pages.ts`) and the custom-background rules (`custom-background.ts`). No imports from Obsidian. |
+| Compose | `src/compose/` | Ranking, filtering, text extraction, the card model, the dek cache and the open history. A compose can be limited to one folder. Type-only imports from Obsidian; no DOM. |
+| Render | `src/render/` | The home page view (which also draws folder pages), the Bases view, the card DOM they share, the card actions, and the storage of added background images. |
+| Settings tab | `src/settings-tab/` | The settings tab, declared through Obsidian's settings definitions, and the editors it opens: sections, folder pages and backgrounds. |
 
 `src/main.ts` wires the layers together and owns persistence. Settings edits go through two methods: `touch()` records an edit and writes once edits stop, for keystrokes and sliders; `commit()` writes at once, for structural changes. After a write, the plugin fires a refresh event; each open view subscribes to it and redraws.
 

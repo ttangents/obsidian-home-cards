@@ -5,6 +5,7 @@
  */
 
 import type { App, CachedMetadata, TFile } from "obsidian";
+import { isInside } from "../settings/folder-pages";
 import { mergeOpened } from "./open-history";
 
 /**
@@ -22,9 +23,12 @@ export class VaultSnapshot {
     /** The moment of the compose; date-based rankings measure from it. */
     readonly now: Date = new Date(),
     /** The plugin's own open history, newest first (see open-history.ts). */
-    private readonly history: readonly string[] = []
+    private readonly history: readonly string[] = [],
+    /** Vault path of the folder this snapshot is limited to; "" for all. */
+    readonly folder: string = ""
   ) {
-    this.files = app.vault.getMarkdownFiles();
+    const all = app.vault.getMarkdownFiles();
+    this.files = folder ? all.filter((f) => isInside(f.path, folder)) : all;
   }
 
   /** Paths of recently opened files, newest first. */

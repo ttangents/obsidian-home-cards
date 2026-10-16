@@ -9,19 +9,27 @@
  * time a note is saved. `refresh()` recomposes the cards off-screen and
  * swaps them in with one DOM operation, so a metadata event never flashes
  * a loading state over a page that is already showing.
+ *
+ * The same view draws a folder page. The folder lives in the view's state,
+ * so a folder page is a tab of its own, survives a restart, and follows
+ * its folder when the folder is renamed. The home page is the view with no
+ * folder.
  */
 
 import {
   ItemView,
   setIcon,
   setTooltip,
+  TFolder,
   type HoverParent,
   type HoverPopover,
+  type ViewStateResult,
   type WorkspaceLeaf,
 } from "obsidian";
 import { composeSections, type ComposedSection } from "../compose/compose";
 import { greetingFor, withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
+import { folderName, isInside, normalizeFolderPath, reparent } from "../settings/folder-pages";
 import { sectionTitle, VIEW_MODES, type ViewMode } from "../settings/schema";
 import { applyAppearance } from "./appearance";
 import { createNote, cardActions, rediscoverNote } from "./actions";
@@ -43,6 +51,8 @@ interface Shell {
   dateline: HTMLElement;
   toggles: Map<ViewMode, HTMLElement>;
   pickerToggle: HTMLElement;
+  /** Opens the folder page's settings; shown on folder pages only. */
+  pageSettings: HTMLElement;
   body: HTMLElement;
 }
 
@@ -66,6 +76,8 @@ export class HomeView extends ItemView implements HoverParent {
   private readonly actions: CardActions;
   /** Invalidates composes that finish after a newer one or a close. */
   private generation = 0;
+  /** Vault path of the folder this page shows; "" for the home page. */
+  private folder = "";
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -81,17 +93,42 @@ export class HomeView extends ItemView implements HoverParent {
   }
 
   getDisplayText(): string {
-    return "Home";
+    return this.folder ? folderName(this.folder) : "Home";
   }
 
   getIcon(): string {
-    return "layout-grid";
+    return this.folder ? "folder-open" : "layout-grid";
+  }
+
+  /** The folder goes into the saved layout, so the tab returns after a restart. */
+  getState(): Record<string, unknown> {
+    return this.folder ? { folder: this.folder } : {};
+  }
+
+  async setState(state: unknown, result: ViewStateResult): Promise<void> {
+    const raw = (state as { folder?: unknown } | null)?.folder;
+    const next = typeof raw === "string" ? normalizeFolderPath(raw) : "";
+    await super.setState(state, result);
+    if (next === this.folder) return;
+    this.folder = next;
+    // A page of another folder starts fresh: its own "See more" reach.
+    this.revealed.clear();
+    await this.refresh();
   }
 
   async onOpen(): Promise<void> {
     this.greeting = this.pickGreeting();
     this.shell = this.buildShell(this.contentEl);
     this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
+    // A folder page follows its folder. Setting the state renames the tab.
+    this.registerEvent(
+      this.app.vault.on("rename", (file, oldPath) => {
+        if (!this.folder || !(file instanceof TFolder)) return;
+        const next = reparent(this.folder, oldPath, file.path);
+        if (next === this.folder) return;
+        void this.leaf.setViewState({ type: VIEW_TYPE_HOME, state: { folder: next } });
+      })
+    );
 
     // The picker closes on a press outside it or on Escape. Registered
     // once for the view's life; each handler is a no-op while it is shut.
@@ -125,7 +162,7 @@ export class HomeView extends ItemView implements HoverParent {
   async refresh(): Promise<void> {
     const shell = this.shell;
     if (!shell) return;
-    applyAppearance(shell.root, this.plugin.settings);
+    applyAppearance(shell.root, this.plugin);
     this.paintHeader(shell);
     this.picker?.grid.paint();
     await this.recompose(shell);
@@ -170,11 +207,16 @@ export class HomeView extends ItemView implements HoverParent {
     }
     seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
     const action = (cls: string, label: string, icon: string, run: (newLeaf: boolean) => void) => {
-      button(label, icon, cls).addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
+      const btn = button(label, icon, cls);
+      btn.addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
+      return btn;
     };
-    action("hc-new-note", "New note", "square-pen", (newLeaf) => void createNote(this.app, newLeaf));
+    action("hc-new-note", "New note", "square-pen", (newLeaf) => void createNote(this.app, newLeaf, this.folder));
     action("hc-rediscover", "Rediscover a note", "shuffle", (newLeaf) =>
-      rediscoverNote(this.app, this.plugin.settings, newLeaf)
+      rediscoverNote(this.app, this.plugin.settings, newLeaf, this.folder)
+    );
+    const pageSettings = action("hc-page-settings", "Page settings", "sliders-horizontal", () =>
+      this.plugin.editFolderPage(this.folder)
     );
     const pickerToggle = button("Background", "swatch-book", "hc-picker-toggle");
     pickerToggle.setAttrs({ "aria-haspopup": "dialog", "aria-expanded": "false" });
@@ -190,26 +232,40 @@ export class HomeView extends ItemView implements HoverParent {
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing…" });
 
-    const shell = { root, greeting, dateline, toggles, pickerToggle, body };
+    const shell = { root, greeting, dateline, toggles, pickerToggle, pageSettings, body };
     this.paintMode(shell);
     return shell;
   }
 
   private paintHeader(shell: Shell): void {
     const s = this.plugin.settings;
-    const name = s.greetingName;
-    shell.greeting.toggle(s.greetingEnabled);
-    shell.greeting.setText(withName(this.greeting, name));
+    const folder = this.folder;
+    shell.pageSettings.toggle(folder !== "");
 
-    const bits = [
-      new Date().toLocaleDateString(undefined, {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      }),
-    ];
-    if (s.showNoteCount) bits.push(`${this.app.vault.getMarkdownFiles().length} notes`);
+    // A folder page is titled by its folder, whatever the greeting setting
+    // says: the title is what tells its tab from the home page.
+    shell.greeting.toggle(folder !== "" || s.greetingEnabled);
+    shell.greeting.setText(folder ? folderName(folder) : withName(this.greeting, s.greetingName));
+
+    // A folder page's dateline places it: the folders above it, when it has any.
+    const above = folder.split("/").slice(0, -1).join(" / ");
+    const bits: string[] = [];
+    if (!folder) {
+      bits.push(
+        new Date().toLocaleDateString(undefined, {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      );
+    } else if (above) {
+      bits.push(above);
+    }
+    if (s.showNoteCount || folder) {
+      const count = this.app.vault.getMarkdownFiles().filter((f) => isInside(f.path, folder)).length;
+      bits.push(`${count} ${count === 1 ? "note" : "notes"}`);
+    }
     shell.dateline.setText(bits.join("  ·  "));
   }
 
@@ -225,9 +281,7 @@ export class HomeView extends ItemView implements HoverParent {
       cls: "hc-picker",
       attr: { role: "dialog", "aria-label": "Background" },
     });
-    const grid = renderBackgroundPicker(panel, this.plugin, () =>
-      applyAppearance(root, this.plugin.settings)
-    );
+    const grid = renderBackgroundPicker(panel, this.plugin, () => applyAppearance(root, this.plugin));
     this.picker = { panel, grid };
     toggle.addClass("is-active");
     toggle.setAttr("aria-expanded", "true");
@@ -284,14 +338,24 @@ export class HomeView extends ItemView implements HoverParent {
 
   private async recompose(shell: Shell): Promise<void> {
     const token = ++this.generation;
-    const { app, plugin } = this;
+    const { app, plugin, folder } = this;
     const settings = plugin.settings;
+
+    // A folder that was deleted or moved away leaves its tab behind.
+    if (folder && !app.vault.getFolderByPath(folder)) {
+      this.disposeDeks?.();
+      this.disposeDeks = null;
+      shell.body.replaceChildren();
+      shell.body.createDiv({ cls: "hc-empty", text: "This folder no longer exists." });
+      return;
+    }
 
     let sections: ComposedSection[];
     try {
       sections = await composeSections(app, settings, {
         deks: (file) => plugin.dekCache.get(app, file, settings),
         opened: plugin.openHistory.list(),
+        folder,
       });
     } catch (err) {
       console.error("Home Cards: compose failed", err);
@@ -307,13 +371,23 @@ export class HomeView extends ItemView implements HoverParent {
     // A newer compose, or a close, happened while files were being read.
     if (token !== this.generation) return;
 
+    // A folder narrows every section, so many come up empty there; the page
+    // shows the ones that have cards. The home page keeps its empty ones,
+    // which tell the reader why a section is bare.
+    if (folder) sections = sections.filter((s) => s.cards.length > 0);
+
     // Built detached, then swapped in whole: no intermediate empty state.
     const next = createDiv();
-    if (!sections.length) {
+    if (!sections.length && folder && app.vault.getMarkdownFiles().some((f) => isInside(f.path, folder))) {
+      next.createDiv({ cls: "hc-empty", text: "No notes in this folder match this page's sections." });
+    } else if (!sections.length) {
       next.createDiv({ cls: "hc-empty", text: "Turn on a section in Settings → Home Cards to fill this page." });
-    } else if (!app.vault.getMarkdownFiles().length) {
-      // A new vault: one line beats a column of empty sections.
-      next.createDiv({ cls: "hc-empty", text: "Cards appear here as you write notes." });
+    } else if (!app.vault.getMarkdownFiles().some((f) => isInside(f.path, folder))) {
+      // A new vault or an empty folder: one line beats a column of empty sections.
+      next.createDiv({
+        cls: "hc-empty",
+        text: folder ? "Cards appear here as you add notes to this folder." : "Cards appear here as you write notes.",
+      });
     } else {
       const collapsed = new Set(this.collapsedIds());
       for (const { config, cards, more, claimed } of sections) {
@@ -324,8 +398,8 @@ export class HomeView extends ItemView implements HoverParent {
           emptyText,
           more,
           fold: {
-            collapsed: collapsed.has(config.id),
-            onToggle: (now) => this.rememberCollapsed(config.id, now),
+            collapsed: collapsed.has(this.foldKey(config.id)),
+            onToggle: (now) => this.rememberCollapsed(this.foldKey(config.id), now),
           },
           paging: {
             more: () => {
@@ -359,7 +433,16 @@ export class HomeView extends ItemView implements HoverParent {
 
   // ------------------------------------------------------- section state
 
-  /** Folded sections, by id. Kept per device, in Obsidian's local storage. */
+  /**
+   * The key a section's folded state is stored under. A folder page keys
+   * on its folder as well, so folding "Recently modified" on one page does
+   * not fold it on every other; the home page keeps its original keys.
+   */
+  private foldKey(sectionId: string): string {
+    return this.folder ? `${sectionId}@${this.folder}` : sectionId;
+  }
+
+  /** Folded sections, by key. Kept per device, in Obsidian's local storage. */
   private collapsedIds(): string[] {
     const stored: unknown = this.app.loadLocalStorage(COLLAPSED_KEY);
     return Array.isArray(stored) ? stored.filter((v): v is string => typeof v === "string") : [];

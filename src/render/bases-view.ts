@@ -104,7 +104,7 @@ class HomeCardsBasesView extends BasesView {
 
     const root = this.root;
     root.empty();
-    applyAppearance(root, settings);
+    applyAppearance(root, plugin);
     root.dataset.view = "grid";
     for (const { title, cards } of sections) {
       renderSection(root, title, cards, settings, this.actions);

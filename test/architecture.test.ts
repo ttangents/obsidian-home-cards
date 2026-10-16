@@ -58,6 +58,16 @@ test("every pattern has both tiles, a variable pair and a selector", () => {
   }
 });
 
+test("custom backgrounds have a rule for each kind, on the page and on swatches", () => {
+  const css = read("styles/10-backgrounds.css");
+  for (const fit of ["pattern", "picture"]) {
+    assert.ok(css.includes(`.home-cards[data-pattern="custom"][data-fit="${fit}"]`), `${fit} on the page`);
+    assert.ok(css.includes(`.hc-swatch[data-pattern="custom"][data-fit="${fit}"]`), `${fit} on a swatch`);
+  }
+  // Inline properties carry the image; the stylesheet must not name one.
+  assert.ok(!/custom[^{]*\{[^}]*url\(/.test(css), "no image URL in the custom rules");
+});
+
 test("every surface has a rule, or is the default", () => {
   const css = read("styles/05-surfaces.css");
   for (const { id } of SURFACES.filter((x) => x.id !== "flat")) {

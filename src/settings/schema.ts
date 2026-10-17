@@ -90,6 +90,19 @@ export const BACKGROUND_FITS = [
 ] as const satisfies readonly Choice[];
 export type BackgroundFit = (typeof BACKGROUND_FITS)[number]["id"];
 
+/**
+ * What a named page is about. A scope limits every section on the page to
+ * the notes it admits; "Whole vault" admits all of them, which makes a
+ * page of its own sections the vault-wide counterpart of the home page.
+ */
+export const PAGE_SCOPES = [
+  { id: "all", label: "Whole vault", icon: "layout-grid" },
+  { id: "folder", label: "Folder", icon: "folder-open" },
+  { id: "tag", label: "Tag", icon: "tag" },
+  { id: "property", label: "Property", icon: "filter" },
+] as const satisfies readonly (Choice & { icon: string })[];
+export type PageScopeKind = (typeof PAGE_SCOPES)[number]["id"];
+
 /** Type guard: is `value` one of the registry's ids? */
 export function isChoice<R extends readonly Choice[]>(
   registry: R,
@@ -150,18 +163,39 @@ export interface CustomBackground {
 }
 
 /**
- * A folder page that has sections of its own. A folder with no entry here
- * still opens a page: the home page's sections, limited to that folder.
+ * The notes a page is about. Every field is kept whichever kind is chosen,
+ * so switching kinds in the editor does not discard what was typed. A kind
+ * whose field is blank admits every note.
  */
-export interface FolderPage {
-  /** Vault path of the folder, without a leading or trailing slash. */
-  path: string;
-  sections: SectionConfig[];
+export interface PageScope {
+  kind: PageScopeKind;
+  /** `folder`: vault path, no leading or trailing slash; the subtree counts. */
+  folder: string;
+  /** `tag`: the tag without its `#`; descendants count. */
+  tag: string;
+  /** `property`: the frontmatter key a note must have... */
+  propertyKey: string;
+  /** ...and, when set, the value it must hold. */
+  propertyValue: string;
+}
+
+/**
+ * A page the user named and saved. It opens in a tab of its own, from the
+ * command palette, from the page picker, or from an `obsidian://` link.
+ */
+export interface NamedPage {
+  /** Stable; keys the page's tab, its command and its folded sections. */
+  id: string;
+  /** Shown as the page's title and tab, and used in `obsidian://` links. */
+  name: string;
+  scope: PageScope;
+  /** The page's own sections; null shows the home page's. */
+  sections: SectionConfig[] | null;
 }
 
 export interface HomeCardsSettings {
   sections: SectionConfig[];
-  folderPages: FolderPage[];
+  pages: NamedPage[];
   dedupe: boolean;
   /** Rediscover draws from notes untouched for at least this many months. */
   rediscoverMonths: number;
@@ -238,7 +272,7 @@ export function defaultSections(): SectionConfig[] {
 export function defaultSettings(): HomeCardsSettings {
   return {
     sections: defaultSections(),
-    folderPages: [],
+    pages: [],
     dedupe: true,
     rediscoverMonths: 6,
 
@@ -281,7 +315,19 @@ export const LIMITS = {
   rediscoverMonths: { min: 1, max: 36 },
   /** Percent of the theme background over a custom image. */
   fade: { min: 0, max: 95 },
+  /** Each page adds a command, so the list stays short. */
+  pages: { max: 50 },
+  pageName: { max: 60 },
 } as const;
+
+/** A scope that admits every note. */
+export function blankScope(): PageScope {
+  return { kind: "all", folder: "", tag: "", propertyKey: "", propertyValue: "" };
+}
+
+export function newPageId(): string {
+  return `page-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
 
 export function newSectionId(): string {
   return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;

@@ -378,16 +378,21 @@ export class HomeView extends ItemView implements HoverParent {
 
     // Built detached, then swapped in whole: no intermediate empty state.
     const next = createDiv();
-    if (!sections.length && folder && app.vault.getMarkdownFiles().some((f) => isInside(f.path, folder))) {
-      next.createDiv({ cls: "hc-empty", text: "No notes in this folder match this page's sections." });
+    const hasNotes = app.vault.getMarkdownFiles().some((f) => isInside(f.path, folder));
+    if (folder && !hasNotes) {
+      // Images and other attachments are not notes, so a folder of only
+      // those has nothing to show.
+      next.createDiv({ cls: "hc-empty", text: "This folder has no notes yet. Cards appear here as you add them." });
     } else if (!sections.length) {
-      next.createDiv({ cls: "hc-empty", text: "Turn on a section in Settings → Home Cards to fill this page." });
-    } else if (!app.vault.getMarkdownFiles().some((f) => isInside(f.path, folder))) {
-      // A new vault or an empty folder: one line beats a column of empty sections.
       next.createDiv({
         cls: "hc-empty",
-        text: folder ? "Cards appear here as you add notes to this folder." : "Cards appear here as you write notes.",
+        text: folder
+          ? "No notes in this folder match this page's sections."
+          : "Turn on a section in Settings → Home Cards to fill this page.",
       });
+    } else if (!hasNotes) {
+      // A new vault: one line beats a column of empty sections.
+      next.createDiv({ cls: "hc-empty", text: "Cards appear here as you write notes." });
     } else {
       const collapsed = new Set(this.collapsedIds());
       for (const { config, cards, more, claimed } of sections) {

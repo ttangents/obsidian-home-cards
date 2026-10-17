@@ -10,7 +10,8 @@
  */
 
 import type { CachedMetadata, TFile } from "obsidian";
-import type { SectionConfig } from "../settings/schema";
+import { isInside } from "../settings/folders";
+import type { PageScope, SectionConfig } from "../settings/schema";
 import { splitList } from "./values";
 
 export type ScopeConfig = Pick<SectionConfig, "filterTags" | "filterProps" | "filterFolders">;
@@ -74,6 +75,12 @@ interface PropRule {
   value: string | null;
 }
 
+/** One frontmatter rule as a predicate: the key, and the value when given. */
+function propertyTest(key: string, value: string | null): (cache: CachedMetadata | null) => boolean {
+  const rule: PropRule = { key: key.trim().toLowerCase(), value: value === null ? null : value.trim().toLowerCase() };
+  return (cache) => matchesRule(cache, rule);
+}
+
 function compileProps(raw: string): ((cache: CachedMetadata | null) => boolean) | null {
   const rules: PropRule[] = splitList(raw).map((entry) => {
     const eq = entry.indexOf("=");
@@ -131,4 +138,30 @@ export function compileScope(scope: ScopeConfig): ScopeTest | null {
     }
     return true;
   };
+}
+
+/**
+ * One predicate for a page's scope; null when it admits every note. Each
+ * kind matches as the same idea does in a section: a folder takes its
+ * subtree, a tag takes its descendants, a property takes a key or a
+ * key and value. A kind whose field is blank admits everything.
+ */
+export function compilePageScope(scope: PageScope): ScopeTest | null {
+  switch (scope.kind) {
+    case "folder": {
+      const folder = scope.folder;
+      return folder ? (file) => isInside(file.path, folder) : null;
+    }
+    case "tag": {
+      const tags = compileTags(scope.tag);
+      return tags ? (_file, cache) => tagsOf(cache).some(tags) : null;
+    }
+    case "property": {
+      if (!scope.propertyKey.trim()) return null;
+      const test = propertyTest(scope.propertyKey, scope.propertyValue.trim() ? scope.propertyValue : null);
+      return (_file, cache) => test(cache);
+    }
+    default:
+      return null;
+  }
 }

@@ -13,10 +13,10 @@ Home Cards gives your vault a start page. The page shows sections of note cards:
 - **Card actions.** Right-click a card for Obsidian's file menu. Hold Cmd or Ctrl over a card for a preview, through the Page Preview core plugin.
 - **Fold and see more.** Click a section heading to fold it; the chevron at its end shows the state, and the page remembers it. "See more" under a section shows further matches, one section's worth at a time, up to three times; "Show fewer" puts them back.
 - **Two layouts.** A grid of cards and a compact list of rows, switched from the header.
-- **Folder pages.** Right-click a folder and choose **Open Home Cards page**, or run **Open page for current folder** or **Open page for a folder** from the command palette. The page shows the home page's sections, limited to that folder and the folders under it, titled with the folder's name. Each folder page opens in its own tab. The **Page settings** button in its header gives the folder sections of its own, and **New note** and the shuffle button work inside the folder.
+- **Pages.** A page shows the notes of one folder, one tag or one property, or of the whole vault, under the home page's sections or sections of its own. Make one with **Create a page** or in **Settings → Home Cards → Pages**. Each page opens in its own tab, from a command named for it (give it a hotkey in Obsidian's Hotkeys settings), from **Open a page**, or from a link such as `obsidian://home-cards?page=Reading`. A folder needs no setup: right-click it and choose **Open Home Cards page**. A page about a folder follows the folder when you rename or move it. **New note** on a tag or property page starts the note with that tag or property, so it appears on the page.
 - **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
 - **Your own backgrounds.** Add a PNG, JPEG, WebP or GIF from **Settings → Home Cards → Your backgrounds**, as a repeating pattern or a single picture, with a fade that sets how much of the theme's background covers it. Home Cards keeps a resized copy in its own plugin folder, so your vault gains no files or folders. Up to twelve images.
-- **A Bases view.** Any base can show its results as "Home cards", with one section per group.
+- **A Bases view.** Any base can show its results as "Home cards", with one section per group. A base takes any filter Bases offers, and it is a file in your vault; a Home Cards page is not.
 - **A greeting.** About 180 built-in greetings follow your local time of day, the day of the week and, optionally, fixed-date holidays, some in other languages, always in Latin script.
 
 ![Rows view, dark mode](docs/rows-dark.webp)
@@ -43,7 +43,7 @@ Every setting appears in Obsidian's settings search.
 
 - **General:** whether the home page opens at startup, the layout it opens in, whether a note may appear in more than one section, and how long a note must sit untouched before Rediscover offers it.
 - **Sections:** the sections, in page order. Drag a row to reorder it, use its toggle to show or hide it, and press its pencil to edit its source, card count, filters and sort order.
-- **Folder pages:** the folders that have sections of their own. Every other folder's page uses the sections above, limited to that folder. A folder page follows its folder when you rename or move it.
+- **Pages:** the pages you made. Each row opens the page or edits its name, what it is about, and whether it has sections of its own. A folder you never customized still opens a page, so it has no row here.
 - **Cards:** the corner glyph, the type label and the property it reads, tags, the opening sentence and its length, and file size.
 - **Card text:** the summary property, and the openings and title prefixes Home Cards passes over.
 - **Appearance:** minimum card width, card surface (Flat, Elevated or Frosted) and background pattern.
@@ -60,6 +60,13 @@ If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, se
 - **Home Cards: Recompose** redraws every open home page and Home cards base view.
 - **Home Cards: Open page for current folder** opens the page for the folder of the note you are reading. It appears when that note sits in a folder.
 - **Home Cards: Open page for a folder** lists every folder and opens the one you choose.
+- **Home Cards: Open a page** lists the home page and your pages, and opens the one you choose.
+- **Home Cards: Create a page** opens the page editor, then the new page.
+- **Home Cards: Open [name] page** exists for each page you made, and takes a hotkey.
+
+### Links
+
+`obsidian://home-cards` opens the home page. `obsidian://home-cards?page=Reading` opens the page named Reading, and `obsidian://home-cards?folder=Projects/Clients` opens a folder's page. A link that names nothing that exists shows a notice and does nothing else.
 
 ## Privacy and access
 
@@ -75,10 +82,10 @@ The source divides into four layers. Each imports only from the layers above it;
 
 | Layer | Directory | Responsibility |
 | --- | --- | --- |
-| Settings | `src/settings/` | The schema, defaults and choice registries (`schema.ts`), the normalizer that turns untrusted `data.json` into valid settings (`normalize.ts`), the folder-page path rules (`folder-pages.ts`) and the custom-background rules (`custom-background.ts`). No imports from Obsidian. |
-| Compose | `src/compose/` | Ranking, filtering, text extraction, the card model, the dek cache and the open history. A compose can be limited to one folder. Type-only imports from Obsidian; no DOM. |
-| Render | `src/render/` | The home page view (which also draws folder pages), the Bases view, the card DOM they share, the card actions, and the storage of added background images. |
-| Settings tab | `src/settings-tab/` | The settings tab, declared through Obsidian's settings definitions, and the editors it opens: sections, folder pages and backgrounds. |
+| Settings | `src/settings/` | The schema, defaults and choice registries (`schema.ts`), the normalizer that turns untrusted `data.json` into valid settings (`normalize.ts`), the folder path rules (`folders.ts`), the rules for named pages (`pages.ts`) and the custom-background rules (`custom-background.ts`). No imports from Obsidian. |
+| Compose | `src/compose/` | Ranking, filtering, text extraction, the card model, the dek cache and the open history. A compose can be limited to a page's scope: a folder, a tag or a property. Type-only imports from Obsidian; no DOM. |
+| Render | `src/render/` | The home page view (which also draws every other page), the Bases view, the card DOM they share, the card actions, the page picker, and the storage of added background images. |
+| Settings tab | `src/settings-tab/` | The settings tab, declared through Obsidian's settings definitions, and the editors it opens: sections, pages and backgrounds. |
 
 `src/main.ts` wires the layers together and owns persistence. Settings edits go through two methods: `touch()` records an edit and writes once edits stop, for keystrokes and sliders; `commit()` writes at once, for structural changes. After a write, the plugin fires a refresh event; each open view subscribes to it and redraws.
 

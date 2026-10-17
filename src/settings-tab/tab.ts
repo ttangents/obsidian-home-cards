@@ -19,9 +19,8 @@
 import { PluginSettingTab, type Setting, type SettingDefinitionItem } from "obsidian";
 import type HomeCardsPlugin from "../main";
 import { backgroundExists, chooseImage, removeBackground } from "../render/backgrounds";
-import { pickFolder } from "../render/folder-picker";
 import { renderBackgroundPicker } from "../render/swatches";
-import { cloneSections } from "../settings/folder-pages";
+import { scopeSummary } from "../settings/pages";
 import {
   BACKGROUND_FITS,
   BLANK_SECTION,
@@ -37,12 +36,12 @@ import {
   type SectionConfig,
 } from "../settings/schema";
 import { BackgroundModal } from "./background-modal";
-import { FolderPageModal } from "./folder-page-modal";
+import { PageModal } from "./page-modal";
 import { SectionModal } from "./section-modal";
 import { choiceOptions, sectionSummary } from "./widgets";
 
 /** Settings the tab keeps in lists and editors of their own, not in a control. */
-const COLLECTIONS = ["sections", "folderPages", "customBackgrounds"] as const;
+const COLLECTIONS = ["sections", "pages", "customBackgrounds"] as const;
 
 /** Settings a control binds to directly. */
 type ScalarKey = Exclude<keyof HomeCardsSettings, (typeof COLLECTIONS)[number]>;
@@ -71,6 +70,9 @@ const GLYPH_OPTIONS = { off: "None", letter: "Initial letter", typify: "Icon fro
 export class HomeCardsSettingTab extends PluginSettingTab {
   constructor(private readonly plugin: HomeCardsPlugin) {
     super(plugin.app, plugin);
+    // Pages also change from the command palette and from a page's own
+    // header, while this tab is closed or open; its list follows.
+    plugin.registerEvent(plugin.onPagesChanged(() => this.update()));
   }
 
   /** Obsidian calls this when the tab closes: write any pending edit. */
@@ -116,7 +118,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     return [
       ...this.general(),
       this.sectionList(s),
-      this.folderList(s),
+      this.pageList(s),
       this.cardsGroup(s),
       this.textGroup(),
       this.appearanceGroup(),
@@ -216,40 +218,34 @@ export class HomeCardsSettingTab extends PluginSettingTab {
   }
 
   /**
-   * Folders with sections of their own. Every other folder still opens a
-   * page, with the sections above limited to it, so this list holds only
-   * the exceptions.
+   * Named pages. A folder without an entry here still opens a page, with
+   * the home sections limited to it, so this list holds only the pages
+   * the user made or customized.
    */
-  private folderList(s: HomeCardsSettings): SettingDefinitionItem {
+  private pageList(s: HomeCardsSettings): SettingDefinitionItem {
     const { app } = this.plugin;
     return {
       type: "list",
-      heading: "Folder pages",
+      heading: "Pages",
       emptyState:
-        "No folder has sections of its own. A folder's page shows the sections above, limited to that folder.",
+        "No pages yet. A page shows the notes of one folder, tag or property, with the home sections or sections of its own.",
       addItem: {
-        name: "Add folder page",
-        action: () =>
-          pickFolder(
-            app,
-            (folder) => {
-              const settings = this.plugin.settings;
-              settings.folderPages.push({ path: folder.path, sections: cloneSections(settings.sections) });
-              void this.restructure();
-              this.editFolderPage(folder.path);
-            },
-            new Set(s.folderPages.map((page) => page.path))
-          ),
+        name: "Add page",
+        action: () => this.plugin.createPage({ open: false, onCreated: () => void this.restructure() }),
       },
       onDelete: (index) => {
-        this.plugin.settings.folderPages.splice(index, 1);
+        this.plugin.settings.pages.splice(index, 1);
         void this.restructure();
       },
-      items: s.folderPages.map((page) => {
-        const count = `${page.sections.length} ${page.sections.length === 1 ? "section" : "sections"}`;
+      items: s.pages.map((page) => {
+        const own = page.sections
+          ? `${page.sections.length} ${page.sections.length === 1 ? "section" : "sections"}`
+          : "home sections";
+        const folderGone =
+          page.scope.kind === "folder" && page.scope.folder !== "" && !app.vault.getFolderByPath(page.scope.folder);
         return {
-          name: page.path,
-          desc: app.vault.getFolderByPath(page.path) ? count : `${count} · folder not found`,
+          name: page.name,
+          desc: `${scopeSummary(page.scope)} · ${own}${folderGone ? " · folder not found" : ""}`,
           searchable: false,
           render: (setting: Setting) => {
             setting
@@ -257,10 +253,10 @@ export class HomeCardsSettingTab extends PluginSettingTab {
                 b
                   .setIcon("layout-grid")
                   .setTooltip("Open page")
-                  .onClick(() => void this.plugin.activateView(page.path))
+                  .onClick(() => void this.plugin.activateView({ page: page.id }))
               )
               .addExtraButton((b) =>
-                b.setIcon("pencil").setTooltip("Edit page").onClick(() => this.editFolderPage(page.path))
+                b.setIcon("pencil").setTooltip("Edit page").onClick(() => this.editPage(page.id))
               );
           },
         };
@@ -485,9 +481,11 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     this.update();
   }
 
-  /** Open the editor for one folder page; its row redraws when it closes. */
-  private editFolderPage(path: string): void {
-    new FolderPageModal(this.plugin, path, () => void this.restructure()).open();
+  /** Open the editor for one page; its row redraws when it closes. */
+  private editPage(id: string): void {
+    const page = this.plugin.settings.pages.find((p) => p.id === id);
+    if (!page) return;
+    new PageModal(this.plugin, page, "edit", () => void this.restructure()).open();
   }
 
   /** Open the editor for one section; its row redraws when it closes. */

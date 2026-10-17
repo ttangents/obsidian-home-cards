@@ -16,21 +16,25 @@
  */
 
 import { CUSTOM_BACKGROUNDS, isCustomId, isStoredFileName } from "./custom-background";
-import { normalizeFolderPath } from "./folder-pages";
+import { normalizeFolderPath } from "./folders";
+import { legacyFolderPageId, suggestPageName, uniquePageName } from "./pages";
 import {
   BACKGROUND_FITS,
   BACKGROUNDS,
+  blankScope,
   BLANK_SECTION,
   defaultSections,
   defaultSettings,
   LIMITS,
   newSectionId,
+  PAGE_SCOPES,
   SECTION_KINDS,
   SURFACES,
   VIEW_MODES,
   type CustomBackground,
-  type FolderPage,
   type HomeCardsSettings,
+  type NamedPage,
+  type PageScope,
   type SectionConfig,
 } from "./schema";
 
@@ -106,6 +110,25 @@ function migrate(raw: Raw): Raw {
     r.cardSurface = surfaceMap[r.cardSurface];
   }
 
+  // ≤1.30 kept folders with sections of their own in `folderPages`; each is
+  // now a named page scoped to its folder. Pages already saved win.
+  if (!Array.isArray(r.pages) && Array.isArray(r.folderPages)) {
+    r.pages = r.folderPages.flatMap((entry: unknown): Raw[] => {
+      if (!isObject(entry)) return [];
+      const path = normalizeFolderPath(str(entry.path, ""));
+      if (!path) return [];
+      return [
+        {
+          id: legacyFolderPageId(path),
+          name: path.slice(path.lastIndexOf("/") + 1),
+          scope: { kind: "folder", folder: path },
+          sections: entry.sections,
+        },
+      ];
+    });
+  }
+  delete r.folderPages;
+
   // ≤1.19 named the file-size toggle `showWordCount`.
   if (!("showFileSize" in r) && typeof r.showWordCount === "boolean") {
     r.showFileSize = r.showWordCount;
@@ -155,21 +178,39 @@ export function normalizeSections(raw: unknown): SectionConfig[] {
   return out.length ? out : defaultSections();
 }
 
+function normalizeScope(raw: unknown): PageScope {
+  const e = isObject(raw) ? raw : {};
+  return {
+    ...blankScope(),
+    kind: choice(PAGE_SCOPES, e.kind, "all"),
+    folder: normalizeFolderPath(str(e.folder, "")),
+    tag: str(e.tag, "").trim().replace(/^#/, ""),
+    propertyKey: str(e.propertyKey, "").trim(),
+    propertyValue: str(e.propertyValue, "").trim(),
+  };
+}
+
 /**
- * Folder pages with sections of their own. An entry without a usable
- * folder path or without sections is dropped: that folder then inherits
- * the home page's sections, which is what an entry-less folder does.
+ * Named pages. An id that is missing, malformed or already taken is
+ * replaced; a name is trimmed, made unique and never blank. Own sections
+ * that are missing or empty become null, which shows the home page's.
  */
-export function normalizeFolderPages(raw: unknown): FolderPage[] {
+export function normalizePages(raw: unknown): NamedPage[] {
   if (!Array.isArray(raw)) return [];
-  const seen = new Set<string>();
-  const out: FolderPage[] = [];
+  const ids = new Set<string>();
+  const out: NamedPage[] = [];
   for (const entry of raw) {
+    if (out.length >= LIMITS.pages.max) break;
     if (!isObject(entry)) continue;
-    const path = normalizeFolderPath(str(entry.path, ""));
-    if (!path || seen.has(path) || !Array.isArray(entry.sections) || !entry.sections.length) continue;
-    seen.add(path);
-    out.push({ path, sections: normalizeSections(entry.sections) });
+    let id = str(entry.id, "");
+    if (!/^[A-Za-z0-9-]{1,48}$/.test(id) || ids.has(id)) id = `page-n${out.length}`;
+    while (ids.has(id)) id += "x";
+    ids.add(id);
+    const scope = normalizeScope(entry.scope);
+    const sections =
+      Array.isArray(entry.sections) && entry.sections.length ? normalizeSections(entry.sections) : null;
+    const name = uniquePageName(out, str(entry.name, "").trim() || suggestPageName(scope));
+    out.push({ id, name, scope, sections });
   }
   return out;
 }
@@ -214,7 +255,7 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
 
   return {
     sections: normalizeSections(r.sections),
-    folderPages: normalizeFolderPages(r.folderPages),
+    pages: normalizePages(r.pages),
     dedupe: bool(r.dedupe, d.dedupe),
     rediscoverMonths: int(r.rediscoverMonths, d.rediscoverMonths, LIMITS.rediscoverMonths),
 

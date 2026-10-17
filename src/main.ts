@@ -12,19 +12,32 @@
  *   main.ts        wiring
  */
 
-import { debounce, Events, Plugin, TFolder, type EventRef } from "obsidian";
+import { debounce, Events, Notice, Plugin, TFolder, type EventRef, type ObsidianProtocolData } from "obsidian";
 import { DekCache } from "./compose/dek-cache";
 import { OpenHistory } from "./compose/open-history";
 import { registerBasesView } from "./render/bases-view";
 import { pickFolder } from "./render/folder-picker";
 import { HomeView, VIEW_TYPE_HOME } from "./render/home-view";
-import { normalizeFolderPath, renameFolderPages } from "./settings/folder-pages";
+import { pickPage } from "./render/page-picker";
+import { normalizeFolderPath } from "./settings/folders";
 import { normalizeSettings } from "./settings/normalize";
-import { defaultSettings, type HomeCardsSettings } from "./settings/schema";
-import { FolderPageModal } from "./settings-tab/folder-page-modal";
+import {
+  findPageByName,
+  refFromState,
+  renamePageFolders,
+  resolvePage,
+  stateFromRef,
+  suggestPageName,
+  uniquePageName,
+  type PageRef,
+} from "./settings/pages";
+import { blankScope, defaultSettings, LIMITS, newPageId, type HomeCardsSettings, type NamedPage } from "./settings/schema";
+import { PageModal } from "./settings-tab/page-modal";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
 
 const REFRESH = "refresh";
+/** The list of named pages, or one page's name, changed. */
+const PAGES = "pages";
 /** Quiet period after the last keystroke before an edit is written. */
 const SAVE_DELAY_MS = 400;
 /** Quiet period after the metadata cache settles before views recompose. */
@@ -50,6 +63,9 @@ export default class HomeCardsPlugin extends Plugin {
   private dirty = false;
   private readonly flushSoon = debounce(() => void this.flush(), SAVE_DELAY_MS, true);
 
+  /** Named pages that have a command, with the name each was registered under. */
+  private readonly pageCommands = new Map<string, string>();
+
   async onload(): Promise<void> {
     await this.loadSettings();
 
@@ -64,22 +80,25 @@ export default class HomeCardsPlugin extends Plugin {
     this.addCommand({ id: "open", name: "Open", callback: () => void this.activateView() });
     this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
 
-    // Folder pages. The folder is named by the open note, by a list, or by
-    // the folder's own context menu, so any file browser can reach it.
+    // Pages. A page opens from a command, a list, a folder's context menu
+    // or a link, so any file browser can reach it. Each named page also
+    // gets a command of its own (see syncPageCommands), which takes a hotkey.
+    this.addCommand({ id: "open-page", name: "Open a page", callback: () => pickPage(this) });
+    this.addCommand({ id: "create-page", name: "Create a page", callback: () => this.createPage({ open: true }) });
     this.addCommand({
       id: "open-current-folder",
       name: "Open page for current folder",
       checkCallback: (checking) => {
         const folder = this.app.workspace.getActiveFile()?.parent;
         if (!folder || folder.isRoot()) return false;
-        if (!checking) void this.activateView(folder.path);
+        if (!checking) void this.activateView({ folder: folder.path });
         return true;
       },
     });
     this.addCommand({
       id: "open-folder",
       name: "Open page for a folder",
-      callback: () => pickFolder(this.app, (folder) => void this.activateView(folder.path)),
+      callback: () => pickFolder(this.app, (folder) => void this.activateView({ folder: folder.path })),
     });
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
@@ -89,10 +108,15 @@ export default class HomeCardsPlugin extends Plugin {
             .setSection("action")
             .setTitle("Open Home Cards page")
             .setIcon("layout-grid")
-            .onClick(() => void this.activateView(file.path))
+            .onClick(() => void this.activateView({ folder: file.path }))
         );
       })
     );
+    // obsidian://home-cards?page=Name or ?folder=Path, from a note, a
+    // Shortcut or a launcher. The parameters are untrusted text: they pick
+    // among existing pages and folders and nothing else.
+    this.registerObsidianProtocolHandler("home-cards", (params) => void this.openFromLink(params));
+    this.syncPageCommands();
 
     // "resolved" fires after every batch of metadata changes; one redraw
     // per burst is plenty.
@@ -108,8 +132,8 @@ export default class HomeCardsPlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         this.openHistory.rename(oldPath, file.path);
-        // A folder with its own sections keeps them when it is renamed.
-        if (file instanceof TFolder && renameFolderPages(this.settings.folderPages, oldPath, file.path)) {
+        // A page about a folder follows it when it is renamed.
+        if (file instanceof TFolder && renamePageFolders(this.settings.pages, oldPath, file.path)) {
           this.touch();
         }
       })
@@ -141,7 +165,9 @@ export default class HomeCardsPlugin extends Plugin {
 
   /** Write a pending edit, if any, and redraw the views that show it. */
   async flush(): Promise<void> {
-    if (await this.write()) this.refreshViews();
+    const wrote = await this.write();
+    if (this.syncPageCommands()) this.events.trigger(PAGES);
+    if (wrote) this.refreshViews();
   }
 
   /** Write a pending edit. Resolves true when there was one. */
@@ -172,30 +198,135 @@ export default class HomeCardsPlugin extends Plugin {
   // ------------------------------------------------------------------ views
 
   /**
-   * Reveal the home page, or the page of `folder`, opening it in a new tab
-   * if it is not open. Each folder has at most one tab.
+   * Reveal a page, opening it in a new tab if it is not open. Every page
+   * has at most one tab, however it was reached: a folder with a named
+   * page opens that page.
    */
-  async activateView(folder = ""): Promise<void> {
+  async activateView(ref: PageRef = {}): Promise<void> {
     const { workspace } = this.app;
-    const want = normalizeFolderPath(folder);
-    // The saved view state names the folder even for a tab that Obsidian
+    const target = resolvePage(this.settings, ref);
+    if (!target) {
+      new Notice("Home Cards: that page no longer exists.");
+      return;
+    }
+    // The saved view state names the page even for a tab that Obsidian
     // has not loaded yet, so this never wakes a deferred view.
     const existing = workspace.getLeavesOfType(VIEW_TYPE_HOME).find((leaf) => {
-      const stored = (leaf.getViewState().state as { folder?: unknown } | undefined)?.folder;
-      return (typeof stored === "string" ? normalizeFolderPath(stored) : "") === want;
+      const open = resolvePage(this.settings, refFromState(leaf.getViewState().state));
+      return open?.key === target.key;
     });
     if (existing) {
       await workspace.revealLeaf(existing);
+      // Revealing shows the tab; the keyboard and the commands follow only
+      // the active leaf.
+      workspace.setActiveLeaf(existing, { focus: true });
       return;
     }
     const leaf = workspace.getLeaf("tab");
-    await leaf.setViewState({ type: VIEW_TYPE_HOME, active: true, state: want ? { folder: want } : {} });
+    const state = stateFromRef(target.record ? { page: target.record.id } : ref);
+    await leaf.setViewState({ type: VIEW_TYPE_HOME, active: true, state });
     await workspace.revealLeaf(leaf);
   }
 
-  /** Open the settings for one folder page; its edits apply as they are made. */
-  editFolderPage(folder: string): void {
-    if (folder) new FolderPageModal(this, folder, () => void this.flush()).open();
+  // ------------------------------------------------------------------ pages
+
+  /** Open a page from an `obsidian://home-cards` link. */
+  private async openFromLink(params: ObsidianProtocolData): Promise<void> {
+    const shown = (text: string) => (text.length > 60 ? `${text.slice(0, 60)}…` : text);
+    if (params.page) {
+      const page = findPageByName(this.settings.pages, params.page);
+      if (page) await this.activateView({ page: page.id });
+      else new Notice(`Home Cards: no page named "${shown(params.page)}".`);
+    } else if (params.folder) {
+      const folder = normalizeFolderPath(params.folder);
+      if (folder && this.app.vault.getFolderByPath(folder)) await this.activateView({ folder });
+      else new Notice(`Home Cards: no folder named "${shown(params.folder)}".`);
+    } else {
+      await this.activateView();
+    }
+  }
+
+  /**
+   * Keep one command per named page, named for the page. A renamed page
+   * gets its command replaced under the same id, so its hotkey stays.
+   * Called after every save and once at load. Returns whether any command
+   * was added, renamed or removed.
+   */
+  private syncPageCommands(): boolean {
+    let changed = false;
+    const wanted = new Map(this.settings.pages.map((page) => [page.id, page.name]));
+    for (const [id, name] of this.pageCommands) {
+      if (wanted.get(id) === name) continue;
+      this.removeCommand(`open-${id}`);
+      this.pageCommands.delete(id);
+      changed = true;
+    }
+    for (const [id, name] of wanted) {
+      if (this.pageCommands.has(id)) continue;
+      this.addCommand({ id: `open-${id}`, name: `Open ${name} page`, callback: () => void this.activateView({ page: id }) });
+      this.pageCommands.set(id, name);
+      changed = true;
+    }
+    return changed;
+  }
+
+  /**
+   * Open the editor for a new page. Nothing is saved until the editor's
+   * Create button; `open` also opens the page in a tab once it exists.
+   */
+  createPage({ open, onCreated }: { open: boolean; onCreated?: (page: NamedPage) => void }): void {
+    if (this.settings.pages.length >= LIMITS.pages.max) {
+      new Notice(`Home Cards: a vault can have up to ${LIMITS.pages.max} pages.`);
+      return;
+    }
+    const draft: NamedPage = { id: newPageId(), name: "", scope: blankScope(), sections: null };
+    new PageModal(this, draft, "create", (page) => {
+      void this.commit().then(async () => {
+        onCreated?.(page);
+        if (open) await this.activateView({ page: page.id });
+      });
+    }).open();
+  }
+
+  /**
+   * Open the editor for a page. A folder page that has no record is saved
+   * as a named page for the editor to change; if the editor closes with it
+   * untouched, the record is dropped again and the folder follows the home
+   * page as before.
+   */
+  editPage(ref: PageRef): void {
+    const resolved = resolvePage(this.settings, ref);
+    if (!resolved || resolved.isHome) return;
+    let page = resolved.record;
+    let untouched: string | null = null;
+    if (!page) {
+      if (this.settings.pages.length >= LIMITS.pages.max) {
+        new Notice(`Home Cards: a vault can have up to ${LIMITS.pages.max} pages.`);
+        return;
+      }
+      page = {
+        id: newPageId(),
+        name: uniquePageName(this.settings.pages, suggestPageName(resolved.scope)),
+        scope: { ...resolved.scope },
+        sections: null,
+      };
+      this.settings.pages.push(page);
+      untouched = JSON.stringify(page);
+    }
+    const saved = page;
+    new PageModal(this, saved, "edit", () => {
+      if (untouched !== null && JSON.stringify(saved) === untouched) {
+        const pages = this.settings.pages;
+        pages.splice(pages.indexOf(saved), 1);
+        this.touch();
+      }
+      void this.flush();
+    }).open();
+  }
+
+  /** Subscribe to changes in the list of pages; pass the result to `registerEvent`. */
+  onPagesChanged(callback: () => void): EventRef {
+    return this.events.on(PAGES, callback);
   }
 
   /** Subscribe to redraw requests; pass the result to `registerEvent`. */

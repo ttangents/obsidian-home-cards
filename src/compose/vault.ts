@@ -5,8 +5,8 @@
  */
 
 import type { App, CachedMetadata, TFile } from "obsidian";
-import { isInside } from "../settings/folder-pages";
 import { mergeOpened } from "./open-history";
+import type { ScopeTest } from "./scope";
 
 /**
  * One compose's view of the vault, shared by every section: the note
@@ -24,11 +24,10 @@ export class VaultSnapshot {
     readonly now: Date = new Date(),
     /** The plugin's own open history, newest first (see open-history.ts). */
     private readonly history: readonly string[] = [],
-    /** Vault path of the folder this snapshot is limited to; "" for all. */
-    readonly folder: string = ""
+    /** The page's scope: the snapshot holds only the notes it admits. */
+    scope: ScopeTest | null = null
   ) {
-    const all = app.vault.getMarkdownFiles();
-    this.files = folder ? all.filter((f) => isInside(f.path, folder)) : all;
+    this.files = notesIn(app, scope);
   }
 
   /** Paths of recently opened files, newest first. */
@@ -44,6 +43,16 @@ export class VaultSnapshot {
   inboundCounts(): ReadonlyMap<string, number> {
     return (this.inbound ??= inboundCounts(this.app));
   }
+}
+
+/**
+ * The notes a page is about: every note the scope admits, or all of them
+ * when the page has none. Link totals elsewhere stay vault-wide.
+ */
+export function notesIn(app: App, scope: ScopeTest | null): TFile[] {
+  const all = app.vault.getMarkdownFiles();
+  if (!scope) return all;
+  return all.filter((file) => scope(file, app.metadataCache.getFileCache(file)));
 }
 
 /**

@@ -6,8 +6,9 @@
 
 import { Menu, normalizePath, Notice, type App, type Component, type HoverParent, type TFile } from "obsidian";
 import { forgottenNotes } from "../compose/rank";
-import { untitledPath } from "../compose/vault";
-import { isInside } from "../settings/folder-pages";
+import type { ScopeTest } from "../compose/scope";
+import { notesIn, untitledPath } from "../compose/vault";
+import type { NoteSeed } from "../settings/pages";
 import type { HomeCardsSettings } from "../settings/schema";
 import type { CardActions, HoverTracker } from "./card";
 
@@ -130,29 +131,33 @@ function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): v
 }
 
 /**
- * Create an empty note, open it, and select its title for naming. A folder
- * page passes its folder and the note goes there; otherwise the note goes
- * where Obsidian's "Default location for new notes" setting puts it.
+ * Create a note, open it, and select its title for naming. A page passes a
+ * seed: its folder, when it has one, and opening text that puts the note
+ * on the page. Otherwise the note goes where Obsidian's "Default location
+ * for new notes" setting puts it, and starts empty.
  */
-export async function createNote(app: App, newLeaf: boolean, folderPath = ""): Promise<void> {
-  const chosen = folderPath ? app.vault.getFolderByPath(folderPath) : null;
+export async function createNote(
+  app: App,
+  newLeaf: boolean,
+  seed: NoteSeed = { folder: "", content: "" }
+): Promise<void> {
+  const chosen = seed.folder ? app.vault.getFolderByPath(seed.folder) : null;
   const folder = chosen ?? app.fileManager.getNewFileParent("");
   const exists = (p: string) => !!app.vault.getAbstractFileByPath(normalizePath(p));
   const path = normalizePath(untitledPath(folder.isRoot() ? "" : folder.path, exists));
-  const file = await app.vault.create(path, "");
+  const file = await app.vault.create(path, seed.content);
   await leafFor(app, newLeaf).openFile(file, { active: true, eState: { rename: "all" } });
 }
 
-/** Open a random note from the Rediscover pool, limited to a folder on a folder page. */
+/** Open a random note from the Rediscover pool, limited to a page's notes. */
 export function rediscoverNote(
   app: App,
   settings: HomeCardsSettings,
   newLeaf: boolean,
-  folder = ""
+  scope: ScopeTest | null = null
 ): void {
   const months = settings.rediscoverMonths;
-  const notes = app.vault.getMarkdownFiles().filter((f) => isInside(f.path, folder));
-  const pool = forgottenNotes(notes, new Date(), months);
+  const pool = forgottenNotes(notesIn(app, scope), new Date(), months);
   if (!pool.length) {
     new Notice(`Every note has changed in the last ${months} ${months === 1 ? "month" : "months"}.`);
     return;

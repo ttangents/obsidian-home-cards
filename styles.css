@@ -772,6 +772,10 @@ button.hc-swatch-item {
 .hc-cover {
   margin: 0 calc(-1 * var(--size-4-4));
   aspect-ratio: 16 / 9;
+  /* Without this, a flex item grows to its image's own height. */
+  overflow: hidden;
+  min-height: 0;
+  flex: none;
   background: var(--background-modifier-hover);
 }
 .hc-cover img {

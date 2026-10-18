@@ -530,12 +530,12 @@ export class HomeView extends ItemView implements HoverParent {
         const moves = targets.filter((t) => t.config.id !== config.id).flatMap((t) => moveTo(t.config) ?? []);
         const emptyText = claimed
           ? "Every matching note already appears in a section above."
-          : "This section has no matching notes.";
+          : (EMPTY_BY_KIND[config.kind] ?? "This section has no matching notes.");
         const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
           menuContext: { sectionKind: config.kind, moves },
           create: own
             ? {
-                tooltip: `New note here: ${describeTemplate(own).toLowerCase()}`,
+                tooltip: `New note here: ${lowerFirst(describeTemplate(own))}`,
                 run: (evt) => void createNote(app, paneFor(evt), own),
               }
             : undefined,
@@ -543,7 +543,7 @@ export class HomeView extends ItemView implements HoverParent {
           drop:
             write && takesMoves(config.id)
               ? {
-                  hint: `Drop to ${describeTemplate(write.template).toLowerCase()}`,
+                  hint: `Drop to ${lowerFirst(describeTemplate(write.template))}`,
                   run: (path) => {
                     const file = app.vault.getFileByPath(path);
                     if (file) void this.applyChange(file, write.template);
@@ -656,6 +656,16 @@ export class HomeView extends ItemView implements HoverParent {
     }
   }
 }
+
+/** What an empty section says when its source explains the emptiness better than "no matches". */
+const EMPTY_BY_KIND: Partial<Record<SectionConfig["kind"], string>> = {
+  pinned: "Pin notes here from a card's menu, or from a note's menu anywhere in Obsidian.",
+  continue: "Notes you open on this device appear here, grouped by work session.",
+  related: "Notes linked to what you open appear here.",
+};
+
+/** "Set status" → "set status", leaving values as they are. */
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
 /** What a page's dateline says about its scope; empty when it has none to say. */
 function datelineScope(page: ResolvedPage): string {

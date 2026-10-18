@@ -18,7 +18,7 @@ import type { MarkActions } from "./render/actions";
 import { ActivityLog } from "./compose/activity";
 import { DekCache } from "./compose/dek-cache";
 import { OpenHistory } from "./compose/open-history";
-import { registerBasesView } from "./render/bases-view";
+import { BASES_VIEW_ID, registerBasesView } from "./render/bases-view";
 import { pickFolder } from "./render/folder-picker";
 import { HomeView, VIEW_TYPE_HOME } from "./render/home-view";
 import { pickPage } from "./render/page-picker";
@@ -179,7 +179,9 @@ export default class HomeCardsPlugin extends Plugin {
 
     // Pinning from Obsidian's own file menus and the command palette.
     this.registerEvent(
-      this.app.workspace.on("file-menu", (menu, file) => {
+      this.app.workspace.on("file-menu", (menu, file, source) => {
+        // A card's own menu already offers its marks; see render/actions.ts.
+        if (source === VIEW_TYPE_HOME || source === BASES_VIEW_ID) return;
         if (!(file instanceof TFile) || file.extension !== "md") return;
         const pinned = isPinned(this.settings.marks, file.path);
         menu.addItem((item) =>

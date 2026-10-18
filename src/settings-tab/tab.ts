@@ -347,7 +347,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         },
         {
           name: "File size in the footer",
-          desc: "The footer always shows the value the section sorts on.",
+          desc: "Adds each note's size at the end of its card's footer.",
           control: { type: "toggle", key: "showFileSize" },
         },
       ],

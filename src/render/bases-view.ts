@@ -16,7 +16,7 @@ import { cardActions } from "./actions";
 import { renderSection, settleDek, type CardActions } from "./card";
 import { observeDeks } from "./lazy-deks";
 
-const BASES_VIEW_ID = "home-cards";
+export const BASES_VIEW_ID = "home-cards";
 
 class HomeCardsBasesView extends BasesView {
   readonly type = BASES_VIEW_ID;

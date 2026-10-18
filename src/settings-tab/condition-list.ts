@@ -21,12 +21,13 @@ export function renderConditionList(
 
   conditions.forEach((cond, i) => {
     const row = new Setting(el).setName(i === 0 ? "Where" : "And");
-    const desc = () => row.setDesc(cond.property.trim() ? describeCondition(cond) : "Choose a property.");
-    desc();
     const ops = opsFor(typeOf(cond.property));
     // An operator from another type falls back to this type's first.
     if (!ops.some((op) => op.id === cond.op)) cond.op = ops[0].id;
     const op = CONDITION_OPS.find((o) => o.id === cond.op);
+    // The controls read as a sentence; the description adds only what they cannot say.
+    row.setDesc(!cond.property.trim() ? "Choose a property." : op?.input === "days" ? "In days, counting today." : "");
+    row.settingEl.setAttr("aria-label", describeCondition(cond));
 
     row.addDropdown((d) => {
       d.addOption("", "Property");
@@ -59,7 +60,7 @@ export function renderConditionList(
           .setValue(cond.value)
           .onChange((v) => {
             cond.value = v;
-            desc();
+            row.settingEl.setAttr("aria-label", describeCondition(cond));
             changed();
           })
       );

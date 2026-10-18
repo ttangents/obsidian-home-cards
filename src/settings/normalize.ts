@@ -22,7 +22,9 @@ import {
   BACKGROUND_FITS,
   BACKGROUNDS,
   blankScope,
+  blankSection,
   BLANK_SECTION,
+  CONDITION_OPS,
   defaultSections,
   defaultSettings,
   LIMITS,
@@ -32,6 +34,7 @@ import {
   SETTINGS_VERSION,
   SURFACES,
   VIEW_MODES,
+  type Condition,
   type CustomBackground,
   type HomeCardsSettings,
   type NamedPage,
@@ -159,9 +162,30 @@ function normalizeSection(e: Raw, index: number): SectionConfig[] {
     filterTags: str(e.filterTags, ""),
     filterProps: str(e.filterProps, ""),
     filterFolders: str(e.filterFolders, ""),
+    conditions: normalizeConditions(e.conditions),
   };
   if (!legacyUnresolved) return [cfg];
-  return [cfg, { ...BLANK_SECTION, id: `${cfg.id}-least`, kind: "least-linked" }];
+  return [cfg, blankSection({ id: `${cfg.id}-least`, kind: "least-linked" })];
+}
+
+/**
+ * Conditions keep their place even while unfinished (a property not yet
+ * chosen), because the editor shows them as rows; compose ignores what it
+ * cannot read. Unknown operators and anything past the cap are dropped.
+ */
+export function normalizeConditions(raw: unknown): Condition[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Condition[] = [];
+  for (const entry of raw) {
+    if (out.length >= LIMITS.conditions.max) break;
+    if (!isObject(entry) || !CONDITION_OPS.some((op) => op.id === entry.op)) continue;
+    out.push({
+      property: str(entry.property, "").trim(),
+      op: choice(CONDITION_OPS, entry.op, "exists"),
+      value: str(entry.value, typeof entry.value === "number" ? String(entry.value) : ""),
+    });
+  }
+  return out;
 }
 
 export function normalizeSections(raw: unknown): SectionConfig[] {

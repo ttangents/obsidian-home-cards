@@ -23,7 +23,7 @@ import { renderBackgroundPicker } from "../render/swatches";
 import { scopeSummary } from "../settings/pages";
 import {
   BACKGROUND_FITS,
-  BLANK_SECTION,
+  blankSection,
   defaultSettings,
   isChoice,
   labelOf,
@@ -174,7 +174,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
       addItem: {
         name: "Add section",
         action: () => {
-          const cfg: SectionConfig = { ...BLANK_SECTION, id: newSectionId() };
+          const cfg: SectionConfig = blankSection({ id: newSectionId() });
           this.plugin.settings.sections.push(cfg);
           void this.restructure();
           this.editSection(cfg.id);

@@ -6,6 +6,8 @@
 
 import type { App, CachedMetadata, TFile } from "obsidian";
 import { mergeOpened } from "./open-history";
+import type { ValueType } from "../settings/schema";
+import { inferType } from "./conditions";
 import type { ScopeTest } from "./scope";
 
 /**
@@ -67,15 +69,25 @@ export function untitledPath(folder: string, exists: (path: string) => boolean):
   }
 }
 
-/** Every frontmatter key in the vault, sorted, for the settings pickers. */
-export function discoverProperties(app: App): string[] {
-  const keys = new Set<string>();
+/**
+ * Every frontmatter key in the vault with the type its values read as,
+ * sorted by key, for the section editor. One walk of the metadata cache;
+ * up to a few hundred values per key decide its type.
+ */
+export function discoverPropertyTypes(app: App): Map<string, ValueType> {
+  const samples = new Map<string, unknown[]>();
   for (const file of app.vault.getMarkdownFiles()) {
     const fm = app.metadataCache.getFileCache(file)?.frontmatter;
     if (!fm) continue;
-    for (const k of Object.keys(fm)) if (k !== "position") keys.add(k);
+    for (const [k, v] of Object.entries(fm)) {
+      if (k === "position") continue;
+      const list = samples.get(k) ?? [];
+      if (list.length < 300) list.push(v);
+      samples.set(k, list);
+    }
   }
-  return [...keys].sort((a, b) => a.localeCompare(b));
+  const keys = [...samples.keys()].sort((a, b) => a.localeCompare(b));
+  return new Map(keys.map((k) => [k, inferType(samples.get(k) ?? [])]));
 }
 
 /**

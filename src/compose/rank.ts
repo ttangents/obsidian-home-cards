@@ -6,6 +6,7 @@
 
 import type { TFile } from "obsidian";
 import type { HomeCardsSettings, SectionConfig } from "../settings/schema";
+import { compileConditions } from "./conditions";
 import { compileScope, tagsOf } from "./scope";
 import { cleanTitle } from "./text";
 import { firstValue, frontmatterValue, asStringList } from "./values";
@@ -139,15 +140,28 @@ function untouchedFor(file: TFile, now: Date): string {
   return `Untouched for ${Math.floor(months / 12)} years`;
 }
 
+/**
+ * The notes a section admits before ranking: its include-filters and its
+ * conditions, over the page's notes. A note must pass both.
+ */
+export function sectionPool(vault: VaultSnapshot, cfg: SectionConfig): readonly TFile[] {
+  const scope = compileScope(cfg);
+  const conditions = compileConditions(cfg.conditions, vault.now);
+  if (!scope && !conditions) return vault.files;
+  return vault.files.filter((f) => {
+    const cache = vault.cacheOf(f);
+    return (!scope || scope(f, cache)) && (!conditions || conditions(f, cache));
+  });
+}
+
 /** Every note the section admits, best first. */
 export function rankSection(
   vault: VaultSnapshot,
   cfg: SectionConfig,
   settings: HomeCardsSettings
 ): Ranked[] {
-  const scope = compileScope(cfg);
   const cacheOf = (f: TFile) => vault.cacheOf(f);
-  const pool = scope ? vault.files.filter((f) => scope(f, cacheOf(f))) : vault.files;
+  const pool = sectionPool(vault, cfg);
 
   switch (cfg.kind) {
     case "recent-opened": {

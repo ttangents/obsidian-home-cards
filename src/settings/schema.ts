@@ -103,6 +103,44 @@ export const PAGE_SCOPES = [
 ] as const satisfies readonly (Choice & { icon: string })[];
 export type PageScopeKind = (typeof PAGE_SCOPES)[number]["id"];
 
+/**
+ * The kinds of value a property holds, as Home Cards reads them from the
+ * values themselves: Obsidian publishes no API for its property types.
+ */
+export type ValueType = "text" | "number" | "date" | "boolean" | "list";
+
+/**
+ * Condition operators. `types` lists the value types an operator means
+ * something for; the section editor offers only those. `input` says what
+ * the user types: nothing, a value, a number, or a count of days.
+ */
+export const CONDITION_OPS = [
+  { id: "is", label: "is", types: ["text", "number", "date", "boolean", "list"], input: "value" },
+  { id: "is-not", label: "is not", types: ["text", "number", "date", "boolean", "list"], input: "value" },
+  { id: "gt", label: "is more than", types: ["number"], input: "number" },
+  { id: "gte", label: "is at least", types: ["number"], input: "number" },
+  { id: "lt", label: "is less than", types: ["number"], input: "number" },
+  { id: "lte", label: "is at most", types: ["number"], input: "number" },
+  { id: "today", label: "is today", types: ["date"], input: "none" },
+  { id: "before-today", label: "is before today", types: ["date"], input: "none" },
+  { id: "after-today", label: "is after today", types: ["date"], input: "none" },
+  { id: "next-days", label: "is in the next", types: ["date"], input: "days" },
+  { id: "last-days", label: "is in the last", types: ["date"], input: "days" },
+  { id: "older-days", label: "is older than", types: ["date"], input: "days" },
+  { id: "exists", label: "has a value", types: ["text", "number", "date", "boolean", "list"], input: "none" },
+  { id: "missing", label: "is empty", types: ["text", "number", "date", "boolean", "list"], input: "none" },
+] as const satisfies readonly (Choice & { types: readonly ValueType[]; input: "value" | "number" | "days" | "none" })[];
+export type ConditionOp = (typeof CONDITION_OPS)[number]["id"];
+
+/**
+ * Fields every note has, named as Bases names them. A condition or a card
+ * field may use one wherever it may use a property.
+ */
+export const FILE_FIELDS = [
+  { id: "file.ctime", label: "Created", type: "date" },
+  { id: "file.mtime", label: "Modified", type: "date" },
+] as const satisfies readonly (Choice & { type: ValueType })[];
+
 /** Type guard: is `value` one of the registry's ids? */
 export function isChoice<R extends readonly Choice[]>(
   registry: R,
@@ -142,6 +180,21 @@ export interface SectionConfig {
   filterTags: string;
   filterProps: string;
   filterFolders: string;
+  /** Typed conditions, all of which a note must meet; see compose/conditions.ts. */
+  conditions: Condition[];
+}
+
+/**
+ * One typed test of a property or file field. A condition without a
+ * property, or with a value its operator cannot read, tests nothing: the
+ * section ignores it, as it ignores a blank filter.
+ */
+export interface Condition {
+  /** A frontmatter key, or a FILE_FIELDS id such as `file.mtime`. */
+  property: string;
+  op: ConditionOp;
+  /** The value or number of days, as typed; unused by some operators. */
+  value: string;
 }
 
 /**
@@ -247,7 +300,8 @@ export interface HomeCardsSettings {
  * than a real default, so a field missing on disk cannot import another
  * section's source or id.
  */
-export const BLANK_SECTION: Readonly<SectionConfig> = {
+export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions">> & { readonly conditions: readonly Condition[] } =
+  Object.freeze({
   id: "",
   title: "",
   kind: "recent-modified",
@@ -261,19 +315,34 @@ export const BLANK_SECTION: Readonly<SectionConfig> = {
   filterTags: "",
   filterProps: "",
   filterFolders: "",
-};
+  conditions: Object.freeze([]),
+});
 
 /**
  * The first-run page. Every section works in any vault, so a new user
  * sees cards before configuring anything; property and tag sections
  * need keys only the user knows.
  */
+/**
+ * A fresh section: BLANK_SECTION with an id and any overrides, holding
+ * arrays of its own. Spreading BLANK_SECTION directly would share its
+ * condition list between every section made from it.
+ */
+export function blankSection(over: Partial<SectionConfig> & { id: string }): SectionConfig {
+  return { ...BLANK_SECTION, conditions: [], ...over };
+}
+
+/** A copy of a section that shares nothing with it, under a new id. */
+export function copySection(cfg: SectionConfig, id: string): SectionConfig {
+  return { ...cfg, id, conditions: cfg.conditions.map((c) => ({ ...c })) };
+}
+
 export function defaultSections(): SectionConfig[] {
   return [
-    { ...BLANK_SECTION, id: "opened", kind: "recent-opened" },
-    { ...BLANK_SECTION, id: "created", kind: "recent-created" },
-    { ...BLANK_SECTION, id: "most", kind: "most-linked" },
-    { ...BLANK_SECTION, id: "least", kind: "least-linked" },
+    blankSection({ id: "opened", kind: "recent-opened" }),
+    blankSection({ id: "created", kind: "recent-created" }),
+    blankSection({ id: "most", kind: "most-linked" }),
+    blankSection({ id: "least", kind: "least-linked" }),
   ];
 }
 
@@ -324,6 +393,8 @@ export const LIMITS = {
   rediscoverMonths: { min: 1, max: 36 },
   /** Percent of the theme background over a custom image. */
   fade: { min: 0, max: 95 },
+  /** Conditions per section. */
+  conditions: { max: 8 },
   /** Each page adds a command, so the list stays short. */
   pages: { max: 50 },
   pageName: { max: 60 },

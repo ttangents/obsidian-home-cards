@@ -4,11 +4,11 @@ import type { TFile } from "obsidian";
 import { composeSections } from "../src/compose/compose";
 import { rankSection } from "../src/compose/rank";
 import { VaultSnapshot } from "../src/compose/vault";
-import { BLANK_SECTION, defaultSettings, type SectionConfig } from "../src/settings/schema";
+import { blankSection, defaultSettings, type SectionConfig } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";
 
 const s = defaultSettings();
-const section = (over: Partial<SectionConfig>): SectionConfig => ({ ...BLANK_SECTION, id: "t", ...over });
+const section = (over: Partial<SectionConfig>): SectionConfig => blankSection({ id: "t", ...over });
 
 const v = fakeVault(
   [

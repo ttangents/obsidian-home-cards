@@ -9,7 +9,7 @@
 
 import { Setting } from "obsidian";
 import type HomeCardsPlugin from "../main";
-import { BLANK_SECTION, newSectionId, sectionTitle, type SectionConfig } from "../settings/schema";
+import { blankSection, newSectionId, sectionTitle, type SectionConfig } from "../settings/schema";
 import { SectionModal } from "./section-modal";
 import { sectionSummary } from "./widgets";
 
@@ -66,7 +66,7 @@ export function renderSectionList(
   });
   new Setting(el).addButton((b) =>
     b.setButtonText("Add section").onClick(() => {
-      const cfg: SectionConfig = { ...BLANK_SECTION, id: newSectionId() };
+      const cfg: SectionConfig = blankSection({ id: newSectionId() });
       sections.push(cfg);
       changed();
       redraw();

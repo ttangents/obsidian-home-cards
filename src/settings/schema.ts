@@ -104,6 +104,17 @@ export const PAGE_SCOPES = [
 export type PageScopeKind = (typeof PAGE_SCOPES)[number]["id"];
 
 /**
+ * How a section's cards show an image from the note, when it has one.
+ * See compose/images.ts for where the image comes from.
+ */
+export const CARD_IMAGES = [
+  { id: "none", label: "None" },
+  { id: "thumbnail", label: "Thumbnail" },
+  { id: "cover", label: "Cover" },
+] as const satisfies readonly Choice[];
+export type CardImage = (typeof CARD_IMAGES)[number]["id"];
+
+/**
  * The kinds of value a property holds, as Home Cards reads them from the
  * values themselves: Obsidian publishes no API for its property types.
  */
@@ -182,6 +193,12 @@ export interface SectionConfig {
   filterFolders: string;
   /** Typed conditions, all of which a note must meet; see compose/conditions.ts. */
   conditions: Condition[];
+  /**
+   * Properties or file fields the cards show in their footer, in order;
+   * empty keeps the page-wide footer. See compose/projection.ts.
+   */
+  fields: string[];
+  image: CardImage;
 }
 
 /**
@@ -287,6 +304,11 @@ export interface HomeCardsSettings {
   dekLines: number;
   showFileSize: boolean;
 
+  /**
+   * Properties that name a card's image, in order of preference, before
+   * the note's first embedded image. Comma separated.
+   */
+  imageProperties: string;
   summaryProperty: string;
   boilerplateOpeners: string;
   titlePrefixes: string;
@@ -300,7 +322,10 @@ export interface HomeCardsSettings {
  * than a real default, so a field missing on disk cannot import another
  * section's source or id.
  */
-export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions">> & { readonly conditions: readonly Condition[] } =
+export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions" | "fields">> & {
+  readonly conditions: readonly Condition[];
+  readonly fields: readonly string[];
+} =
   Object.freeze({
   id: "",
   title: "",
@@ -316,6 +341,8 @@ export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions">> & { read
   filterProps: "",
   filterFolders: "",
   conditions: Object.freeze([]),
+  fields: Object.freeze([]),
+  image: "none",
 });
 
 /**
@@ -329,12 +356,12 @@ export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions">> & { read
  * condition list between every section made from it.
  */
 export function blankSection(over: Partial<SectionConfig> & { id: string }): SectionConfig {
-  return { ...BLANK_SECTION, conditions: [], ...over };
+  return { ...BLANK_SECTION, conditions: [], fields: [], ...over };
 }
 
 /** A copy of a section that shares nothing with it, under a new id. */
 export function copySection(cfg: SectionConfig, id: string): SectionConfig {
-  return { ...cfg, id, conditions: cfg.conditions.map((c) => ({ ...c })) };
+  return { ...cfg, id, conditions: cfg.conditions.map((c) => ({ ...c })), fields: [...cfg.fields] };
 }
 
 export function defaultSections(): SectionConfig[] {
@@ -377,6 +404,7 @@ export function defaultSettings(): HomeCardsSettings {
     dekLines: 3,
     showFileSize: false,
 
+    imageProperties: "cover, image",
     summaryProperty: "summary",
     boilerplateOpeners: "this note, this document, this page",
     titlePrefixes: "",
@@ -393,6 +421,8 @@ export const LIMITS = {
   rediscoverMonths: { min: 1, max: 36 },
   /** Percent of the theme background over a custom image. */
   fade: { min: 0, max: 95 },
+  /** Footer fields per section. */
+  fields: { max: 3 },
   /** Conditions per section. */
   conditions: { max: 8 },
   /** Each page adds a command, so the list stays short. */

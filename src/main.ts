@@ -15,6 +15,7 @@
 import { debounce, Events, Notice, Plugin, TFile, TFolder, type EventRef, type ObsidianProtocolData } from "obsidian";
 import { forgetMarks, isPinned, isQuiet, pruneSnoozes, renameMarks, snooze, togglePin, toggleQuiet } from "./compose/marks";
 import type { MarkActions } from "./render/actions";
+import { ActivityLog } from "./compose/activity";
 import { DekCache } from "./compose/dek-cache";
 import { OpenHistory } from "./compose/open-history";
 import { registerBasesView } from "./render/bases-view";
@@ -42,6 +43,8 @@ const REFRESH = "refresh";
 const PAGES = "pages";
 /** Quiet period after the last keystroke before an edit is written. */
 const SAVE_DELAY_MS = 400;
+/** Quiet period after the last open before the activity log is written. */
+const ACTIVITY_SAVE_MS = 5000;
 /** Quiet period after the metadata cache settles before views recompose. */
 const RESOLVE_DELAY_MS = 1500;
 
@@ -53,6 +56,10 @@ export default class HomeCardsPlugin extends Plugin {
 
   /** Opened notes beyond the ten Obsidian remembers, for "Recently opened". */
   readonly openHistory = new OpenHistory(this.app);
+
+  /** Timed opens and visits, for Continue working, Related and Old friends. */
+  readonly activity = new ActivityLog(this.app);
+  private readonly saveActivity = debounce(() => this.activity.flush(), ACTIVITY_SAVE_MS, true);
 
   /**
    * Views subscribe here to redraw after a settings change or a metadata
@@ -144,12 +151,17 @@ export default class HomeCardsPlugin extends Plugin {
     // Keep the open history as notes open and move.
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
-        if (file?.extension === "md") this.openHistory.record(file.path);
+        if (file?.extension !== "md") return;
+        this.openHistory.record(file.path);
+        this.activity.record(file.path);
+        this.saveActivity();
       })
     );
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         this.openHistory.rename(oldPath, file.path);
+        this.activity.rename(oldPath, file.path);
+        this.saveActivity();
         // A page about a folder follows it when it is renamed, and marks
         // follow their notes, singly or with their folder.
         const pages = file instanceof TFolder && renamePageFolders(this.settings.pages, oldPath, file.path);
@@ -160,6 +172,8 @@ export default class HomeCardsPlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
         if (forgetMarks(this.settings.marks, file.path)) this.touch();
+        this.activity.forget(file.path);
+        this.saveActivity();
       })
     );
 
@@ -208,6 +222,8 @@ export default class HomeCardsPlugin extends Plugin {
   onunload(): void {
     // Views are closing; write the pending edit without redrawing them.
     void this.write();
+    this.saveActivity.cancel();
+    this.activity.flush();
   }
 
   // ------------------------------------------------------------ persistence

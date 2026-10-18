@@ -17,14 +17,24 @@ import {
   CARD_IMAGES,
   FILE_FIELDS,
   isChoice,
+  REDISCOVER_STRATEGIES,
   LIMITS,
   SECTION_KINDS,
   sectionTitle,
   type SectionConfig,
+  type SectionKind,
   type ValueType,
 } from "../settings/schema";
 import { renderConditionList } from "./condition-list";
 import { addChoices } from "./widgets";
+
+/** What a source draws on, where that is not obvious from its name. */
+const SOURCE_NOTES: Partial<Record<SectionKind, string>> = {
+  pinned: "Notes you pin from a card's menu, the latest pin first.",
+  continue: "Your latest work session on this device, then notes edited during it, then the session before.",
+  related: "Notes linked to what you opened most recently, or sharing links or tags with it.",
+  "recent-opened": "Notes opened on this device, the latest first.",
+};
 
 /** Free-text section fields bound by the same kind of row. */
 type TextKey = "propertyValue" | "tag" | "filterTags" | "filterProps" | "filterFolders";
@@ -98,7 +108,7 @@ export class SectionModal extends Modal {
         })
     );
 
-    row("Source").addDropdown((d) =>
+    row("Source", SOURCE_NOTES[cfg.kind] ?? "").addDropdown((d) =>
       addChoices(d, SECTION_KINDS)
         .setValue(cfg.kind)
         .onChange((v) => {
@@ -117,6 +127,19 @@ export class SectionModal extends Modal {
           touch();
         })
     );
+
+    if (cfg.kind === "rediscover") {
+      const strategy = REDISCOVER_STRATEGIES.find((st) => st.id === cfg.strategy);
+      row("Strategy", strategy?.desc ?? "").addDropdown((d) =>
+        addChoices(d, REDISCOVER_STRATEGIES)
+          .setValue(cfg.strategy)
+          .onChange((v) => {
+            if (!isChoice(REDISCOVER_STRATEGIES, v)) return;
+            cfg.strategy = v;
+            redraw();
+          })
+      );
+    }
 
     if (cfg.kind === "property") {
       const desc = this.properties.length

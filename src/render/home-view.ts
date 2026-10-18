@@ -426,6 +426,7 @@ export class HomeView extends ItemView implements HoverParent {
       sections = await composeSections(app, settings, {
         deks: (file) => plugin.dekCache.get(app, file, settings),
         opened: plugin.openHistory.list(),
+        activity: plugin.activity,
         sections: page.sections,
         scope: test,
       });

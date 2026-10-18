@@ -5,7 +5,7 @@
  */
 
 import { Menu, normalizePath, Notice, type App, type Component, type HoverParent, type PaneType, type TFile } from "obsidian";
-import { forgottenNotes } from "../compose/rank";
+import { forgottenNotes } from "../compose/rediscover";
 import type { ScopeTest } from "../compose/scope";
 import { notesIn, untitledPath } from "../compose/vault";
 import { EMPTY_TEMPLATE, type NoteTemplate } from "../compose/templates";

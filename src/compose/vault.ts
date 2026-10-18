@@ -9,6 +9,7 @@ import { mergeOpened } from "./open-history";
 import type { ValueType } from "../settings/schema";
 import { inferType } from "./conditions";
 import { IMAGE_FILE, imageLinkFor } from "./images";
+import type { ActivityFacts } from "./activity";
 import type { ScopeTest } from "./scope";
 
 /**
@@ -17,9 +18,18 @@ import type { ScopeTest } from "./scope";
  * a page of seven sections costs one walk of the vault, not seven.
  * Discard it after the compose; it does not track later changes.
  */
+/** Which notes link to which: distinct links between notes, no self-links. */
+export interface LinkGraph {
+  out: ReadonlyMap<string, ReadonlySet<string>>;
+  in: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+const NO_ACTIVITY: ActivityFacts = { events: () => [], visits: () => new Map() };
+
 export class VaultSnapshot {
   readonly files: readonly TFile[];
   private inbound: ReadonlyMap<string, number> | null = null;
+  private graph: LinkGraph | null = null;
 
   constructor(
     readonly app: App,
@@ -28,9 +38,51 @@ export class VaultSnapshot {
     /** The plugin's own open history, newest first (see open-history.ts). */
     private readonly history: readonly string[] = [],
     /** The page's scope: the snapshot holds only the notes it admits. */
-    scope: ScopeTest | null = null
+    scope: ScopeTest | null = null,
+    /** Opens and visits Home Cards observed (see activity.ts). */
+    readonly activity: ActivityFacts = NO_ACTIVITY
   ) {
     this.files = notesIn(app, scope);
+  }
+
+  /**
+   * The note-to-note link graph, from the metadata cache's resolved links,
+   * built once per compose on first use. Links to attachments are left out.
+   */
+  links(): LinkGraph {
+    if (this.graph) return this.graph;
+    const out = new Map<string, Set<string>>();
+    const inn = new Map<string, Set<string>>();
+    const add = (map: Map<string, Set<string>>, key: string, value: string) => {
+      const set = map.get(key);
+      if (set) set.add(value);
+      else map.set(key, new Set([value]));
+    };
+    for (const [source, targets] of Object.entries(this.app.metadataCache.resolvedLinks ?? {})) {
+      for (const target of Object.keys(targets ?? {})) {
+        if (target === source || !target.endsWith(".md")) continue;
+        add(out, source, target);
+        add(inn, target, source);
+      }
+    }
+    return (this.graph = { out, in: inn });
+  }
+
+  /** The note at `path`, inside the page's scope or not; null when there is none. */
+  fileAt(path: string): TFile | null {
+    return this.app.vault.getFileByPath(path);
+  }
+
+  /** Distinct notes linked to or from `path`. */
+  degree(path: string): number {
+    const { out, in: inn } = this.links();
+    const o = out.get(path);
+    const i = inn.get(path);
+    if (!o) return i?.size ?? 0;
+    if (!i) return o.size;
+    let n = o.size;
+    for (const p of i) if (!o.has(p)) n++;
+    return n;
   }
 
   /** Paths of recently opened files, newest first. */

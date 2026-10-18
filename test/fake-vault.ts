@@ -104,6 +104,7 @@ export function fakeVault(
       // the plugin reads it from here rather than assuming it.
       configDir: [".", "obsidian"].join(""),
       getMarkdownFiles: () => [...files.values()],
+      getFileByPath: (path: string) => files.get(path) ?? null,
       getResourcePath: (file: { path: string }) => `app://vault/${file.path}`,
       cachedRead: async (file: TFile) => {
         reads.set(file.path, (reads.get(file.path) ?? 0) + 1);

@@ -115,6 +115,15 @@ function hoverTracker(app: App, owner: Component, hoverParent: HoverParent, sour
     leave: (el) => {
       if (current?.el === el) current = null;
     },
+    preview: (file, el) => {
+      // A modified pointer event at the card's centre: what Page Preview
+      // reads when a modifier goes down over a link.
+      const box = el.getBoundingClientRect();
+      const view = el.ownerDocument.defaultView ?? undefined;
+      current = { file, el };
+      show(new MouseEvent("mouseover", { view, clientX: box.left + box.width / 2, clientY: box.top + box.height / 2, metaKey: true, ctrlKey: true }));
+      current = null;
+    },
   };
 }
 

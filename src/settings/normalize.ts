@@ -29,6 +29,7 @@ import {
   newSectionId,
   PAGE_SCOPES,
   SECTION_KINDS,
+  SETTINGS_VERSION,
   SURFACES,
   VIEW_MODES,
   type CustomBackground,
@@ -254,6 +255,7 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
   const background = str(r.background, d.background);
 
   return {
+    version: SETTINGS_VERSION,
     sections: normalizeSections(r.sections),
     pages: normalizePages(r.pages),
     dedupe: bool(r.dedupe, d.dedupe),

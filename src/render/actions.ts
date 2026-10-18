@@ -4,17 +4,20 @@
  * of the views so the home page and the Bases view behave the same.
  */
 
-import { Menu, normalizePath, Notice, type App, type Component, type HoverParent, type TFile } from "obsidian";
+import { Menu, normalizePath, Notice, type App, type Component, type HoverParent, type PaneType, type TFile } from "obsidian";
 import { forgottenNotes } from "../compose/rank";
 import type { ScopeTest } from "../compose/scope";
 import { notesIn, untitledPath } from "../compose/vault";
-import type { NoteSeed } from "../settings/pages";
+import { EMPTY_TEMPLATE, type NoteTemplate } from "../compose/templates";
 import type { HomeCardsSettings } from "../settings/schema";
 import type { CardActions, HoverTracker } from "./card";
 
-/** Where a click opens a note: in place, or a new tab with a modifier. */
-function leafFor(app: App, newLeaf: boolean) {
-  return app.workspace.getLeaf(newLeaf ? "tab" : false);
+/**
+ * Where a note opens: in place, or where Obsidian's own modifier rules
+ * send it (see `Keymap.isModEvent`): a new tab, a split or a window.
+ */
+function leafFor(app: App, where: PaneType | false) {
+  return app.workspace.getLeaf(where);
 }
 
 /**
@@ -32,7 +35,7 @@ export function cardActions(
   source: string
 ): CardActions {
   return {
-    open: (file, newLeaf) => void leafFor(app, newLeaf).openFile(file),
+    open: (file, where) => void leafFor(app, where).openFile(file),
     menu: (file, evt) => showFileMenu(app, file, evt, source),
     hover: hoverTracker(app, owner, hoverParent, source),
   };
@@ -131,29 +134,49 @@ function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): v
 }
 
 /**
- * Create a note, open it, and select its title for naming. A page passes a
- * seed: its folder, when it has one, and opening text that puts the note
- * on the page. Otherwise the note goes where Obsidian's "Default location
- * for new notes" setting puts it, and starts empty.
+ * Create a note, give it the template's facts, open it, and select its
+ * title for naming. The note goes in the template's folder when it has one
+ * that exists, and otherwise where Obsidian's "Default location for new
+ * notes" setting puts it.
  */
 export async function createNote(
   app: App,
-  newLeaf: boolean,
-  seed: NoteSeed = { folder: "", content: "" }
-): Promise<void> {
-  const chosen = seed.folder ? app.vault.getFolderByPath(seed.folder) : null;
+  where: PaneType | false,
+  template: NoteTemplate = EMPTY_TEMPLATE
+): Promise<TFile> {
+  const chosen = template.folder ? app.vault.getFolderByPath(template.folder) : null;
   const folder = chosen ?? app.fileManager.getNewFileParent("");
   const exists = (p: string) => !!app.vault.getAbstractFileByPath(normalizePath(p));
   const path = normalizePath(untitledPath(folder.isRoot() ? "" : folder.path, exists));
-  const file = await app.vault.create(path, seed.content);
-  await leafFor(app, newLeaf).openFile(file, { active: true, eState: { rename: "all" } });
+  const file = await app.vault.create(path, "");
+  await applyTemplate(app, file, template);
+  await leafFor(app, where).openFile(file, { active: true, eState: { rename: "all" } });
+  return file;
+}
+
+/**
+ * Write a template's tags and properties into a note's frontmatter through
+ * Obsidian, which keeps the YAML valid and the note's other properties as
+ * they were. Tags join the note's existing tags.
+ */
+export async function applyTemplate(app: App, file: TFile, template: NoteTemplate): Promise<void> {
+  const keys = Object.keys(template.properties);
+  if (!keys.length && !template.tags.length) return;
+  await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+    for (const key of keys) fm[key] = template.properties[key];
+    if (template.tags.length) {
+      const current: unknown[] = Array.isArray(fm.tags) ? fm.tags : fm.tags != null ? [fm.tags] : [];
+      const names = current.filter((t): t is string => typeof t === "string");
+      fm.tags = [...new Set([...names, ...template.tags])];
+    }
+  });
 }
 
 /** Open a random note from the Rediscover pool, limited to a page's notes. */
 export function rediscoverNote(
   app: App,
   settings: HomeCardsSettings,
-  newLeaf: boolean,
+  where: PaneType | false,
   scope: ScopeTest | null = null
 ): void {
   const months = settings.rediscoverMonths;
@@ -163,5 +186,5 @@ export function rediscoverNote(
     return;
   }
   const file = pool[Math.floor(Math.random() * pool.length)];
-  void leafFor(app, newLeaf).openFile(file);
+  void leafFor(app, where).openFile(file);
 }

@@ -14,7 +14,7 @@ const sources = (dir: string) =>
   readdirSync(dir).filter((f) => f.endsWith(".ts")).map((f) => ({ file: join(dir, f), text: read(join(dir, f)) }));
 
 test("settings/ and compose/ import obsidian for types only", () => {
-  for (const { file, text } of [...sources("src/settings"), ...sources("src/compose")]) {
+  for (const { file, text } of [...allSources("src/settings"), ...allSources("src/compose")]) {
     for (const line of text.split("\n")) {
       if (/from "obsidian"/.test(line)) assert.match(line, /^import type /, `${file}: ${line}`);
     }
@@ -34,6 +34,53 @@ test("each layer imports only from the layers above it", () => {
         assert.ok(order.indexOf(target) <= rank, `${file} imports from ${target}`);
       }
     }
+  }
+});
+
+/** Every source file under src/, recursively. */
+function allSources(dir = "src"): { file: string; text: string }[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return allSources(path);
+    return entry.name.endsWith(".ts") ? [{ file: path, text: read(path) }] : [];
+  });
+}
+
+/** Code without comments, so a comment may name what the code must not do. */
+const code = (text: string) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+test("the plugin uses no private Obsidian API", () => {
+  const forbidden: [RegExp, string][] = [
+    [/\binternalPlugins\b/, "internal plugins registry"],
+    [/\bmetadataTypeManager\b/, "property type manager"],
+    [/\bviewRegistry\b/, "view registry"],
+    [/\btabHeader\w*/, "tab header elements"],
+    [/\.titleEl\b/, "a view's private title element"],
+    [/\bplugins\.plugins\b/, "another plugin's instance"],
+    [/\bapp\.(setting|commands|dom|dragManager|customCss)\b/, "a private App member"],
+    [/\bactiveLeaf\b/, "the deprecated active leaf"],
+    [/\brequire\(|["']electron["']|\bbasePath\b/, "Node, Electron or the vault's disk path"],
+    [/\.prototype\.\w+\s*=/, "a patched prototype"],
+  ];
+  for (const { file, text } of allSources()) {
+    for (const [pattern, what] of forbidden) {
+      assert.ok(!pattern.test(code(text)), `${file} reaches ${what}`);
+    }
+  }
+});
+
+test("only the marked legacy module reads another plugin's files", () => {
+  for (const { file, text } of allSources()) {
+    if (!/\bconfigDir\b/.test(code(text))) continue;
+    // The backgrounds store falls back to its own plugin folder by configDir.
+    assert.ok(/legacy-typify\.ts$|backgrounds\.ts$/.test(file), `${file} reads the configuration folder`);
+  }
+  assert.match(read("src/compose/legacy-typify.ts"), /LEGACY COMPATIBILITY/);
+});
+
+test("frontmatter is written only through Obsidian's frontmatter API", () => {
+  for (const { file, text } of allSources()) {
+    assert.ok(!/["'`]---\\n/.test(code(text)), `${file} builds YAML text`);
   }
 });
 

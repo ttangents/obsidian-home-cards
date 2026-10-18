@@ -9,7 +9,8 @@ import type { HomeCardsSettings, SectionConfig } from "../settings/schema";
 import { buildCard, type CardContext, type CardItem, type DekSource } from "./card";
 import { rankSection, type Ranked } from "./rank";
 import type { ScopeTest } from "./scope";
-import { loadTypifyIcons, VaultSnapshot } from "./vault";
+import { loadTypifyIcons } from "./legacy-typify";
+import { VaultSnapshot } from "./vault";
 
 export interface ComposedSection {
   config: SectionConfig;

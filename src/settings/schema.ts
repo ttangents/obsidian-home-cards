@@ -193,7 +193,15 @@ export interface NamedPage {
   sections: SectionConfig[] | null;
 }
 
+/**
+ * The shape of data.json this build writes. normalize.ts reads every older
+ * shape; the number lets a future migration tell shapes apart without
+ * guessing from keys. 1 is every release before the number was stored.
+ */
+export const SETTINGS_VERSION = 2;
+
 export interface HomeCardsSettings {
+  version: number;
   sections: SectionConfig[];
   pages: NamedPage[];
   dedupe: boolean;
@@ -271,6 +279,7 @@ export function defaultSections(): SectionConfig[] {
 
 export function defaultSettings(): HomeCardsSettings {
   return {
+    version: SETTINGS_VERSION,
     sections: defaultSections(),
     pages: [],
     dedupe: true,

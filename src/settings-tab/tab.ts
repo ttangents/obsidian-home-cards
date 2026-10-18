@@ -41,7 +41,7 @@ import { SectionModal } from "./section-modal";
 import { choiceOptions, sectionSummary } from "./widgets";
 
 /** Settings the tab keeps in lists and editors of their own, not in a control. */
-const COLLECTIONS = ["sections", "pages", "customBackgrounds"] as const;
+const COLLECTIONS = ["version", "sections", "pages", "customBackgrounds"] as const;
 
 /** Settings a control binds to directly. */
 type ScalarKey = Exclude<keyof HomeCardsSettings, (typeof COLLECTIONS)[number]>;
@@ -97,7 +97,8 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     } else if (isScalarKey(key)) {
       const next = coerce(key, value, s[key]);
       if (next === undefined) return;
-      (s as unknown as Record<ScalarKey, unknown>)[key] = next;
+      // `coerce` has checked the value's kind against the stored one.
+      Object.assign(s, { [key]: next });
     } else {
       return;
     }

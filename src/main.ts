@@ -144,6 +144,18 @@ export default class HomeCardsPlugin extends Plugin {
     }
   }
 
+  /**
+   * data.json changed on disk, from a sync service or another device.
+   * Without an edit pending here, the stored settings win; with one, the
+   * next save writes this device's edit over them, as it would anyway.
+   */
+  async onExternalSettingsChange(): Promise<void> {
+    if (this.dirty) return;
+    await this.loadSettings();
+    if (this.syncPageCommands()) this.events.trigger(PAGES);
+    this.refreshViews();
+  }
+
   onunload(): void {
     // Views are closing; write the pending edit without redrawing them.
     void this.write();

@@ -8,6 +8,7 @@ import type { App } from "obsidian";
 import type { HomeCardsSettings, SectionConfig } from "../settings/schema";
 import { buildCard, type CardContext, type CardItem, type DekSource } from "./card";
 import { rankSection, type Ranked } from "./rank";
+import type { ActivityFacts } from "./activity";
 import type { ScopeTest } from "./scope";
 import { loadTypifyIcons } from "./legacy-typify";
 import { VaultSnapshot } from "./vault";
@@ -48,15 +49,17 @@ export interface ComposeOptions {
   sections?: readonly SectionConfig[];
   /** Limits the page to the notes this admits; every note when omitted. */
   scope?: ScopeTest | null;
+  /** Opens and visits Home Cards observed, for the activity-based sections. */
+  activity?: ActivityFacts;
 }
 
 export async function composeSections(
   app: App,
   settings: HomeCardsSettings,
-  { deks, now = new Date(), opened = [], sections: pageSections = settings.sections, scope = null }: ComposeOptions = {}
+  { deks, now = new Date(), opened = [], sections: pageSections = settings.sections, scope = null, activity }: ComposeOptions = {}
 ): Promise<ComposedSection[]> {
   const icons = await iconsFor(app, settings);
-  const vault = new VaultSnapshot(app, now, opened, scope);
+  const vault = new VaultSnapshot(app, now, opened, scope, activity);
   const taken = new Set<string>();
   const sections = pageSections.filter((cfg) => cfg.enabled);
 

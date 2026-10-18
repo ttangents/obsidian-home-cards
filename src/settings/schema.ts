@@ -29,8 +29,25 @@ export const SECTION_KINDS = [
   { id: "least-linked", label: "Least popular" },
   { id: "rediscover", label: "Rediscover" },
   { id: "pinned", label: "Pinned" },
+  { id: "continue", label: "Continue working" },
+  { id: "related", label: "Related to recent work" },
 ] as const satisfies readonly Choice[];
 export type SectionKind = (typeof SECTION_KINDS)[number]["id"];
+
+/**
+ * How a Rediscover section chooses among notes. Each is a plain rule over
+ * dates, links and opens, and each card says which fact put it there; see
+ * compose/rediscover.ts.
+ */
+export const REDISCOVER_STRATEGIES = [
+  { id: "forgotten", label: "Forgotten notes", desc: "Notes untouched for the months set in General, in a new order each day." },
+  { id: "gems", label: "Forgotten gems", desc: "Untouched notes that other notes still link to, the most linked first." },
+  { id: "unfinished", label: "Unfinished thoughts", desc: "Untouched notes that are short and barely linked." },
+  { id: "on-this-day", label: "On this day", desc: "Notes created or last edited in this week of an earlier year." },
+  { id: "hubs", label: "Sleeping hubs", desc: "Untouched notes with many links in and out, not opened lately." },
+  { id: "old-friends", label: "Old friends", desc: "Notes you opened often that you have not opened for a while." },
+] as const satisfies readonly (Choice & { desc: string })[];
+export type RediscoverStrategy = (typeof REDISCOVER_STRATEGIES)[number]["id"];
 
 /** Page layouts, with the Lucide icon each toggle button shows. */
 export const VIEW_MODES = [
@@ -188,6 +205,8 @@ export interface SectionConfig {
   sortDir: SortDir;
   /** `tag` sections: the tag, descendants included. */
   tag: string;
+  /** `rediscover` sections: how notes are chosen. */
+  strategy: RediscoverStrategy;
   /** Include-filters in Notebook Navigator's idiom; see compose/scope.ts. */
   filterTags: string;
   filterProps: string;
@@ -358,6 +377,7 @@ export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions" | "fields"
   sortKey: "",
   sortDir: "desc",
   tag: "",
+  strategy: "forgotten",
   filterTags: "",
   filterProps: "",
   filterFolders: "",
@@ -482,6 +502,8 @@ export function autoTitle(cfg: SectionConfig): string {
       if (cfg.propertyValue) return `${k}: ${cfg.propertyValue}`;
       return `By ${k.charAt(0).toLowerCase()}${k.slice(1)}`;
     }
+    case "rediscover":
+      return cfg.strategy === "forgotten" ? labelOf(SECTION_KINDS, cfg.kind) : labelOf(REDISCOVER_STRATEGIES, cfg.strategy);
     default:
       return labelOf(SECTION_KINDS, cfg.kind);
   }

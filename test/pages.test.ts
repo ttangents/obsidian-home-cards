@@ -19,7 +19,7 @@ import {
 } from "../src/settings/pages";
 import {
   blankScope,
-  BLANK_SECTION,
+  blankSection,
   defaultSettings,
   LIMITS,
   type NamedPage,
@@ -28,7 +28,7 @@ import {
 } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";
 
-const section = (over: Partial<SectionConfig>): SectionConfig => ({ ...BLANK_SECTION, id: "t", ...over });
+const section = (over: Partial<SectionConfig>): SectionConfig => blankSection({ id: "t", ...over });
 const scope = (over: Partial<PageScope>): PageScope => ({ ...blankScope(), ...over });
 const page = (over: Partial<NamedPage>): NamedPage => ({
   id: "page-a",

@@ -10,16 +10,18 @@
  */
 
 import { Modal, Setting } from "obsidian";
-import { discoverProperties } from "../compose/vault";
+import { discoverPropertyTypes } from "../compose/vault";
 import type HomeCardsPlugin from "../main";
-import { autoTitle, isChoice, LIMITS, SECTION_KINDS, sectionTitle, type SectionConfig } from "../settings/schema";
+import { autoTitle, isChoice, LIMITS, SECTION_KINDS, sectionTitle, type SectionConfig, type ValueType } from "../settings/schema";
+import { renderConditionList } from "./condition-list";
 import { addChoices } from "./widgets";
 
 /** Free-text section fields bound by the same kind of row. */
 type TextKey = "propertyValue" | "tag" | "filterTags" | "filterProps" | "filterFolders";
 
 export class SectionModal extends Modal {
-  /** Frontmatter keys, gathered once per opening: the walk is vault-wide. */
+  /** Frontmatter keys and their types, gathered once per opening: the walk is vault-wide. */
+  private types: ReadonlyMap<string, ValueType> = new Map();
   private properties: readonly string[] = [];
 
   constructor(
@@ -31,7 +33,8 @@ export class SectionModal extends Modal {
   }
 
   onOpen(): void {
-    this.properties = discoverProperties(this.app);
+    this.types = discoverPropertyTypes(this.app);
+    this.properties = [...this.types.keys()];
     this.modalEl.addClass("hc-section-modal");
     this.draw();
   }
@@ -149,6 +152,12 @@ export class SectionModal extends Modal {
     text("Tags", "Comma separated. A tag includes the tags nested under it.", "project/active, reading", "filterTags");
     text("Properties", "A key requires the property; key=value matches its value.", "status=active, author", "filterProps");
     text("Folders", "A pattern with a slash matches a path; anything else matches a folder name.", "/Projects/*, archive", "filterFolders");
+
+    new Setting(contentEl)
+      .setName("Conditions")
+      .setDesc("A note must meet every condition. Dates count in days from today.")
+      .setHeading();
+    renderConditionList(contentEl, cfg.conditions, this.types, () => this.plugin.touch(), () => this.draw());
   }
 
   /** Every vault property, plus a stored key the vault no longer uses. */

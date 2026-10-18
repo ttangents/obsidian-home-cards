@@ -4,7 +4,7 @@
  */
 
 import type { SectionConfig } from "./schema";
-import { newSectionId } from "./schema";
+import { copySection, newSectionId } from "./schema";
 
 /**
  * A vault folder path in one canonical form: forward slashes, no empty
@@ -40,5 +40,5 @@ export function reparent(path: string, from: string, to: string): string {
 
 /** Copies of `sections` with fresh ids, so a copy never shares identity with its source. */
 export function cloneSections(sections: readonly SectionConfig[]): SectionConfig[] {
-  return sections.map((section) => ({ ...section, id: newSectionId() }));
+  return sections.map((section) => copySection(section, newSectionId()));
 }

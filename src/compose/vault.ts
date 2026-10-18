@@ -7,7 +7,7 @@
 import type { App, CachedMetadata, TFile } from "obsidian";
 import { mergeOpened } from "./open-history";
 import type { ValueType } from "../settings/schema";
-import { inferType } from "./conditions";
+import { inferType, propertyValue } from "./conditions";
 import { IMAGE_FILE, imageLinkFor } from "./images";
 import type { ActivityFacts } from "./activity";
 import type { ScopeTest } from "./scope";
@@ -152,6 +152,23 @@ export function discoverPropertyTypes(app: App): Map<string, ValueType> {
   }
   const keys = [...samples.keys()].sort((a, b) => a.localeCompare(b));
   return new Map(keys.map((k) => [k, inferType(samples.get(k) ?? [])]));
+}
+
+/**
+ * The values the vault uses for one property, the most common first, for
+ * a value picker. Lists contribute each member; at most `limit` values.
+ */
+export function discoverValues(app: App, key: string, limit = 200): string[] {
+  const counts = new Map<string, number>();
+  for (const file of app.vault.getMarkdownFiles()) {
+    const raw = propertyValue(app.metadataCache.getFileCache(file), key);
+    for (const v of Array.isArray(raw) ? raw : [raw]) {
+      if (typeof v !== "string" && typeof v !== "number") continue;
+      const text = String(v).trim();
+      if (text) counts.set(text, (counts.get(text) ?? 0) + 1);
+    }
+  }
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([v]) => v);
 }
 
 /**

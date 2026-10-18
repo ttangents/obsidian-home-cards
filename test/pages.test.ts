@@ -8,7 +8,6 @@ import { normalizePages, normalizeSettings } from "../src/settings/normalize";
 import {
   findPageByName,
   legacyFolderPageId,
-  newNoteSeed,
   refFromState,
   renamePageFolders,
   resolvePage,
@@ -264,29 +263,4 @@ test("a page composes its own sections over only the notes in its scope", async 
 
   const home = await composeSections(v.app, settings);
   assert.equal(home[0].cards.length, 4);
-});
-
-// --------------------------------------------------------------- new notes
-
-test("a new note on a page starts where the page can show it", () => {
-  assert.deepEqual(newNoteSeed(scope({ kind: "folder", folder: "Work" })), { folder: "Work", content: "" });
-  assert.equal(newNoteSeed(scope({ kind: "tag", tag: "#ideas/new" })).content, "---\ntags:\n  - ideas/new\n---\n");
-  assert.equal(newNoteSeed(scope({ kind: "property", propertyKey: "type", propertyValue: "Project" })).content, "---\ntype: Project\n---\n");
-  assert.equal(
-    newNoteSeed(scope({ kind: "property", propertyKey: "note", propertyValue: "a: b" })).content,
-    '---\nnote: "a: b"\n---\n'
-  );
-});
-
-test("a scope that names no single value starts notes empty", () => {
-  for (const s of [
-    scope({ kind: "tag", tag: "a,b" }),
-    scope({ kind: "tag", tag: "ideas/*" }),
-    scope({ kind: "tag" }),
-    scope({ kind: "property", propertyKey: "type" }),
-    scope({ kind: "property", propertyKey: "bad key", propertyValue: "x" }),
-    blankScope(),
-  ]) {
-    assert.equal(newNoteSeed(s).content, "");
-  }
 });

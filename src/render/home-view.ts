@@ -23,6 +23,7 @@ import {
   TFolder,
   type HoverParent,
   type HoverPopover,
+  type PaneType,
   type ViewStateResult,
   type WorkspaceLeaf,
 } from "obsidian";
@@ -33,7 +34,6 @@ import { compilePageScope, type ScopeTest } from "../compose/scope";
 import { notesIn } from "../compose/vault";
 import { reparent } from "../settings/folders";
 import {
-  newNoteSeed,
   refFromState,
   resolvePage,
   sameRef,
@@ -45,7 +45,8 @@ import {
 import { sectionTitle, VIEW_MODES, type ViewMode } from "../settings/schema";
 import { applyAppearance } from "./appearance";
 import { createNote, cardActions, rediscoverNote } from "./actions";
-import { renderSection, settleDek, type CardActions } from "./card";
+import { paneFor, renderSection, settleDek, type CardActions } from "./card";
+import { templateForScope } from "../compose/templates";
 import { observeDeks } from "./lazy-deks";
 import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
 
@@ -94,6 +95,8 @@ export class HomeView extends ItemView implements HoverParent {
   private tabLook = "";
   /** True while Obsidian is setting this view's state, which updates the tab itself. */
   private settingState = false;
+  /** False until Obsidian first hands the view its state; see getDisplayText. */
+  private stateApplied = false;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -113,7 +116,15 @@ export class HomeView extends ItemView implements HoverParent {
     return resolvePage(this.plugin.settings, this.ref);
   }
 
+  /**
+   * Obsidian writes the title in the view's own header once, when it opens
+   * the view and before it sets the view's state, and offers no public way
+   * to change it later. Until the state arrives the view names itself, so
+   * that header reads "Home Cards" on every page; the tab, which Obsidian
+   * reads again after the state is set, shows the page.
+   */
   getDisplayText(): string {
+    if (!this.stateApplied) return "Home Cards";
     return this.page()?.title ?? "Missing page";
   }
 
@@ -128,6 +139,7 @@ export class HomeView extends ItemView implements HoverParent {
 
   async setState(state: unknown, result: ViewStateResult): Promise<void> {
     const next = refFromState(state);
+    this.stateApplied = true;
     await super.setState(state, result);
     if (sameRef(next, this.ref)) return;
     this.ref = next;
@@ -201,12 +213,9 @@ export class HomeView extends ItemView implements HoverParent {
   }
 
   /**
-   * Keep the titles in step with the page. Obsidian reads a tab's title and
+   * Keep the tab in step with the page. Obsidian reads a tab's title and
    * icon when a view's state is set, so after a rename or a change of scope
-   * the same state is set again. The title in the view's own header is
-   * written once, when the view is created, before it knows its page, and
-   * has no public way to change; it is written here when the element is
-   * there, and a version of Obsidian without it keeps the older title.
+   * the same state is set again.
    */
   private syncTab(page: ResolvedPage | null): void {
     const title = page?.title ?? "Missing page";
@@ -214,7 +223,6 @@ export class HomeView extends ItemView implements HoverParent {
     if (look === this.tabLook) return;
     const first = this.tabLook === "";
     this.tabLook = look;
-    (this as unknown as { titleEl?: HTMLElement }).titleEl?.setText(title);
     if (!first && !this.settingState) {
       void this.leaf.setViewState({ type: VIEW_TYPE_HOME, state: this.getState() });
     }
@@ -258,18 +266,18 @@ export class HomeView extends ItemView implements HoverParent {
       toggles.set(mode.id, btn);
     }
     seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
-    const action = (cls: string, label: string, icon: string, run: (newLeaf: boolean) => void) => {
+    const action = (cls: string, label: string, icon: string, run: (where: PaneType | false) => void) => {
       const btn = button(label, icon, cls);
-      btn.addEventListener("click", (evt) => run(evt.metaKey || evt.ctrlKey));
+      btn.addEventListener("click", (evt) => run(paneFor(evt)));
       return btn;
     };
-    action("hc-new-note", "New note", "square-pen", (newLeaf) => {
+    action("hc-new-note", "New note", "square-pen", (where) => {
       const page = this.page();
-      void createNote(this.app, newLeaf, page ? newNoteSeed(page.scope) : undefined);
+      void createNote(this.app, where, page ? templateForScope(page.scope) : undefined);
     });
-    action("hc-rediscover", "Rediscover a note", "shuffle", (newLeaf) => {
+    action("hc-rediscover", "Rediscover a note", "shuffle", (where) => {
       const page = this.page();
-      rediscoverNote(this.app, this.plugin.settings, newLeaf, page ? compilePageScope(page.scope) : null);
+      rediscoverNote(this.app, this.plugin.settings, where, page ? compilePageScope(page.scope) : null);
     });
     const pageSettings = action("hc-page-settings", "Page settings", "sliders-horizontal", () =>
       this.plugin.editPage(this.ref)

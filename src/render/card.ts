@@ -4,7 +4,7 @@
  * markup from the same model.
  */
 
-import { setIcon, setTooltip, type TFile } from "obsidian";
+import { Keymap, setIcon, setTooltip, type PaneType, type TFile } from "obsidian";
 import type { CardItem } from "../compose/card";
 import type { HomeCardsSettings } from "../settings/schema";
 
@@ -12,8 +12,8 @@ export type CardOptions = Pick<HomeCardsSettings, "showGlyph" | "showRubric" | "
 
 /** What a card does when used; render/actions.ts supplies the real ones. */
 export interface CardActions {
-  /** Open the note, in a new tab when a modifier key is held. */
-  open: (file: TFile, newLeaf: boolean) => void;
+  /** Open the note in place, or where Obsidian's modifier rules say. */
+  open: (file: TFile, where: PaneType | false) => void;
   /** Show the note's context menu. */
   menu?: (file: TFile, evt: MouseEvent) => void;
   /** Hover preview: told when the pointer enters and leaves a card. */
@@ -27,6 +27,12 @@ export interface HoverTracker {
 }
 
 const NO_DEK = "No opening sentence.";
+
+/** Where Obsidian's modifier rules send an open: in place, a tab, a split or a window. */
+export function paneFor(evt: MouseEvent | KeyboardEvent): PaneType | false {
+  const where = Keymap.isModEvent(evt);
+  return where === true ? "tab" : where;
+}
 
 function renderGlyph(head: HTMLElement, card: CardItem): void {
   const glyph = head.createSpan({ cls: "hc-glyph" });
@@ -95,8 +101,12 @@ function renderCard(
   if (opts.showDeks) renderDek(el, card);
   if (card.meta) el.createEl("footer", { cls: "hc-foot", text: card.meta });
 
-  const go = (evt: MouseEvent | KeyboardEvent) => actions.open(card.file, evt.metaKey || evt.ctrlKey);
+  const go = (evt: MouseEvent | KeyboardEvent) => actions.open(card.file, paneFor(evt));
   el.addEventListener("click", go);
+  // A middle click opens a new tab, as it does on a link.
+  el.addEventListener("auxclick", (evt) => {
+    if (evt.button === 1) actions.open(card.file, "tab");
+  });
   el.addEventListener("keydown", (evt) => {
     if (evt.key !== "Enter" && evt.key !== " ") return;
     evt.preventDefault();

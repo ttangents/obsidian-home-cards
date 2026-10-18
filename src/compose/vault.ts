@@ -93,37 +93,3 @@ export function inboundCounts(app: App): Map<string, number> {
   }
   return totals;
 }
-
-interface TypifyStyle {
-  name?: string;
-  icon?: string;
-  appliesTo?: string[];
-}
-
-/**
- * Typify's icon per type value, keyed lowercase, for styles that apply
- * to `typeKey`. An optional integration with another plugin's data
- * file, read only when the user picks "Typify icon": absent, malformed or
- * reshaped data yields an empty map, and cards fall back to their
- * initial letter.
- */
-export async function loadTypifyIcons(app: App, typeKey: string): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  const path = `${app.vault.configDir}/plugins/typify/data.json`;
-  try {
-    if (!(await app.vault.adapter.exists(path))) return out;
-    const parsed = JSON.parse(await app.vault.adapter.read(path)) as {
-      statusStyles?: TypifyStyle[];
-    };
-    for (const style of parsed.statusStyles ?? []) {
-      const name = (style.name ?? "").trim();
-      const icon = (style.icon ?? "").trim();
-      if (!name || !icon) continue;
-      if (!(style.appliesTo ?? ["type"]).includes(typeKey)) continue;
-      out.set(name.toLowerCase(), icon);
-    }
-  } catch {
-    return new Map();
-  }
-  return out;
-}

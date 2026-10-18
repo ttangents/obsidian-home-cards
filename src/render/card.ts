@@ -47,6 +47,8 @@ const DRAG_TYPE = "application/x-home-cards-note";
 export interface HoverTracker {
   enter: (file: TFile, el: HTMLElement, evt: MouseEvent) => void;
   leave: (el: HTMLElement) => void;
+  /** Show the preview for a card without the pointer, as from the keyboard. */
+  preview: (file: TFile, el: HTMLElement) => void;
 }
 
 const NO_DEK = "No opening sentence.";
@@ -127,6 +129,7 @@ function renderCard(
   // Lets the rows layout indent the sentence under a glyph or thumbnail.
   el.toggleClass("has-glyph", opts.showGlyph || thumb);
   el.dataset.search = card.search;
+  el.dataset.hcPath = card.file.path;
   el.tabIndex = 0;
 
   if (card.image && card.imageMode === "cover") {
@@ -160,8 +163,9 @@ function renderCard(
   el.addEventListener("auxclick", (evt) => {
     if (evt.button === 1) actions.open(card.file, "tab");
   });
+  // Enter opens. Space belongs to the page's keys (preview); see keyboard.ts.
   el.addEventListener("keydown", (evt) => {
-    if (evt.key !== "Enter" && evt.key !== " ") return;
+    if (evt.key !== "Enter") return;
     evt.preventDefault();
     go(evt);
   });

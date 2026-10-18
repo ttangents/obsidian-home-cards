@@ -19,6 +19,7 @@
 import {
   ItemView,
   Notice,
+  Scope,
   setIcon,
   setTooltip,
   TFolder,
@@ -57,6 +58,7 @@ import {
   templateForScope,
   type NoteTemplate,
 } from "../compose/templates";
+import { registerCardKeys } from "./keyboard";
 import { observeDeks } from "./lazy-deks";
 import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
 
@@ -70,6 +72,7 @@ const COLLAPSED_KEY = "home-cards-collapsed";
 
 interface Shell {
   root: HTMLElement;
+  search: HTMLInputElement;
   greeting: HTMLElement;
   dateline: HTMLElement;
   toggles: Map<ViewMode, HTMLElement>;
@@ -194,6 +197,17 @@ export class HomeView extends ItemView implements HoverParent {
       this.shell?.pickerToggle.focus();
     });
 
+    // Keys work while this page has focus, through its own scope.
+    this.scope = new Scope(this.app.scope);
+    registerCardKeys(this.scope, () => this.shell?.body ?? null, {
+      focusSearch: () => this.shell?.search.focus(),
+      preview: (card) => {
+        const file = this.app.vault.getFileByPath(card.dataset.hcPath ?? "");
+        if (file) this.actions.hover?.preview(file, card);
+      },
+      togglePin: (path) => this.plugin.markActions.togglePin(path),
+    });
+
     await this.refresh();
   }
 
@@ -254,9 +268,23 @@ export class HomeView extends ItemView implements HoverParent {
       cls: "hc-search",
       attr: { type: "search", placeholder: "Filter notes…", spellcheck: "false" },
     });
+    search.setAttr("aria-keyshortcuts", "/");
     search.addEventListener("input", () => {
       this.query = search.value;
       this.applyFilter();
+    });
+    // Escape clears the filter, then gives the keys back to the cards.
+    search.addEventListener("keydown", (evt) => {
+      if (evt.key !== "Escape") return;
+      if (search.value) {
+        search.value = "";
+        this.query = "";
+        this.applyFilter();
+      } else {
+        search.blur();
+        this.shell?.body.find(".hc-card:not(.is-hidden)")?.focus();
+      }
+      evt.preventDefault();
     });
 
     // One control cluster: the layout glyphs, a hairline, then the
@@ -306,7 +334,7 @@ export class HomeView extends ItemView implements HoverParent {
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing…" });
 
-    const shell = { root, greeting, dateline, toggles, pickerToggle, pageSettings, body };
+    const shell = { root, search, greeting, dateline, toggles, pickerToggle, pageSettings, body };
     this.paintMode(shell);
     return shell;
   }

@@ -28,6 +28,7 @@ export const SECTION_KINDS = [
   { id: "most-linked", label: "Most popular" },
   { id: "least-linked", label: "Least popular" },
   { id: "rediscover", label: "Rediscover" },
+  { id: "pinned", label: "Pinned" },
 ] as const satisfies readonly Choice[];
 export type SectionKind = (typeof SECTION_KINDS)[number]["id"];
 
@@ -264,6 +265,25 @@ export interface NamedPage {
 }
 
 /**
+ * Home Cards' own marks on notes: how it presents them, never facts about
+ * them. They live in data.json, not in the notes, so pinning or snoozing
+ * a card leaves the note untouched. Paths follow renames and leave with
+ * deletions (see main.ts and compose/marks.ts).
+ */
+export interface NoteMarks {
+  /** Pinned note paths, the latest pin first. */
+  pinned: string[];
+  /** Snoozed note paths, each with the local date it returns on (YYYY-MM-DD). */
+  snoozed: Record<string, string>;
+  /** Notes Rediscover passes over. */
+  quiet: string[];
+}
+
+export function emptyMarks(): NoteMarks {
+  return { pinned: [], snoozed: {}, quiet: [] };
+}
+
+/**
  * The shape of data.json this build writes. normalize.ts reads every older
  * shape; the number lets a future migration tell shapes apart without
  * guessing from keys. 1 is every release before the number was stored.
@@ -274,6 +294,7 @@ export interface HomeCardsSettings {
   version: number;
   sections: SectionConfig[];
   pages: NamedPage[];
+  marks: NoteMarks;
   dedupe: boolean;
   /** Rediscover draws from notes untouched for at least this many months. */
   rediscoverMonths: number;
@@ -378,6 +399,7 @@ export function defaultSettings(): HomeCardsSettings {
     version: SETTINGS_VERSION,
     sections: defaultSections(),
     pages: [],
+    marks: emptyMarks(),
     dedupe: true,
     rediscoverMonths: 6,
 
@@ -421,6 +443,10 @@ export const LIMITS = {
   rediscoverMonths: { min: 1, max: 36 },
   /** Percent of the theme background over a custom image. */
   fade: { min: 0, max: 95 },
+  /** Marks kept, by kind; the oldest go first. */
+  pinned: { max: 100 },
+  snoozed: { max: 500 },
+  quiet: { max: 1000 },
   /** Footer fields per section. */
   fields: { max: 3 },
   /** Conditions per section. */

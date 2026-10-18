@@ -104,7 +104,7 @@ export class HomeView extends ItemView implements HoverParent {
   ) {
     super(leaf);
     this.mode = plugin.settings.defaultView;
-    this.actions = cardActions(this.app, this, this, VIEW_TYPE_HOME);
+    this.actions = cardActions(this.app, this, this, VIEW_TYPE_HOME, plugin.markActions);
   }
 
   getViewType(): string {
@@ -471,6 +471,7 @@ export class HomeView extends ItemView implements HoverParent {
           ? "Every matching note already appears in a section above."
           : "This section has no matching notes.";
         const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
+          menuContext: { sectionKind: config.kind },
           emptyText,
           more,
           fold: {

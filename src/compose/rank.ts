@@ -5,8 +5,9 @@
  */
 
 import type { TFile } from "obsidian";
-import type { HomeCardsSettings, SectionConfig } from "../settings/schema";
+import { emptyMarks, type HomeCardsSettings, type NoteMarks, type SectionConfig } from "../settings/schema";
 import { compileConditions } from "./conditions";
+import { isSnoozed } from "./marks";
 import { compileScope, tagsOf } from "./scope";
 import { cleanTitle } from "./text";
 import { firstValue, frontmatterValue, asStringList } from "./values";
@@ -144,11 +145,16 @@ function untouchedFor(file: TFile, now: Date): string {
  * The notes a section admits before ranking: its include-filters and its
  * conditions, over the page's notes. A note must pass both.
  */
-export function sectionPool(vault: VaultSnapshot, cfg: SectionConfig): readonly TFile[] {
+export function sectionPool(vault: VaultSnapshot, cfg: SectionConfig, marks: NoteMarks = emptyMarks()): readonly TFile[] {
   const scope = compileScope(cfg);
   const conditions = compileConditions(cfg.conditions, vault.now);
-  if (!scope && !conditions) return vault.files;
+  // Snoozed notes sit out every section but Pinned; quiet ones, Rediscover.
+  const snoozed = cfg.kind !== "pinned" && Object.keys(marks.snoozed).length > 0;
+  const quiet = cfg.kind === "rediscover" && marks.quiet.length > 0 ? new Set(marks.quiet) : null;
+  if (!scope && !conditions && !snoozed && !quiet) return vault.files;
   return vault.files.filter((f) => {
+    if (snoozed && isSnoozed(marks, f.path, vault.now)) return false;
+    if (quiet?.has(f.path)) return false;
     const cache = vault.cacheOf(f);
     return (!scope || scope(f, cache)) && (!conditions || conditions(f, cache));
   });
@@ -161,9 +167,13 @@ export function rankSection(
   settings: HomeCardsSettings
 ): Ranked[] {
   const cacheOf = (f: TFile) => vault.cacheOf(f);
-  const pool = sectionPool(vault, cfg);
+  const pool = sectionPool(vault, cfg, settings.marks);
 
   switch (cfg.kind) {
+    case "pinned": {
+      const byPath = new Map(pool.map((f) => [f.path, f]));
+      return plain(settings.marks.pinned.map((p) => byPath.get(p)).filter((f): f is TFile => f !== undefined));
+    }
     case "recent-opened": {
       const byPath = new Map(pool.map((f) => [f.path, f]));
       return plain(

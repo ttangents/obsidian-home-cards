@@ -39,6 +39,7 @@ import {
   type CustomBackground,
   type HomeCardsSettings,
   type NamedPage,
+  type NoteMarks,
   type PageScope,
   type SectionConfig,
 } from "./schema";
@@ -282,6 +283,29 @@ export function normalizeCustomBackgrounds(raw: unknown): CustomBackground[] {
   return out;
 }
 
+/** Note paths: strings, each once, up to `max`. */
+function pathList(raw: unknown, max: number): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter((p): p is string => typeof p === "string" && p.trim() !== ""))].slice(0, max);
+}
+
+/** Marks on notes. A snooze needs a calendar date to return on. */
+export function normalizeMarks(raw: unknown): NoteMarks {
+  const e = isObject(raw) ? raw : {};
+  const snoozed: Record<string, string> = {};
+  if (isObject(e.snoozed)) {
+    for (const [path, until] of Object.entries(e.snoozed)) {
+      if (Object.keys(snoozed).length >= LIMITS.snoozed.max) break;
+      if (path && typeof until === "string" && /^\d{4}-\d{2}-\d{2}$/.test(until)) snoozed[path] = until;
+    }
+  }
+  return {
+    pinned: pathList(e.pinned, LIMITS.pinned.max),
+    snoozed,
+    quiet: pathList(e.quiet, LIMITS.quiet.max),
+  };
+}
+
 // --------------------------------------------------------------- settings
 
 export function normalizeSettings(stored: unknown): HomeCardsSettings {
@@ -296,6 +320,7 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
     version: SETTINGS_VERSION,
     sections: normalizeSections(r.sections),
     pages: normalizePages(r.pages),
+    marks: normalizeMarks(r.marks),
     dedupe: bool(r.dedupe, d.dedupe),
     rediscoverMonths: int(r.rediscoverMonths, d.rediscoverMonths, LIMITS.rediscoverMonths),
 

@@ -89,9 +89,12 @@ class HomeCardsBasesView extends BasesView {
 
     // No dek source: deks stay null and fill in on scroll.
     const ctx: CardContext = {
-      app,
       settings,
+      cacheOf: (f) => app.metadataCache.getFileCache(f),
+      now: new Date(),
       metaKey: "date",
+      fields: [],
+      image: "none",
       icons: await iconsFor(app, settings),
     };
     const sections = await Promise.all(

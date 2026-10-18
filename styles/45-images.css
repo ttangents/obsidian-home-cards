@@ -1,0 +1,39 @@
+/* --- Card images ------------------------------------------
+   A cover runs edge to edge across the top of the card; a
+   thumbnail takes the glyph's place beside the title. Both
+   crop to fill their box, so images of any shape keep the
+   grid even. Rows show thumbnails only: a cover would break
+   the list into tiles.
+   ---------------------------------------------------------- */
+
+.hc-card.has-cover {
+  padding-top: 0;
+  overflow: hidden;
+}
+.hc-cover {
+  margin: 0 calc(-1 * var(--size-4-4));
+  aspect-ratio: 16 / 9;
+  background: var(--background-modifier-hover);
+}
+.hc-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hc-thumb {
+  flex: none;
+  width: 2.75em;
+  height: 2.75em;
+  border-radius: var(--radius-s);
+  object-fit: cover;
+  background: var(--background-modifier-hover);
+}
+
+.home-cards[data-view="rows"] .hc-cover { display: none; }
+.home-cards[data-view="rows"] .hc-card.has-cover { padding-top: var(--size-4-3); }
+.home-cards[data-view="rows"] .hc-thumb {
+  width: var(--hc-row-glyph);
+  height: var(--hc-row-glyph);
+}

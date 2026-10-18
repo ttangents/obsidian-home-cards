@@ -95,9 +95,13 @@ export async function composeSections(
   return Promise.all(
     ranked.map(async ({ cfg, picked, claimed }, i) => {
       const ctx: CardContext = {
-        app,
         settings,
+        cacheOf: (f) => vault.cacheOf(f),
+        now,
         metaKey: cfg.sortKey || cfg.propertyKey || "date",
+        fields: cfg.fields,
+        image: cfg.image,
+        imageUrl: (f, cache) => vault.imageUrl(f, cache, settings.imageProperties),
         icons,
         deks,
       };

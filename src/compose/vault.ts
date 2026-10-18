@@ -8,6 +8,7 @@ import type { App, CachedMetadata, TFile } from "obsidian";
 import { mergeOpened } from "./open-history";
 import type { ValueType } from "../settings/schema";
 import { inferType } from "./conditions";
+import { IMAGE_FILE, imageLinkFor } from "./images";
 import type { ScopeTest } from "./scope";
 
 /**
@@ -39,6 +40,17 @@ export class VaultSnapshot {
 
   cacheOf(file: TFile): CachedMetadata | null {
     return this.app.metadataCache.getFileCache(file);
+  }
+
+  /**
+   * The resource URL of a note's card image, resolved as Obsidian resolves
+   * a link written in that note; null when the link leads to no image.
+   */
+  imageUrl(file: TFile, cache: CachedMetadata | null, properties: string): string | null {
+    const link = imageLinkFor(cache, properties);
+    if (!link) return null;
+    const dest = this.app.metadataCache.getFirstLinkpathDest(link, file.path);
+    return dest && IMAGE_FILE.test(dest.path) ? this.app.vault.getResourcePath(dest) : null;
   }
 
   /** Inbound link totals per path; computed on first use. */

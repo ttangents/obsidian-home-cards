@@ -13,9 +13,12 @@ const v = fakeVault([
   { path: "same.md", fm: { type: "Report", status: "Report" } },
 ]);
 const ctx = (over: Partial<CardContext> = {}): CardContext => ({
-  app: v.app,
   settings: defaultSettings(),
+  cacheOf: (f) => v.app.metadataCache.getFileCache(f),
+  now: new Date(),
   metaKey: "date",
+  fields: [],
+  image: "none",
   icons: new Map([["organization", "building"]]),
   ...over,
 });

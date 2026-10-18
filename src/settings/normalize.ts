@@ -21,6 +21,7 @@ import { legacyFolderPageId, suggestPageName, uniquePageName } from "./pages";
 import {
   BACKGROUND_FITS,
   BACKGROUNDS,
+  CARD_IMAGES,
   blankScope,
   blankSection,
   BLANK_SECTION,
@@ -163,6 +164,8 @@ function normalizeSection(e: Raw, index: number): SectionConfig[] {
     filterProps: str(e.filterProps, ""),
     filterFolders: str(e.filterFolders, ""),
     conditions: normalizeConditions(e.conditions),
+    fields: normalizeFields(e.fields),
+    image: choice(CARD_IMAGES, e.image, "none"),
   };
   if (!legacyUnresolved) return [cfg];
   return [cfg, blankSection({ id: `${cfg.id}-least`, kind: "least-linked" })];
@@ -184,6 +187,17 @@ export function normalizeConditions(raw: unknown): Condition[] {
       op: choice(CONDITION_OPS, entry.op, "exists"),
       value: str(entry.value, typeof entry.value === "number" ? String(entry.value) : ""),
     });
+  }
+  return out;
+}
+
+/** Footer fields: trimmed keys, each once, up to the cap. */
+export function normalizeFields(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) {
+    const key = typeof v === "string" ? v.trim() : "";
+    if (key && !out.includes(key) && out.length < LIMITS.fields.max) out.push(key);
   }
   return out;
 }
@@ -313,6 +327,7 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
     dekLines: int(r.dekLines, d.dekLines, LIMITS.dekLines),
     showFileSize: bool(r.showFileSize, d.showFileSize),
 
+    imageProperties: str(r.imageProperties, d.imageProperties),
     summaryProperty: str(r.summaryProperty, d.summaryProperty).trim(),
     boilerplateOpeners: str(r.boilerplateOpeners, d.boilerplateOpeners),
     titlePrefixes: str(r.titlePrefixes, d.titlePrefixes),

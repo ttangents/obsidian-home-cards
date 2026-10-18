@@ -293,6 +293,11 @@ export class HomeCardsSettingTab extends PluginSettingTab {
           visible: () => s.showRubric,
         },
         {
+          name: "Image properties",
+          desc: "Properties that name a card's image, in order of preference, separated by commas. Sections choose whether to show images.",
+          control: { type: "text", key: "imageProperties", placeholder: DEFAULTS.imageProperties },
+        },
+        {
           name: "Tags",
           desc: "Frontmatter tags first, then inline tags.",
           control: { type: "toggle", key: "showTags" },

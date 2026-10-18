@@ -34,17 +34,28 @@ export function paneFor(evt: MouseEvent | KeyboardEvent): PaneType | false {
   return where === true ? "tab" : where;
 }
 
-function renderGlyph(head: HTMLElement, card: CardItem): void {
+/**
+ * A card image: decorative (the title names the note), loaded lazily and
+ * decoded off the main thread. `onFail` runs when the file cannot load.
+ */
+function renderImage(parent: HTMLElement, src: string, onFail: () => void): HTMLImageElement {
+  const img = parent.createEl("img", { attr: { src, alt: "", loading: "lazy", decoding: "async", draggable: "false" } });
+  img.addEventListener("error", onFail, { once: true });
+  return img;
+}
+
+function renderGlyph(head: HTMLElement, card: CardItem): HTMLElement {
   const glyph = head.createSpan({ cls: "hc-glyph" });
   if (card.icon) {
     setIcon(glyph, card.icon);
     // setIcon is silent on an unknown name; confirm it drew something.
     if (glyph.firstElementChild) {
       glyph.addClass("has-icon");
-      return;
+      return glyph;
     }
   }
   glyph.setText(card.title.charAt(0).toUpperCase());
+  return glyph;
 }
 
 /**
@@ -87,13 +98,30 @@ function renderCard(
   actions: CardActions
 ): HTMLElement {
   const el = parent.createEl("article", { cls: "hc-card" });
-  // Lets the rows layout indent the sentence under a glyph.
-  el.toggleClass("has-glyph", opts.showGlyph);
+  const thumb = card.image !== null && card.imageMode === "thumbnail";
+  // Lets the rows layout indent the sentence under a glyph or thumbnail.
+  el.toggleClass("has-glyph", opts.showGlyph || thumb);
   el.dataset.search = card.search;
   el.tabIndex = 0;
 
+  if (card.image && card.imageMode === "cover") {
+    el.addClass("has-cover");
+    const cover = el.createDiv({ cls: "hc-cover" });
+    renderImage(cover, card.image, () => {
+      cover.remove();
+      el.removeClass("has-cover");
+    });
+  }
   const head = el.createDiv({ cls: "hc-card-head" });
-  if (opts.showGlyph) renderGlyph(head, card);
+  if (thumb && card.image) {
+    renderImage(head, card.image, () => {
+      // An image that fails to load gives its place back to the glyph.
+      head.find(".hc-thumb")?.remove();
+      if (opts.showGlyph) head.prepend(renderGlyph(head, card));
+    }).addClass("hc-thumb");
+  } else if (opts.showGlyph) {
+    renderGlyph(head, card);
+  }
   const text = head.createDiv({ cls: "hc-card-headtext" });
   text.createEl("h3", { cls: "hc-title", text: card.title });
   renderPills(text, card, opts);

@@ -12,6 +12,8 @@ export interface NoteSpec {
   fm?: Record<string, unknown>;
   /** Inline tags, with or without "#". */
   tags?: string[];
+  /** Embedded file links, as the metadata cache lists them. */
+  embeds?: string[];
   /** Markdown after the frontmatter; blank lines separate blocks. */
   body?: string;
   ctime?: number;
@@ -53,7 +55,13 @@ function sectionsOf(body: string): NonNullable<CachedMetadata["sections"]> {
 
 export function fakeVault(
   notes: NoteSpec[],
-  opts: { links?: Record<string, Record<string, number>>; lastOpen?: string[]; typify?: string } = {}
+  opts: {
+    links?: Record<string, Record<string, number>>;
+    lastOpen?: string[];
+    typify?: string;
+    /** Non-note files in the vault, by path, for link resolution. */
+    attachments?: string[];
+  } = {}
 ): FakeVault {
   const files = new Map<string, TFile>();
   const bodies = new Map<string, string>();
@@ -81,8 +89,14 @@ export function fakeVault(
         position: { start: { line: 0, col: 0, offset: 0 }, end: { line: 0, col: 0, offset: 0 } },
       })),
       sections: sectionsOf(body),
+      embeds: (n.embeds ?? []).map((link) => ({
+        link,
+        original: `![[${link}]]`,
+        position: { start: { line: 0, col: 0, offset: 0 }, end: { line: 0, col: 0, offset: 0 } },
+      })),
     });
   });
+  const attachments = (opts.attachments ?? []).map((path) => ({ path, name: path.slice(path.lastIndexOf("/") + 1) }));
 
   const app = {
     vault: {
@@ -90,6 +104,7 @@ export function fakeVault(
       // the plugin reads it from here rather than assuming it.
       configDir: [".", "obsidian"].join(""),
       getMarkdownFiles: () => [...files.values()],
+      getResourcePath: (file: { path: string }) => `app://vault/${file.path}`,
       cachedRead: async (file: TFile) => {
         reads.set(file.path, (reads.get(file.path) ?? 0) + 1);
         const body = bodies.get(file.path);
@@ -103,6 +118,9 @@ export function fakeVault(
     },
     metadataCache: {
       getFileCache: (file: TFile) => caches.get(file.path) ?? null,
+      // Resolves by exact path, then by file name anywhere, as a shortest-path link would.
+      getFirstLinkpathDest: (link: string) =>
+        attachments.find((a) => a.path === link) ?? attachments.find((a) => a.name === link) ?? null,
       resolvedLinks: opts.links ?? {},
     },
     workspace: {

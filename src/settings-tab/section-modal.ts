@@ -12,7 +12,17 @@
 import { Modal, Setting } from "obsidian";
 import { discoverPropertyTypes } from "../compose/vault";
 import type HomeCardsPlugin from "../main";
-import { autoTitle, isChoice, LIMITS, SECTION_KINDS, sectionTitle, type SectionConfig, type ValueType } from "../settings/schema";
+import {
+  autoTitle,
+  CARD_IMAGES,
+  FILE_FIELDS,
+  isChoice,
+  LIMITS,
+  SECTION_KINDS,
+  sectionTitle,
+  type SectionConfig,
+  type ValueType,
+} from "../settings/schema";
 import { renderConditionList } from "./condition-list";
 import { addChoices } from "./widgets";
 
@@ -158,11 +168,37 @@ export class SectionModal extends Modal {
       .setDesc("A note must meet every condition. Dates count in days from today.")
       .setHeading();
     renderConditionList(contentEl, cfg.conditions, this.types, () => this.plugin.touch(), () => this.draw());
+
+    new Setting(contentEl).setName("Card display").setHeading();
+    const fieldsRow = row("Fields", "Shown in each card's footer, in this order. Leave all empty for the page's usual footer.");
+    for (let i = 0; i < LIMITS.fields.max; i++) {
+      fieldsRow.addDropdown((d) => {
+        d.addOption("", "None");
+        for (const f of FILE_FIELDS) d.addOption(f.id, f.label);
+        this.propertyOptions(d, cfg.fields[i] ?? "");
+        d.setValue(cfg.fields[i] ?? "").onChange((v) => {
+          const next = [...cfg.fields];
+          next[i] = v;
+          cfg.fields = next.filter((f, at) => f && next.indexOf(f) === at);
+          redraw();
+        });
+      });
+    }
+    row("Image", "From the image properties in Settings, or else the note's first embedded image.").addDropdown((d) =>
+      addChoices(d, CARD_IMAGES)
+        .setValue(cfg.image)
+        .onChange((v) => {
+          if (!isChoice(CARD_IMAGES, v)) return;
+          cfg.image = v;
+          this.plugin.touch();
+        })
+    );
   }
 
   /** Every vault property, plus a stored key the vault no longer uses. */
   private propertyOptions(d: { addOption(value: string, label: string): unknown }, stored: string): void {
     for (const k of this.properties) d.addOption(k, k);
-    if (stored && !this.properties.includes(stored)) d.addOption(stored, `${stored} (not in vault)`);
+    const known = this.properties.includes(stored) || FILE_FIELDS.some((f) => f.id === stored);
+    if (stored && !known) d.addOption(stored, `${stored} (not in vault)`);
   }
 }

@@ -18,10 +18,12 @@
 
 import {
   ItemView,
+  Notice,
   setIcon,
   setTooltip,
   TFolder,
   type HoverParent,
+  type TFile,
   type HoverPopover,
   type PaneType,
   type ViewStateResult,
@@ -42,11 +44,19 @@ import {
   type PageRef,
   type ResolvedPage,
 } from "../settings/pages";
-import { sectionTitle, VIEW_MODES, type ViewMode } from "../settings/schema";
+import { sectionTitle, VIEW_MODES, type SectionConfig, type ViewMode } from "../settings/schema";
 import { applyAppearance } from "./appearance";
-import { createNote, cardActions, rediscoverNote } from "./actions";
-import { paneFor, renderSection, settleDek, type CardActions } from "./card";
-import { templateForScope } from "../compose/templates";
+import { applyTemplate, createNote, cardActions, rediscoverNote } from "./actions";
+import { paneFor, renderSection, settleDek, type CardActions, type SectionMove } from "./card";
+import {
+  acceptsMoves,
+  describeTemplate,
+  hasFacts,
+  mergeTemplates,
+  sectionWrite,
+  templateForScope,
+  type NoteTemplate,
+} from "../compose/templates";
 import { observeDeks } from "./lazy-deks";
 import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
 
@@ -447,7 +457,15 @@ export class HomeView extends ItemView implements HoverParent {
     // A scope narrows every section, so many come up empty there; the page
     // shows the ones that have cards. The home page keeps its empty ones,
     // which tell the reader why a section is bare.
-    if (!page.isHome) sections = sections.filter((s) => s.cards.length > 0);
+    // What each section implies for a note given to it: the basis for its
+    // + button, for dropping cards on it, and for Move to in card menus.
+    const writes = new Map(page.sections.map((cfg) => [cfg.id, sectionWrite(cfg, new Date())]));
+    const takesMoves = (id: string) => {
+      const w = writes.get(id);
+      return w !== undefined && acceptsMoves(w);
+    };
+    // An empty section that takes moves stays, as a place to move cards to.
+    if (!page.isHome) sections = sections.filter((s) => s.cards.length > 0 || takesMoves(s.config.id));
 
     // Built detached, then swapped in whole: no intermediate empty state.
     const next = createDiv();
@@ -467,12 +485,43 @@ export class HomeView extends ItemView implements HoverParent {
       empty("Cards appear here as you write notes.");
     } else {
       const collapsed = new Set(this.collapsedIds());
+      const pageTemplate = templateForScope(page.scope);
+      const targets = sections.filter((s) => takesMoves(s.config.id));
+      const moveTo = (cfg: SectionConfig): SectionMove | null => {
+        const write = writes.get(cfg.id);
+        if (!write) return null;
+        return {
+          title: sectionTitle(cfg),
+          change: describeTemplate(write.template),
+          run: (file) => void this.applyChange(file, write.template),
+        };
+      };
       for (const { config, cards, more, claimed } of sections) {
+        const write = writes.get(config.id);
+        const own = write?.complete && hasFacts(write.template) ? mergeTemplates(pageTemplate, write.template) : null;
+        const moves = targets.filter((t) => t.config.id !== config.id).flatMap((t) => moveTo(t.config) ?? []);
         const emptyText = claimed
           ? "Every matching note already appears in a section above."
           : "This section has no matching notes.";
         const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
-          menuContext: { sectionKind: config.kind },
+          menuContext: { sectionKind: config.kind, moves },
+          create: own
+            ? {
+                tooltip: `New note here: ${describeTemplate(own).toLowerCase()}`,
+                run: (evt) => void createNote(app, paneFor(evt), own),
+              }
+            : undefined,
+          dragId: targets.length ? config.id : undefined,
+          drop:
+            write && takesMoves(config.id)
+              ? {
+                  hint: `Drop to ${describeTemplate(write.template).toLowerCase()}`,
+                  run: (path) => {
+                    const file = app.vault.getFileByPath(path);
+                    if (file) void this.applyChange(file, write.template);
+                  },
+                }
+              : undefined,
           emptyText,
           more,
           fold: {
@@ -507,6 +556,17 @@ export class HomeView extends ItemView implements HoverParent {
       if (!file) return;
       void plugin.dekCache.get(app, file, plugin.settings).then((dek) => settleDek(el, dek));
     });
+  }
+
+  /** Make a section's stated change to a note, through Obsidian, and say what changed. */
+  private async applyChange(file: TFile, template: NoteTemplate): Promise<void> {
+    try {
+      await applyTemplate(this.app, file, template);
+      new Notice(`${describeTemplate(template)} on ${file.basename}.`);
+    } catch (err) {
+      console.error("Home Cards: could not change the note", err);
+      new Notice(`Could not change ${file.basename}. See the console for details.`);
+    }
   }
 
   // ------------------------------------------------------- section state

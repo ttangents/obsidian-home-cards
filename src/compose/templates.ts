@@ -13,7 +13,10 @@
  * frontmatter APIs (see render/actions.ts), never by writing YAML text.
  */
 
-import type { PageScope } from "../settings/schema";
+import { normalizeFolderPath } from "../settings/folders";
+import type { PageScope, SectionConfig, SectionKind } from "../settings/schema";
+import { compileCondition, isFileField, statedValue } from "./conditions";
+import { splitList } from "./values";
 
 export type TemplateValue = string | number | boolean;
 
@@ -97,4 +100,97 @@ export function mergeTemplates(...parts: readonly NoteTemplate[]): NoteTemplate 
     }
   }
   return out;
+}
+
+/**
+ * Sources that select by ranking alone, so any note can belong. The rest
+ * select by facts a template cannot give a note: having been opened,
+ * being old, being pinned, being linked to recent work.
+ */
+const RANKING_ONLY: ReadonlySet<SectionKind> = new Set(["recent-created", "recent-modified", "most-linked", "least-linked"]);
+
+export interface SectionWrite {
+  /** The facts the section states as exact values. */
+  template: NoteTemplate;
+  /**
+   * True when a note given the template, and nothing else, belongs in the
+   * section: every rule the section selects by is either stated in the
+   * template or met by any new note.
+   */
+  complete: boolean;
+}
+
+/**
+ * The template a section implies, and whether it is complete. A section
+ * can take a new note (its + button) or a moved card (a drop, or Move to
+ * in the card menu) only when it is complete and states at least one tag
+ * or property: then the change it would make can be named exactly.
+ */
+export function sectionWrite(cfg: SectionConfig, now: Date): SectionWrite {
+  const t: NoteTemplate = { folder: "", tags: [], properties: {} };
+  let complete = true;
+
+  if (cfg.kind === "property") {
+    const key = literalKey(cfg.propertyKey);
+    if (key && cfg.propertyValue.trim()) t.properties[key] = typedValue(cfg.propertyValue);
+    else complete = false;
+  } else if (cfg.kind === "tag") {
+    const tag = literalTag(cfg.tag);
+    if (tag) t.tags.push(tag);
+    else complete = false;
+  } else if (!RANKING_ONLY.has(cfg.kind)) {
+    complete = false;
+  }
+
+  // Include-filters: one literal entry states a fact; a list is a choice.
+  const tags = splitList(cfg.filterTags);
+  if (tags.length === 1 && literalTag(tags[0])) t.tags.push(literalTag(tags[0]) ?? "");
+  else if (tags.length) complete = false;
+
+  const props = splitList(cfg.filterProps);
+  const rule = props.length === 1 ? /^([^=]+)=(.+)$/.exec(props[0]) : null;
+  const ruleKey = rule ? literalKey(rule[1]) : null;
+  if (rule && ruleKey) t.properties[ruleKey] = typedValue(rule[2]);
+  else if (props.length) complete = false;
+
+  const folders = splitList(cfg.filterFolders);
+  if (folders.length === 1 && folders[0].includes("/") && !folders[0].includes("*")) {
+    t.folder = normalizeFolderPath(folders[0]);
+  } else if (folders.length) complete = false;
+
+  // Conditions: an exact value is stated; any other must already hold for
+  // a new note carrying the stated values, created now.
+  for (const cond of cfg.conditions) {
+    if (!cond.property.trim()) continue;
+    const stated = statedValue(cond);
+    if (stated) {
+      const key = literalKey(stated.key);
+      const value = typedValue(stated.value);
+      if (!key || (key in t.properties && t.properties[key] !== value)) return { template: t, complete: false };
+      t.properties[key] = value;
+      continue;
+    }
+    const test = compileCondition(cond, now);
+    if (!test) continue;
+    const field = cond.property.trim();
+    const value = isFileField(field) ? now : t.properties[field];
+    if (!test(value)) complete = false;
+  }
+  return { template: t, complete };
+}
+
+/** Whether a section can take a moved card: complete, stating a fact, and not a folder move. */
+export function acceptsMoves(write: SectionWrite): boolean {
+  return write.complete && hasFacts(write.template) && !write.template.folder;
+}
+
+/** What applying a template does, in words: "Set status to waiting and add #reading". */
+export function describeTemplate(t: NoteTemplate): string {
+  const sets = Object.entries(t.properties).map(([k, v]) => `${k} to ${String(v)}`);
+  const parts: string[] = [];
+  if (sets.length) parts.push(`set ${sets.join(", ")}`);
+  if (t.tags.length) parts.push(`add ${t.tags.map((tag) => `#${tag}`).join(", ")}`);
+  if (t.folder) parts.push(`file in ${t.folder}`);
+  const text = parts.join(" and ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

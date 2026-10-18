@@ -11,6 +11,7 @@ import { notesIn, untitledPath } from "../compose/vault";
 import { EMPTY_TEMPLATE, type NoteTemplate } from "../compose/templates";
 import type { HomeCardsSettings } from "../settings/schema";
 import type { CardActions, CardMenuContext, HoverTracker } from "./card";
+import { pickProperty } from "./property-picker";
 
 /**
  * Home Cards' marks, as the card menu offers them. The plugin supplies
@@ -143,6 +144,22 @@ function showFileMenu(
   open("Open in new tab", "file-plus", "tab");
   open("Open to the right", "separator-vertical", "split");
   if (marks) addMarkItems(menu, file.path, context, marks);
+  for (const move of context.moves ?? []) {
+    menu.addItem((i) =>
+      i
+        .setSection("action")
+        .setTitle(`Move to ${move.title}`)
+        .setIcon("arrow-right-to-line")
+        .onClick(() => move.run(file))
+    );
+  }
+  menu.addItem((i) =>
+    i
+      .setSection("action")
+      .setTitle("Set a property…")
+      .setIcon("list-plus")
+      .onClick(() => pickProperty(app, file))
+  );
   app.workspace.trigger("file-menu", menu, file, source);
 
   // A menu key or Shift+F10 fires contextmenu with no pointer position.

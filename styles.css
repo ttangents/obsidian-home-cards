@@ -614,6 +614,45 @@ button.hc-swatch-item {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* --- Section actions ---------------------------------------
+   The + in a heading creates a note that belongs in the section.
+   It stays out of sight until the pointer reaches the heading,
+   so pages read as calm lists, and shows at all times on touch
+   screens, which have no hover. While a card is dragged, a
+   section that can take it outlines its cards and names the
+   change a drop would make.
+   ---------------------------------------------------------- */
+
+.hc-create {
+  flex: none;
+  height: auto;
+  padding: var(--size-2-2);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity var(--anim-duration-fast) var(--anim-motion-smooth);
+}
+.hc-section-head:hover .hc-create,
+.hc-create:focus-visible { opacity: 1; }
+.hc-create:hover { color: var(--icon-color-hover); }
+@media (hover: none) {
+  .hc-create { opacity: 1; }
+}
+
+.hc-card.is-dragging { opacity: 0.5; }
+.hc-section.is-drop-target > .hc-grid,
+.hc-section.is-drop-target > .hc-empty {
+  outline: var(--border-width) dashed var(--interactive-accent);
+  outline-offset: var(--size-4-2);
+  border-radius: var(--radius-m);
+}
+.hc-drop-hint {
+  margin: calc(-1 * var(--size-4-1)) 0 var(--size-4-3);
+  font-size: var(--font-ui-small);
+  color: var(--text-accent);
+}
 /* --- Grid ------------------------------------------------ */
 
 .hc-grid {

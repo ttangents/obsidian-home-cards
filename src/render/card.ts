@@ -23,7 +23,25 @@ export interface CardActions {
 /** Where a card's menu was opened, so it can offer what fits there. */
 export interface CardMenuContext {
   sectionKind?: SectionKind;
+  /** Other sections on the page that can take the card, with the change each makes. */
+  moves?: readonly SectionMove[];
 }
+
+/** A section a card can move to: its heading, the change in words, and the change itself. */
+export interface SectionMove {
+  title: string;
+  change: string;
+  run: (file: TFile) => void;
+}
+
+/**
+ * The card being dragged, if any. Browsers hide a drag's data until the
+ * drop, so the drop targets read the source from here while it moves.
+ */
+let dragging: { path: string; sectionId: string } | null = null;
+
+/** Our own drag type: a drop target accepts only Home Cards cards. */
+const DRAG_TYPE = "application/x-home-cards-note";
 
 /** Follows the card under the pointer; see render/actions.ts. */
 export interface HoverTracker {
@@ -101,7 +119,8 @@ function renderCard(
   card: CardItem,
   opts: CardOptions,
   actions: CardActions,
-  context: CardMenuContext
+  context: CardMenuContext,
+  dragFrom: string | null
 ): HTMLElement {
   const el = parent.createEl("article", { cls: "hc-card" });
   const thumb = card.image !== null && card.imageMode === "thumbnail";
@@ -153,6 +172,20 @@ function renderCard(
       menu(card.file, evt, context);
     });
   }
+  if (dragFrom !== null) {
+    el.draggable = true;
+    el.addEventListener("dragstart", (evt) => {
+      dragging = { path: card.file.path, sectionId: dragFrom };
+      // A wikilink as plain text, so a card dropped into a note links it.
+      evt.dataTransfer?.setData("text/plain", `[[${card.file.basename}]]`);
+      evt.dataTransfer?.setData(DRAG_TYPE, card.file.path);
+      el.addClass("is-dragging");
+    });
+    el.addEventListener("dragend", () => {
+      dragging = null;
+      el.removeClass("is-dragging");
+    });
+  }
   if (hover) {
     // mouseenter, not mouseover: one event per visit to the card, not one
     // per child element the pointer crosses.
@@ -176,6 +209,12 @@ export interface SectionOptions {
   paging?: { more: () => void; fewer: () => void };
   /** Handed to the card menu: the kind of section the cards are in. */
   menuContext?: CardMenuContext;
+  /** Adds a + to the heading that creates a note belonging here. */
+  create?: { tooltip: string; run: (evt: MouseEvent) => void };
+  /** Lets cards be dragged out; the id tells a drop where they came from. */
+  dragId?: string;
+  /** Accepts dropped cards, making the stated change to each. */
+  drop?: { hint: string; run: (path: string) => void };
 }
 
 /**
@@ -194,11 +233,12 @@ export function renderSection(
   actions: CardActions,
   options: SectionOptions = {}
 ): HTMLElement {
-  const { emptyText = "", more = [], fold, paging, menuContext = {} } = options;
+  const { emptyText = "", more = [], fold, paging, menuContext = {}, create, dragId, drop } = options;
   const section = parent.createDiv({ cls: "hc-section" });
   section.dataset.hcVisible = String(cards.length);
 
-  if (title) renderHead(section, title, cards.length, fold);
+  if (title) renderHead(section, title, cards.length, fold, create);
+  if (drop && dragId) acceptDrops(section, dragId, drop);
 
   if (!cards.length && !more.length && emptyText) {
     section.createDiv({ cls: "hc-empty", text: emptyText });
@@ -206,7 +246,7 @@ export function renderSection(
   }
   const grid = section.createDiv({ cls: "hc-grid" });
   [...cards, ...more].forEach((card, i) => {
-    renderCard(grid, card, opts, actions, menuContext).dataset.hcIndex = String(i);
+    renderCard(grid, card, opts, actions, menuContext, dragId ?? null).dataset.hcIndex = String(i);
   });
   if (more.length && paging) {
     const row = section.createDiv({ cls: "hc-more-row" });
@@ -232,11 +272,22 @@ function renderHead(
   section: HTMLElement,
   title: string,
   count: number,
-  fold: SectionOptions["fold"]
+  fold: SectionOptions["fold"],
+  create: SectionOptions["create"]
 ): void {
   const head = section.createDiv({ cls: "hc-section-head" });
   head.createEl("h2", { text: title });
   head.createSpan({ cls: "hc-count", text: String(count) });
+  if (create) {
+    const add = head.createEl("button", { cls: "hc-create clickable-icon" });
+    setIcon(add, "plus");
+    setTooltip(add, create.tooltip, { placement: "top" });
+    add.addEventListener("click", (evt) => {
+      // The heading folds the section; the + only creates.
+      evt.stopPropagation();
+      create.run(evt);
+    });
+  }
   if (!fold) return;
 
   head.addClass("is-foldable");
@@ -253,4 +304,42 @@ function renderHead(
     paint(collapsed);
     fold.onToggle(collapsed);
   });
+}
+
+/**
+ * Make a section a drop target for cards from other sections. While a
+ * card is over it, the section shows the change a drop would make; a
+ * card from this same section, or anything that is not a card, is not
+ * accepted.
+ */
+function acceptDrops(section: HTMLElement, sectionId: string, drop: NonNullable<SectionOptions["drop"]>): void {
+  const accepts = (evt: DragEvent) =>
+    dragging !== null && dragging.sectionId !== sectionId && (evt.dataTransfer?.types.includes(DRAG_TYPE) ?? false);
+  let hint: HTMLElement | null = null;
+  const clear = () => {
+    section.removeClass("is-drop-target");
+    hint?.remove();
+    hint = null;
+  };
+  section.addEventListener("dragover", (evt) => {
+    if (!accepts(evt)) return;
+    evt.preventDefault();
+    if (evt.dataTransfer) evt.dataTransfer.dropEffect = "move";
+    if (!hint) {
+      section.addClass("is-drop-target");
+      hint = section.createDiv({ cls: "hc-drop-hint", text: drop.hint });
+      section.find(".hc-section-head")?.after(hint);
+    }
+  });
+  section.addEventListener("dragleave", (evt) => {
+    if (!section.contains(evt.relatedTarget as Node | null)) clear();
+  });
+  section.addEventListener("drop", (evt) => {
+    const from = dragging;
+    clear();
+    if (!from || !accepts(evt)) return;
+    evt.preventDefault();
+    drop.run(from.path);
+  });
+  section.addEventListener("dragend", clear);
 }

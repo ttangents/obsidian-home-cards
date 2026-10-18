@@ -36,7 +36,7 @@ class HomeCardsBasesView extends BasesView {
   ) {
     super(controller);
     this.root = containerEl.createDiv({ cls: "hc-in-bases" });
-    this.actions = cardActions(plugin.app, this, this.hover, BASES_VIEW_ID);
+    this.actions = cardActions(plugin.app, this, this.hover, BASES_VIEW_ID, plugin.markActions);
     // Settings edits redraw the view; the Component releases the handler.
     // Bases fills `data` only once the query first runs, which for a base
     // in a background tab can come after a settings edit.

@@ -12,7 +12,9 @@
  *   main.ts        wiring
  */
 
-import { debounce, Events, Notice, Plugin, TFolder, type EventRef, type ObsidianProtocolData } from "obsidian";
+import { debounce, Events, Notice, Plugin, TFile, TFolder, type EventRef, type ObsidianProtocolData } from "obsidian";
+import { forgetMarks, isPinned, isQuiet, pruneSnoozes, renameMarks, snooze, togglePin, toggleQuiet } from "./compose/marks";
+import type { MarkActions } from "./render/actions";
 import { DekCache } from "./compose/dek-cache";
 import { OpenHistory } from "./compose/open-history";
 import { registerBasesView } from "./render/bases-view";
@@ -62,6 +64,22 @@ export default class HomeCardsPlugin extends Plugin {
   /** True while an edit sits in memory that data.json does not have. */
   private dirty = false;
   private readonly flushSoon = debounce(() => void this.flush(), SAVE_DELAY_MS, true);
+
+  /**
+   * Pins, snoozes and quiet notes, as cards and menus change them. Each
+   * change writes at once and redraws every page.
+   */
+  readonly markActions: MarkActions = {
+    isPinned: (path) => isPinned(this.settings.marks, path),
+    togglePin: (path) => this.mark(togglePin(this.settings.marks, path)),
+    snooze: (path, days) => this.mark(snooze(this.settings.marks, path, new Date(), days)),
+    isQuiet: (path) => isQuiet(this.settings.marks, path),
+    toggleQuiet: (path) => this.mark(toggleQuiet(this.settings.marks, path)),
+  };
+
+  private mark(changed: boolean): void {
+    if (changed) void this.commit();
+  }
 
   /** Named pages that have a command, with the name each was registered under. */
   private readonly pageCommands = new Map<string, string>();
@@ -132,12 +150,43 @@ export default class HomeCardsPlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
         this.openHistory.rename(oldPath, file.path);
-        // A page about a folder follows it when it is renamed.
-        if (file instanceof TFolder && renamePageFolders(this.settings.pages, oldPath, file.path)) {
-          this.touch();
-        }
+        // A page about a folder follows it when it is renamed, and marks
+        // follow their notes, singly or with their folder.
+        const pages = file instanceof TFolder && renamePageFolders(this.settings.pages, oldPath, file.path);
+        const marks = renameMarks(this.settings.marks, oldPath, file.path);
+        if (pages || marks) this.touch();
       })
     );
+    this.registerEvent(
+      this.app.vault.on("delete", (file) => {
+        if (forgetMarks(this.settings.marks, file.path)) this.touch();
+      })
+    );
+
+    // Pinning from Obsidian's own file menus and the command palette.
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (!(file instanceof TFile) || file.extension !== "md") return;
+        const pinned = isPinned(this.settings.marks, file.path);
+        menu.addItem((item) =>
+          item
+            .setSection("action")
+            .setTitle(pinned ? "Unpin from Home" : "Pin to Home")
+            .setIcon(pinned ? "pin-off" : "pin")
+            .onClick(() => this.markActions.togglePin(file.path))
+        );
+      })
+    );
+    this.addCommand({
+      id: "toggle-pin",
+      name: "Pin or unpin the current note",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || file.extension !== "md") return false;
+        if (!checking) this.markActions.togglePin(file.path);
+        return true;
+      },
+    });
 
     if (this.settings.openOnStartup) {
       this.app.workspace.onLayoutReady(() => void this.activateView());
@@ -205,6 +254,8 @@ export default class HomeCardsPlugin extends Plugin {
       console.error("Home Cards: settings unreadable, using defaults", err);
     }
     this.settings = normalizeSettings(stored);
+    // Ended snoozes need no record; drop them with the next save.
+    if (pruneSnoozes(this.settings.marks, new Date())) this.dirty = true;
   }
 
   // ------------------------------------------------------------------ views

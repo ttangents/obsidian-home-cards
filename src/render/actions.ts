@@ -10,7 +10,19 @@ import type { ScopeTest } from "../compose/scope";
 import { notesIn, untitledPath } from "../compose/vault";
 import { EMPTY_TEMPLATE, type NoteTemplate } from "../compose/templates";
 import type { HomeCardsSettings } from "../settings/schema";
-import type { CardActions, HoverTracker } from "./card";
+import type { CardActions, CardMenuContext, HoverTracker } from "./card";
+
+/**
+ * Home Cards' marks, as the card menu offers them. The plugin supplies
+ * these (see main.ts); each change saves and redraws the pages.
+ */
+export interface MarkActions {
+  isPinned(path: string): boolean;
+  togglePin(path: string): void;
+  snooze(path: string, days: number): void;
+  isQuiet(path: string): boolean;
+  toggleQuiet(path: string): void;
+}
 
 /**
  * Where a note opens: in place, or where Obsidian's own modifier rules
@@ -32,11 +44,12 @@ export function cardActions(
   app: App,
   owner: Component,
   hoverParent: HoverParent,
-  source: string
+  source: string,
+  marks?: MarkActions
 ): CardActions {
   return {
     open: (file, where) => void leafFor(app, where).openFile(file),
-    menu: (file, evt) => showFileMenu(app, file, evt, source),
+    menu: (file, evt, context) => showFileMenu(app, file, evt, source, context, marks),
     hover: hoverTracker(app, owner, hoverParent, source),
   };
 }
@@ -110,7 +123,14 @@ function hoverTracker(app: App, owner: Component, hoverParent: HoverParent, sour
  * through the file-menu event, Obsidian and other plugins add their items
  * (opening in a new window, bookmarking, revealing the file, and so on).
  */
-function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): void {
+function showFileMenu(
+  app: App,
+  file: TFile,
+  evt: MouseEvent,
+  source: string,
+  context: CardMenuContext,
+  marks?: MarkActions
+): void {
   const menu = new Menu();
   const open = (title: string, icon: string, where: "tab" | "split") =>
     menu.addItem((item) =>
@@ -122,6 +142,7 @@ function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): v
     );
   open("Open in new tab", "file-plus", "tab");
   open("Open to the right", "separator-vertical", "split");
+  if (marks) addMarkItems(menu, file.path, context, marks);
   app.workspace.trigger("file-menu", menu, file, source);
 
   // A menu key or Shift+F10 fires contextmenu with no pointer position.
@@ -130,6 +151,22 @@ function showFileMenu(app: App, file: TFile, evt: MouseEvent, source: string): v
     menu.showAtPosition({ x: rect.left + 16, y: rect.top + 16 });
   } else {
     menu.showAtMouseEvent(evt);
+  }
+}
+
+/** Pin, snooze and, in Rediscover, pass over. Home Cards' own state; the note is untouched. */
+function addMarkItems(menu: Menu, path: string, context: CardMenuContext, marks: MarkActions): void {
+  const item = (title: string, icon: string, run: () => void) =>
+    menu.addItem((i) => i.setSection("action").setTitle(title).setIcon(icon).onClick(run));
+  const pinned = marks.isPinned(path);
+  item(pinned ? "Unpin from Home" : "Pin to Home", pinned ? "pin-off" : "pin", () => marks.togglePin(path));
+  if (!pinned) {
+    item("Snooze for a week", "alarm-clock", () => marks.snooze(path, 7));
+    item("Snooze for a month", "alarm-clock", () => marks.snooze(path, 30));
+  }
+  if (context.sectionKind === "rediscover") {
+    const quiet = marks.isQuiet(path);
+    item(quiet ? "Rediscover again" : "Don't rediscover", quiet ? "eye" : "eye-off", () => marks.toggleQuiet(path));
   }
 }
 

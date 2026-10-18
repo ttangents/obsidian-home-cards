@@ -41,7 +41,7 @@ import { SectionModal } from "./section-modal";
 import { choiceOptions, sectionSummary } from "./widgets";
 
 /** Settings the tab keeps in lists and editors of their own, not in a control. */
-const COLLECTIONS = ["version", "sections", "pages", "customBackgrounds"] as const;
+const COLLECTIONS = ["version", "sections", "pages", "marks", "customBackgrounds"] as const;
 
 /** Settings a control binds to directly. */
 type ScalarKey = Exclude<keyof HomeCardsSettings, (typeof COLLECTIONS)[number]>;
@@ -155,6 +155,34 @@ export class HomeCardsSettingTab extends PluginSettingTab {
           min: LIMITS.rediscoverMonths.min,
           max: LIMITS.rediscoverMonths.max,
           step: 1,
+        },
+      },
+      {
+        name: "Snoozed and passed-over notes",
+        desc: "Cards you snoozed, or told Rediscover to pass over, from their menus. Clearing brings them back; pins stay.",
+        aliases: ["snooze", "don't rediscover"],
+        render: (setting) => {
+          const marks = this.plugin.settings.marks;
+          const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+          setting
+            .addButton((b) =>
+              b
+                .setButtonText(`Clear ${count(Object.keys(marks.snoozed).length, "snooze", "snoozes")}`)
+                .setDisabled(!Object.keys(marks.snoozed).length)
+                .onClick(() => {
+                  this.plugin.settings.marks.snoozed = {};
+                  void this.restructure();
+                })
+            )
+            .addButton((b) =>
+              b
+                .setButtonText(`Clear ${count(marks.quiet.length, "passed-over note", "passed-over notes")}`)
+                .setDisabled(!marks.quiet.length)
+                .onClick(() => {
+                  this.plugin.settings.marks.quiet = [];
+                  void this.restructure();
+                })
+            );
         },
       },
     ];

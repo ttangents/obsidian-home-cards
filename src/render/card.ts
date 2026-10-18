@@ -6,7 +6,7 @@
 
 import { Keymap, setIcon, setTooltip, type PaneType, type TFile } from "obsidian";
 import type { CardItem } from "../compose/card";
-import type { HomeCardsSettings } from "../settings/schema";
+import type { HomeCardsSettings, SectionKind } from "../settings/schema";
 
 export type CardOptions = Pick<HomeCardsSettings, "showGlyph" | "showRubric" | "showDeks">;
 
@@ -14,10 +14,15 @@ export type CardOptions = Pick<HomeCardsSettings, "showGlyph" | "showRubric" | "
 export interface CardActions {
   /** Open the note in place, or where Obsidian's modifier rules say. */
   open: (file: TFile, where: PaneType | false) => void;
-  /** Show the note's context menu. */
-  menu?: (file: TFile, evt: MouseEvent) => void;
+  /** Show the note's context menu; the context says which section the card is in. */
+  menu?: (file: TFile, evt: MouseEvent, context: CardMenuContext) => void;
   /** Hover preview: told when the pointer enters and leaves a card. */
   hover?: HoverTracker;
+}
+
+/** Where a card's menu was opened, so it can offer what fits there. */
+export interface CardMenuContext {
+  sectionKind?: SectionKind;
 }
 
 /** Follows the card under the pointer; see render/actions.ts. */
@@ -95,7 +100,8 @@ function renderCard(
   parent: HTMLElement,
   card: CardItem,
   opts: CardOptions,
-  actions: CardActions
+  actions: CardActions,
+  context: CardMenuContext
 ): HTMLElement {
   const el = parent.createEl("article", { cls: "hc-card" });
   const thumb = card.image !== null && card.imageMode === "thumbnail";
@@ -144,7 +150,7 @@ function renderCard(
   if (menu) {
     el.addEventListener("contextmenu", (evt) => {
       evt.preventDefault();
-      menu(card.file, evt);
+      menu(card.file, evt, context);
     });
   }
   if (hover) {
@@ -168,6 +174,8 @@ export interface SectionOptions {
    * which cards and buttons show (see the home view's applyFilter).
    */
   paging?: { more: () => void; fewer: () => void };
+  /** Handed to the card menu: the kind of section the cards are in. */
+  menuContext?: CardMenuContext;
 }
 
 /**
@@ -186,7 +194,7 @@ export function renderSection(
   actions: CardActions,
   options: SectionOptions = {}
 ): HTMLElement {
-  const { emptyText = "", more = [], fold, paging } = options;
+  const { emptyText = "", more = [], fold, paging, menuContext = {} } = options;
   const section = parent.createDiv({ cls: "hc-section" });
   section.dataset.hcVisible = String(cards.length);
 
@@ -198,7 +206,7 @@ export function renderSection(
   }
   const grid = section.createDiv({ cls: "hc-grid" });
   [...cards, ...more].forEach((card, i) => {
-    renderCard(grid, card, opts, actions).dataset.hcIndex = String(i);
+    renderCard(grid, card, opts, actions, menuContext).dataset.hcIndex = String(i);
   });
   if (more.length && paging) {
     const row = section.createDiv({ cls: "hc-more-row" });

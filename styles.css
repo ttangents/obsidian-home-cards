@@ -778,11 +778,14 @@ button.hc-swatch-item {
   flex: none;
   background: var(--background-modifier-hover);
 }
+/* Anchored to the top: a book's title, a portrait's face and a
+   painting's sky sit there, and they are what makes a card known. */
 .hc-cover img {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center top;
 }
 
 .hc-thumb {

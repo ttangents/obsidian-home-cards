@@ -40,8 +40,8 @@ import { PageModal } from "./page-modal";
 import { SectionModal } from "./section-modal";
 import { choiceOptions, sectionSummary } from "./widgets";
 
-/** Settings the tab keeps in lists and editors of their own, not in a control. */
-const COLLECTIONS = ["version", "sections", "pages", "marks", "customBackgrounds"] as const;
+/** Settings no control binds to: lists and editors of their own, and records the plugin keeps. */
+const COLLECTIONS = ["version", "sections", "pages", "marks", "customBackgrounds", "lastShownVersion"] as const;
 
 /** Settings a control binds to directly. */
 type ScalarKey = Exclude<keyof HomeCardsSettings, (typeof COLLECTIONS)[number]>;
@@ -183,6 +183,20 @@ export class HomeCardsSettingTab extends PluginSettingTab {
                   void this.restructure();
                 })
             );
+        },
+      },
+      {
+        name: "Announce updates",
+        desc: "After Home Cards updates, show a note at the top of the home page that opens the release notes.",
+        aliases: ["what's new", "release notes", "changelog"],
+        control: { type: "toggle", key: "showReleaseNotes" },
+      },
+      {
+        name: "What's new",
+        desc: `Release notes for Home Cards ${this.plugin.manifest.version} and the releases before it.`,
+        aliases: ["release notes", "changelog"],
+        render: (setting) => {
+          setting.addButton((b) => b.setButtonText("Show").onClick(() => this.plugin.showWhatsNew()));
         },
       },
     ];

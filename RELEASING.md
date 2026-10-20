@@ -3,10 +3,11 @@
 ## Each release
 
 1. Update `version` in `manifest.json` and `package.json` to the same value, and add it to `versions.json` with the release's `minAppVersion`. The test suite fails if the three disagree.
-2. Run `npm run build` and `npm test`. The build runs Obsidian's review rules over the whole repository and must finish with no errors and no warnings.
-3. Commit, then tag the commit with the bare version, with no `v` prefix: `git tag 1.29.0`.
-4. Push the commit and the tag, and create a GitHub release for the tag. Attach `main.js`, `manifest.json` and `styles.css` as release assets.
-5. The community directory scans each new release within minutes. A release that fails the scan drops out of search until a fixed release replaces it.
+2. Add the release's notes at the top of `RELEASE_NOTES` in `src/settings/release-notes.ts`: the version, the date, a one-sentence headline for the home page's notice, and the items under New, Improved, Changed and Fixed. Set `announce: false` for a release of small fixes, which then shows its notes in the What's new window without a notice. The test suite fails if the newest notes do not match the manifest, or if a version in `versions.json` has none.
+3. Run `npm run build` and `npm test`. The build runs Obsidian's review rules over the whole repository and must finish with no errors and no warnings.
+4. Commit, then tag the commit with the bare version, with no `v` prefix: `git tag 1.29.0`.
+5. Push the commit and the tag, and create a GitHub release for the tag. Attach `main.js`, `manifest.json` and `styles.css` as release assets.
+6. The community directory scans each new release within minutes. A release that fails the scan drops out of search until a fixed release replaces it.
 
 `versions.json` lists only versions that exist as GitHub releases. Obsidian reads it to offer an older release to an app too old for the newest one, and a version with no release behind it would fail to install.
 

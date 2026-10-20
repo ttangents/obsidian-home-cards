@@ -1,0 +1,120 @@
+/* --- What's new ---------------------------------------------
+   The notice after an update sits between the header and the
+   first section, in the material of the cards (05-surfaces.css),
+   so it reads as part of the page on any surface or pattern.
+   The window it opens is an ordinary Obsidian modal.
+   ---------------------------------------------------------- */
+
+.hc-update {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+  margin-top: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-2) var(--size-4-2) var(--size-4-4);
+  background:
+    linear-gradient(var(--hc-surface), var(--hc-surface)),
+    linear-gradient(var(--hc-underlay), var(--hc-underlay));
+  border: var(--border-width) solid var(--hc-card-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--hc-card-shadow);
+  -webkit-backdrop-filter: var(--hc-card-blur);
+  backdrop-filter: var(--hc-card-blur);
+}
+
+.hc-update-icon {
+  flex: none;
+  display: flex;
+  color: var(--interactive-accent);
+}
+.hc-update-icon .svg-icon {
+  width: var(--icon-s);
+  height: var(--icon-s);
+}
+
+.hc-update-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-ui-small);
+  line-height: var(--line-height-tight);
+  color: var(--text-muted);
+}
+.hc-update-title {
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+  margin-inline-end: var(--size-4-2);
+}
+
+.hc-update-open { flex: none; }
+.hc-update-close {
+  flex: none;
+  /* Some themes dress every button; this one is an icon. */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* Phones: the text takes the line, the buttons the next. */
+body.is-phone .hc-update { flex-wrap: wrap; }
+body.is-phone .hc-update-text { flex-basis: calc(100% - var(--icon-s) - var(--size-4-3)); }
+body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--size-4-3)); }
+
+/* The window: the notes scroll, the footer stays. */
+.modal.hc-whats-new {
+  overflow: hidden;
+  padding-bottom: 0;
+}
+.hc-whats-new .modal-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: var(--size-4-4);
+}
+.hc-release + .hc-release {
+  margin-top: var(--size-4-6);
+  padding-top: var(--size-4-4);
+  border-top: var(--border-width) solid var(--background-modifier-border);
+}
+.hc-release-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-3);
+}
+.hc-release-head h3 {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.hc-release-date {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+.hc-release-headline {
+  margin: var(--size-4-2) 0 0;
+  color: var(--text-normal);
+}
+.hc-release-group {
+  margin: var(--size-4-4) 0 var(--size-2-2);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.hc-release ul {
+  margin: 0;
+  padding-inline-start: var(--size-4-6);
+}
+.hc-release li {
+  margin-bottom: var(--size-2-3);
+  line-height: var(--line-height-normal);
+}
+
+.hc-whats-new-footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--size-4-4);
+  padding: var(--size-4-3) 0 var(--size-4-4);
+  border-top: var(--border-width) solid var(--background-modifier-border);
+  font-size: var(--font-ui-small);
+}

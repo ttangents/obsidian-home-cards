@@ -35,6 +35,8 @@ import {
   type PageRef,
 } from "./settings/pages";
 import { blankScope, defaultSettings, LIMITS, newPageId, type HomeCardsSettings, type NamedPage } from "./settings/schema";
+import { checkForUpdate, compareVersions, laterVersion, recentNotes, type ReleaseNote } from "./settings/release-notes";
+import { WhatsNewModal } from "./render/whats-new";
 import { PageModal } from "./settings-tab/page-modal";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
 
@@ -47,6 +49,8 @@ const SAVE_DELAY_MS = 400;
 const ACTIVITY_SAVE_MS = 5000;
 /** Quiet period after the metadata cache settles before views recompose. */
 const RESOLVE_DELAY_MS = 1500;
+/** Local-storage key for this device's copy of the release marker; see release-notes.ts. */
+const RELEASE_KEY = "home-cards-release-seen";
 
 export default class HomeCardsPlugin extends Plugin {
   settings: HomeCardsSettings = defaultSettings();
@@ -88,11 +92,18 @@ export default class HomeCardsPlugin extends Plugin {
     if (changed) void this.commit();
   }
 
+  /**
+   * Releases the home page announces, newest first; empty once the reader
+   * has read or dismissed them, or when there is nothing new.
+   */
+  releaseNotes: ReleaseNote[] = [];
+
   /** Named pages that have a command, with the name each was registered under. */
   private readonly pageCommands = new Map<string, string>();
 
   async onload(): Promise<void> {
-    await this.loadSettings();
+    const firstRun = !(await this.loadSettings());
+    this.reviewRelease(firstRun);
 
     this.registerView(VIEW_TYPE_HOME, (leaf) => new HomeView(leaf, this));
     // Lets Page Preview show notes on hover over cards; it lists this
@@ -104,6 +115,7 @@ export default class HomeCardsPlugin extends Plugin {
     this.addRibbonIcon("layout-grid", "Open home page", () => void this.activateView());
     this.addCommand({ id: "open", name: "Open", callback: () => void this.activateView() });
     this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
+    this.addCommand({ id: "whats-new", name: "Show what's new", callback: () => this.showWhatsNew() });
 
     // Pages. A page opens from a command, a list, a folder's context menu
     // or a link, so any file browser can reach it. Each named page also
@@ -217,6 +229,10 @@ export default class HomeCardsPlugin extends Plugin {
   async onExternalSettingsChange(): Promise<void> {
     if (this.dirty) return;
     await this.loadSettings();
+    // Another device read or dismissed the notice.
+    if (this.releaseNotes.length && compareVersions(this.seenVersion(), this.manifest.version) >= 0) {
+      this.releaseNotes = [];
+    }
     if (this.syncPageCommands()) this.events.trigger(PAGES);
     this.refreshViews();
   }
@@ -264,7 +280,8 @@ export default class HomeCardsPlugin extends Plugin {
     return true;
   }
 
-  private async loadSettings(): Promise<void> {
+  /** Read data.json. Resolves false when there was none: a new install. */
+  private async loadSettings(): Promise<boolean> {
     let stored: unknown = null;
     try {
       stored = await this.loadData();
@@ -274,6 +291,59 @@ export default class HomeCardsPlugin extends Plugin {
     this.settings = normalizeSettings(stored);
     // Ended snoozes need no record; drop them with the next save.
     if (pruneSnoozes(this.settings.marks, new Date())) this.dirty = true;
+    return stored !== null && stored !== undefined;
+  }
+
+  // -------------------------------------------------------------- releases
+
+  /** The newest release seen here: the later of the synced and the local marker. */
+  private seenVersion(): string {
+    const local: unknown = this.app.loadLocalStorage(RELEASE_KEY);
+    return laterVersion(this.settings.lastShownVersion, typeof local === "string" ? local : "");
+  }
+
+  /** At load: queue the notice for unseen releases, or mark this version seen. */
+  private reviewRelease(firstRun: boolean): void {
+    const decision = checkForUpdate({
+      current: this.manifest.version,
+      seen: this.seenVersion(),
+      firstRun,
+      enabled: this.settings.showReleaseNotes,
+    });
+    if (decision.kind === "announce") this.releaseNotes = decision.notes;
+    else if (decision.kind === "record") this.markReleaseSeen();
+  }
+
+  /**
+   * Mark the installed version seen, here and in synced settings, never
+   * moving a marker back. Returns true when it saves, which redraws the views.
+   */
+  private markReleaseSeen(): boolean {
+    const current = this.manifest.version;
+    const local: unknown = this.app.loadLocalStorage(RELEASE_KEY);
+    this.app.saveLocalStorage(RELEASE_KEY, laterVersion(typeof local === "string" ? local : "", current));
+    const synced = laterVersion(this.settings.lastShownVersion, current);
+    if (synced === this.settings.lastShownVersion) return false;
+    this.settings.lastShownVersion = synced;
+    void this.commit();
+    return true;
+  }
+
+  /** Close the home page's notice without reading the notes. */
+  dismissReleaseNotes(): void {
+    if (!this.releaseNotes.length) return;
+    this.releaseNotes = [];
+    if (!this.markReleaseSeen()) this.refreshViews();
+  }
+
+  /**
+   * Open the release notes: the unseen ones when the home page announces
+   * them, and closing the window marks them read; otherwise the latest.
+   */
+  showWhatsNew(): void {
+    const unseen = this.releaseNotes.length > 0;
+    const notes = unseen ? this.releaseNotes : recentNotes(this.manifest.version);
+    new WhatsNewModal(this.app, notes, unseen ? () => this.dismissReleaseNotes() : undefined).open();
   }
 
   // ------------------------------------------------------------------ views

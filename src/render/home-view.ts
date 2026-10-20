@@ -61,6 +61,7 @@ import {
 import { registerCardKeys } from "./keyboard";
 import { observeDeks } from "./lazy-deks";
 import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
+import { renderUpdateNotice } from "./whats-new";
 
 export const VIEW_TYPE_HOME = "home-cards-view";
 
@@ -79,6 +80,8 @@ interface Shell {
   pickerToggle: HTMLElement;
   /** Opens the page's settings; shown on every page but the home page. */
   pageSettings: HTMLElement;
+  /** The home page's notice after an update; see whats-new.ts. */
+  notice: HTMLElement;
   body: HTMLElement;
 }
 
@@ -110,6 +113,8 @@ export class HomeView extends ItemView implements HoverParent {
   private settingState = false;
   /** False until Obsidian first hands the view its state; see getDisplayText. */
   private stateApplied = false;
+  /** The releases the notice shows now, by version; redrawn only when they change. */
+  private noticeFor = "";
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -216,6 +221,7 @@ export class HomeView extends ItemView implements HoverParent {
     this.disposeDeks?.();
     this.disposeDeks = null;
     this.generation++;
+    this.noticeFor = "";
     this.shell = null;
     this.contentEl.empty();
   }
@@ -232,6 +238,7 @@ export class HomeView extends ItemView implements HoverParent {
     const count = page ? notesIn(this.app, test).length : 0;
     this.syncTab(page);
     this.paintHeader(shell, page, count);
+    this.paintNotice(shell, page);
     this.picker?.grid.paint();
     await this.recompose(shell, page, test, count);
   }
@@ -331,10 +338,13 @@ export class HomeView extends ItemView implements HoverParent {
     const recompose = button("Recompose", "refresh-cw", "hc-reload");
     recompose.addEventListener("click", () => void this.recomposeNow(recompose));
 
+    const notice = wrap.createDiv({ cls: "hc-update" });
+    notice.hide();
+
     const body = wrap.createDiv({ cls: "hc-body" });
     body.createDiv({ cls: "hc-loading", text: "Composing…" });
 
-    const shell = { root, search, greeting, dateline, toggles, pickerToggle, pageSettings, body };
+    const shell = { root, search, greeting, dateline, toggles, pickerToggle, pageSettings, notice, body };
     this.paintMode(shell);
     return shell;
   }
@@ -365,6 +375,23 @@ export class HomeView extends ItemView implements HoverParent {
     }
     if (page && (s.showNoteCount || !home)) bits.push(`${count} ${count === 1 ? "note" : "notes"}`);
     shell.dateline.setText(bits.join("  ·  "));
+  }
+
+  /**
+   * The notice after an update, on the home page only: other pages are
+   * about their notes, and the home page is where a reader starts.
+   */
+  private paintNotice(shell: Shell, page: ResolvedPage | null): void {
+    const { plugin } = this;
+    const notes = page?.isHome && plugin.settings.showReleaseNotes ? plugin.releaseNotes : [];
+    const key = notes.map((n) => n.version).join(" ");
+    if (key === this.noticeFor) return;
+    this.noticeFor = key;
+    shell.notice.toggle(notes.length > 0);
+    renderUpdateNotice(shell.notice, notes, {
+      open: () => plugin.showWhatsNew(),
+      dismiss: () => plugin.dismissReleaseNotes(),
+    });
   }
 
   /**

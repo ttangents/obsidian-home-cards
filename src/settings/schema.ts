@@ -324,6 +324,10 @@ export interface HomeCardsSettings {
   greetingName: string;
   showNoteCount: boolean;
   openOnStartup: boolean;
+  /** Show a notice on the home page after an update; see release-notes.ts. */
+  showReleaseNotes: boolean;
+  /** The newest release the reader has seen announced; "" before the first. */
+  lastShownVersion: string;
 
   defaultView: ViewMode;
   cardMinWidth: number;
@@ -428,6 +432,8 @@ export function defaultSettings(): HomeCardsSettings {
     greetingName: "",
     showNoteCount: true,
     openOnStartup: false,
+    showReleaseNotes: true,
+    lastShownVersion: "",
 
     defaultView: "grid",
     cardMinWidth: 262,

@@ -37,6 +37,7 @@ Home Cards gives your vault a start page that shows what is worth your attention
 - **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
 - **Your own backgrounds.** Add a PNG, JPEG, WebP or GIF from **Settings → Home Cards → Your backgrounds**, as a repeating pattern or a single picture, with a fade that sets how much of the theme's background covers it. Home Cards keeps a resized copy in its own plugin folder, so your vault gains no files or folders. Up to twelve images.
 - **A Bases view.** Any base can show its results as "Home cards", with one section per group. A base takes any filter Bases offers, and it is a file in your vault; a Home Cards page is not.
+- **What's new.** After an update, a line at the top of the home page names the new version and opens its release notes. Close it, or read the notes, and it goes away on every device that syncs your settings. **Settings → Home Cards → What's new** shows the notes for recent releases at any time, and **Announce updates** turns the line off.
 - **A greeting.** About 180 built-in greetings follow your local time of day, the day of the week and, optionally, fixed-date holidays, some in other languages, always in Latin script.
 
 ![Rows view, dark mode](docs/rows-dark.webp)
@@ -63,7 +64,7 @@ Home Cards requires Obsidian 1.13.1 or later and works on desktop and mobile.
 Every setting appears in Obsidian's settings search.
 
 - **General:** whether the home page opens at startup, the layout it opens in, whether a note may appear in more than one section, and how long a note must sit untouched before Rediscover offers it.
-- **General** also clears snoozes and passed-over notes.
+- **General** also clears snoozes and passed-over notes, turns update announcements on or off, and opens the release notes.
 - **Sections:** the sections, in page order. Drag a row to reorder it, use its toggle to show or hide it, and press its pencil to edit its source, card count, filters, conditions, sort order, card fields and image.
 - **Pages:** the pages you made. Each row opens the page or edits its name, what it is about, and whether it has sections of its own. A folder you never customized still opens a page, so it has no row here.
 - **Cards:** the corner glyph, the type label and the property it reads, the image properties, tags, the opening sentence and its length, and file size.
@@ -86,6 +87,7 @@ If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, se
 - **Home Cards: Create a page** opens the page editor, then the new page.
 - **Home Cards: Open [name] page** exists for each page you made, and takes a hotkey.
 - **Home Cards: Pin or unpin the current note** pins the note you are reading to Home.
+- **Home Cards: Show what's new** opens the release notes.
 
 ### Links
 
@@ -95,13 +97,14 @@ If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, se
 
 Home Cards makes no network requests, works with no files outside your vault, sends no data anywhere, shows no ads and needs no account. It reads your notes' metadata and the first paragraph of each note it shows. Card images come only from your vault; Home Cards passes over a property that holds a web address.
 
-On each device, Home Cards keeps three things in Obsidian's local storage, outside your synced settings:
+On each device, Home Cards keeps four things in Obsidian's local storage, outside your synced settings:
 
 - the paths of the last 100 notes you opened;
 - a log of when you opened notes over the last 30 days, at most 500 entries, with a visit count for up to 2,000 notes; Continue working, Related to recent work and Old friends read this log, and the log follows renames and forgets deleted notes;
-- which sections you folded.
+- which sections you folded;
+- the newest release whose notes you have seen, so an older settings file arriving by sync cannot announce it again.
 
-Pins, snoozes and passed-over notes sit in Home Cards' settings file, never in your notes. Home Cards changes a note only when you ask it to, with + on a section, a drop, **Move to** or **Set a property…**, and it makes the change through Obsidian.
+Pins, snoozes and passed-over notes sit in Home Cards' settings file, never in your notes, as does the newest release you have seen announced. The release notes ship inside the plugin; the What's new window loads nothing from the web, and its one link opens the releases page in your browser. Home Cards changes a note only when you ask it to, with + on a section, a drop, **Move to** or **Set a property…**, and it makes the change through Obsidian.
 
 When you add a background image, Home Cards decodes it, scales it down, and saves a copy without its metadata (such as camera and location) in a `backgrounds` folder inside its own plugin folder. It creates that folder with the first image and removes it with the last. Your original file stays where it is, and your vault's notes and attachments stay untouched.
 

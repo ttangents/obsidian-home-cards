@@ -31,9 +31,9 @@ Each layer imports only from the layers above it, and `settings/` and `compose/`
 
 | Layer | Directory | Holds |
 | --- | --- | --- |
-| Settings | `src/settings/` | The schema and registries, the normalizer for untrusted `data.json`, folder path rules, page rules |
+| Settings | `src/settings/` | The schema and registries, the normalizer for untrusted `data.json`, folder path rules, page rules, release notes and the rule for announcing them |
 | Compose | `src/compose/` | The domain: selection, ranking, projection, marks, activity, sessions, relationships, templates. Pure functions over a vault snapshot |
-| Render | `src/render/` | The page view, the Bases view, card DOM, card actions, pickers, keyboard |
+| Render | `src/render/` | The page view, the Bases view, card DOM, card actions, pickers, keyboard, the update notice and release notes window |
 | Settings tab | `src/settings-tab/` | The settings tab and its editors |
 | Wiring | `src/main.ts` | Lifecycle, events, commands, persistence |
 
@@ -67,6 +67,7 @@ Home Cards touches Obsidian in three places, each kept small:
 | Open history (paths) | Local storage, per device | Recently opened beyond Obsidian's last ten |
 | Activity (timed opens, visit counts) | Local storage, per device | Obsidian keeps no history of opens. Capped at 30 days or 500 opens, plus visit counts for 2000 notes |
 | Folded sections | Local storage, per device | A view preference |
+| Newest release seen | `data.json` and local storage | Synced, so one device's dismissal holds on all; local, so a stale synced copy cannot announce a release again. The later of the two wins |
 | Added background images | The plugin's own folder | Never the vault |
 
 Sessions, relationships and every ranking are derived on demand from these records and the metadata cache. Home Cards stores nothing it can recompute.

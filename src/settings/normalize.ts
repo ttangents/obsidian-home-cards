@@ -18,6 +18,7 @@
 import { CUSTOM_BACKGROUNDS, isCustomId, isStoredFileName } from "./custom-background";
 import { normalizeFolderPath } from "./folders";
 import { legacyFolderPageId, suggestPageName, uniquePageName } from "./pages";
+import { laterVersion } from "./release-notes";
 import {
   BACKGROUND_FITS,
   BACKGROUNDS,
@@ -331,6 +332,9 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
     greetingName: str(r.greetingName, d.greetingName),
     showNoteCount: bool(r.showNoteCount, d.showNoteCount),
     openOnStartup: bool(r.openOnStartup, d.openOnStartup),
+    showReleaseNotes: bool(r.showReleaseNotes, d.showReleaseNotes),
+    // Anything but a plain version reads as no marker.
+    lastShownVersion: laterVersion(str(r.lastShownVersion, ""), d.lastShownVersion),
 
     defaultView: choice(VIEW_MODES, r.defaultView, d.defaultView),
     cardMinWidth: int(r.cardMinWidth, d.cardMinWidth, LIMITS.cardMinWidth),

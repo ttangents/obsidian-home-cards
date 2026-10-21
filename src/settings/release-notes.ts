@@ -55,6 +55,15 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.32.2",
+    date: "2026-10-21",
+    headline: "Republishes 1.32.1 with its plugin files attached.",
+    announce: false,
+    fixed: [
+      "The 1.32.1 release went out without its plugin files, so Obsidian could not install it. This release carries the same code with the files attached.",
+    ],
+  },
+  {
     version: "1.32.1",
     date: "2026-10-21",
     headline: "Pinned sections lead the page and stay hidden until you pin a note.",

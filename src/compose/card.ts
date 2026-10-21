@@ -28,6 +28,12 @@ export interface CardItem {
   /** Resource URL of the card's image; null when it shows none. */
   image: string | null;
   imageMode: CardImage;
+  /**
+   * What the section shows for images, whether or not this note has one.
+   * A card without its own image keeps the place with a lettered tile, so
+   * every card in a section lines up.
+   */
+  imageSlot: CardImage;
   /** Lowercased haystack for the view's filter box. */
   search: string;
 }
@@ -97,6 +103,7 @@ export async function buildCard(ctx: CardContext, file: TFile, lead?: string): P
     meta,
     image,
     imageMode: image ? ctx.image : "none",
+    imageSlot: ctx.imageUrl ? ctx.image : "none",
     search: [file.basename, rubric, dek ?? "", meta, ...tags].join(" ").toLowerCase(),
   };
 }

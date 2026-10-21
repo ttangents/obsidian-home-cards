@@ -865,6 +865,24 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
   gap: var(--size-4-3);
 }
 
+/* In the grid, the head is two rows on one left edge: the glyph or
+   thumbnail beside the title, then the pill row under both, flush
+   with the card's edge as the summary and footer are. The headtext
+   steps aside (display: contents) so the title and pills place
+   themselves on the head's grid; the rows layout keeps its one line
+   (70-rows.css). */
+.home-cards[data-view="grid"] .hc-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--size-4-3);
+}
+.home-cards[data-view="grid"] .hc-card:is(.has-glyph, .has-thumb) .hc-card-head {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--size-4-3);
+}
+.home-cards[data-view="grid"] .hc-card-headtext { display: contents; }
+.home-cards[data-view="grid"] .hc-pills { grid-column: 1 / -1; }
+
 .hc-title {
   font-family: var(--h3-font);
   font-size: var(--h3-size);
@@ -881,8 +899,10 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
    A cover runs edge to edge across the top of the card; a
    thumbnail takes the glyph's place beside the title. Both
    crop to fill their box, so images of any shape keep the
-   grid even. Rows show thumbnails only: a cover would break
-   the list into tiles.
+   grid even. A note without an image, in a section that
+   shows them, gets a tile with its initial in the same
+   place. Rows show every section's images as thumbnails
+   (70-rows.css): a cover would break the list into tiles.
    ---------------------------------------------------------- */
 
 .hc-card.has-cover {
@@ -908,21 +928,43 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
   object-position: center top;
 }
 
+/* A thumbnail is exactly two title lines tall, and the title, held to
+   two lines, centers beside it. Every thumbnail card's head is then
+   the same height, so across a row the pills, summaries and footers
+   start on one line whatever the titles' lengths. */
 .hc-thumb {
   flex: none;
-  width: 2.75em;
-  height: 2.75em;
+  font-size: var(--h3-size);
+  line-height: var(--h3-line-height);
+  width: 2lh;
+  height: 2lh;
   border-radius: var(--radius-s);
   object-fit: cover;
   background: var(--background-modifier-hover);
 }
+.hc-thumb.is-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-family: var(--h3-font);
+}
+.hc-thumb.is-tile .svg-icon {
+  width: 50%;
+  height: 50%;
+}
+/* A cover card keeps its thumbnail for the rows layout only. */
+.home-cards[data-view="grid"] .hc-card:not(.has-thumb) .hc-thumb { display: none; }
+.home-cards[data-view="grid"] .hc-card.has-thumb .hc-title {
+  align-self: center;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 
 .home-cards[data-view="rows"] .hc-cover { display: none; }
 .home-cards[data-view="rows"] .hc-card.has-cover { padding-top: var(--size-4-3); }
-.home-cards[data-view="rows"] .hc-thumb {
-  width: var(--hc-row-glyph);
-  height: var(--hc-row-glyph);
-}
 /* --- Pills (type badge + tags) ---------------------------
    Type and tags are one wrapping row of the same pill. The
    type pill is filled: with the accent, or with muted text
@@ -1124,6 +1166,40 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
   border: var(--border-width) solid var(--hc-hair);
   border-radius: var(--radius-m);
   padding: 0 var(--size-4-3);
+}
+
+/* A section that shows images leads each row with a square as tall
+   as the row's two lines, centered on them, in a column of its own:
+   title, sentence and type label then share one left edge in every
+   row of the section. The head steps aside so the image and the
+   title place themselves on the row's grid. */
+.home-cards[data-view="rows"] .hc-grid {
+  --hc-row-media: calc(
+    var(--font-ui-medium) * var(--line-height-tight) + var(--size-2-1) +
+      var(--font-ui-small) * var(--line-height-normal)
+  );
+}
+.home-cards[data-view="rows"] .hc-card.has-media {
+  grid-template-columns: var(--hc-row-media) minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "media head foot"
+    "media dek  dek";
+}
+.home-cards[data-view="rows"] .hc-card.has-media .hc-card-head { display: contents; }
+.home-cards[data-view="rows"] .hc-card.has-media .hc-card-headtext { grid-area: head; }
+.home-cards[data-view="rows"] .hc-thumb {
+  grid-area: media;
+  align-self: center;
+  width: var(--hc-row-media);
+  height: var(--hc-row-media);
+  font-size: var(--font-ui-medium);
+}
+/* A row without a sentence is one line; its image shrinks to it. */
+.home-cards[data-view="rows"] .hc-card.has-media:has(.hc-dek.is-empty) .hc-thumb,
+.home-cards[data-view="rows"] .hc-card.has-media:not(:has(.hc-dek)) .hc-thumb {
+  grid-row: 1;
+  width: calc(var(--font-ui-medium) * var(--line-height-tight));
+  height: calc(var(--font-ui-medium) * var(--line-height-tight));
 }
 
 /* Phones: no glyph; the sentence runs the full width. */

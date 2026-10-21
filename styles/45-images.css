@@ -2,8 +2,10 @@
    A cover runs edge to edge across the top of the card; a
    thumbnail takes the glyph's place beside the title. Both
    crop to fill their box, so images of any shape keep the
-   grid even. Rows show thumbnails only: a cover would break
-   the list into tiles.
+   grid even. A note without an image, in a section that
+   shows them, gets a tile with its initial in the same
+   place. Rows show every section's images as thumbnails
+   (70-rows.css): a cover would break the list into tiles.
    ---------------------------------------------------------- */
 
 .hc-card.has-cover {
@@ -29,18 +31,40 @@
   object-position: center top;
 }
 
+/* A thumbnail is exactly two title lines tall, and the title, held to
+   two lines, centers beside it. Every thumbnail card's head is then
+   the same height, so across a row the pills, summaries and footers
+   start on one line whatever the titles' lengths. */
 .hc-thumb {
   flex: none;
-  width: 2.75em;
-  height: 2.75em;
+  font-size: var(--h3-size);
+  line-height: var(--h3-line-height);
+  width: 2lh;
+  height: 2lh;
   border-radius: var(--radius-s);
   object-fit: cover;
   background: var(--background-modifier-hover);
 }
+.hc-thumb.is-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-family: var(--h3-font);
+}
+.hc-thumb.is-tile .svg-icon {
+  width: 50%;
+  height: 50%;
+}
+/* A cover card keeps its thumbnail for the rows layout only. */
+.home-cards[data-view="grid"] .hc-card:not(.has-thumb) .hc-thumb { display: none; }
+.home-cards[data-view="grid"] .hc-card.has-thumb .hc-title {
+  align-self: center;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 
 .home-cards[data-view="rows"] .hc-cover { display: none; }
 .home-cards[data-view="rows"] .hc-card.has-cover { padding-top: var(--size-4-3); }
-.home-cards[data-view="rows"] .hc-thumb {
-  width: var(--hc-row-glyph);
-  height: var(--hc-row-glyph);
-}

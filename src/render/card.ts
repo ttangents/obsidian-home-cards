@@ -69,6 +69,27 @@ function renderImage(parent: HTMLElement, src: string, onFail: () => void): HTML
   return img;
 }
 
+/**
+ * The card's media beside its title: the note's image, or, for a note
+ * without one, a tile with its type icon or initial in the same place.
+ * An image that fails to load becomes the tile.
+ */
+function renderMedia(head: HTMLElement, card: CardItem): void {
+  const tile = () => {
+    const el = createSpan({ cls: "hc-thumb is-tile", attr: { "aria-hidden": "true" } });
+    if (card.icon) setIcon(el, card.icon);
+    if (!el.firstElementChild) el.setText(card.title.charAt(0).toUpperCase());
+    return el;
+  };
+  if (!card.image) {
+    head.prepend(tile());
+    return;
+  }
+  const img = renderImage(head, card.image, () => img.replaceWith(tile()));
+  img.addClass("hc-thumb");
+  head.prepend(img);
+}
+
 function renderGlyph(head: HTMLElement, card: CardItem): HTMLElement {
   const glyph = head.createSpan({ cls: "hc-glyph" });
   if (card.icon) {
@@ -125,9 +146,14 @@ function renderCard(
   dragFrom: string | null
 ): HTMLElement {
   const el = parent.createEl("article", { cls: "hc-card" });
-  const thumb = card.image !== null && card.imageMode === "thumbnail";
-  // Lets the rows layout indent the sentence under a glyph or thumbnail.
-  el.toggleClass("has-glyph", opts.showGlyph || thumb);
+  // Every card in a section that shows images has media beside its title:
+  // the grid shows it for thumbnails, and the rows layout for covers too,
+  // since a cover would break the list into tiles. Without media, the
+  // glyph setting decides.
+  const media = card.imageSlot !== "none";
+  el.toggleClass("has-media", media);
+  el.toggleClass("has-thumb", card.imageSlot === "thumbnail");
+  el.toggleClass("has-glyph", !media && opts.showGlyph);
   el.dataset.search = card.search;
   el.dataset.hcPath = card.file.path;
   el.tabIndex = 0;
@@ -141,16 +167,9 @@ function renderCard(
     });
   }
   const head = el.createDiv({ cls: "hc-card-head" });
-  if (thumb && card.image) {
-    renderImage(head, card.image, () => {
-      // An image that fails to load gives its place back to the glyph.
-      head.find(".hc-thumb")?.remove();
-      if (opts.showGlyph) head.prepend(renderGlyph(head, card));
-    }).addClass("hc-thumb");
-  } else if (opts.showGlyph) {
-    renderGlyph(head, card);
-  }
   const text = head.createDiv({ cls: "hc-card-headtext" });
+  if (media) renderMedia(head, card);
+  else if (opts.showGlyph) head.prepend(renderGlyph(head, card));
   text.createEl("h3", { cls: "hc-title", text: card.title });
   renderPills(text, card, opts);
 

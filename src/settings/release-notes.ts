@@ -74,6 +74,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     improved: [
       "Home Cards now uses only Obsidian's public API, which makes it less likely to break when Obsidian updates.",
       "Cover images crop from the top, so book titles and faces stay in view.",
+      "Cards with thumbnails line up across a row: the pills, summaries and footers start at the same height whatever the length of the titles. In the rows layout, images sit in a column of their own.",
       "Settings from earlier versions load unchanged, and every new section type starts switched off.",
     ],
   },

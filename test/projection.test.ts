@@ -90,9 +90,11 @@ test("a section's fields and image shape its cards; without them the footer stay
   const plain = await buildCard({ ...ctx, image: "thumbnail" }, v.file("Books/Plain.md"));
   assert.equal(plain.image, null);
   assert.equal(plain.imageMode, "none", "a card without an image shows none, whatever the section asks");
+  assert.equal(plain.imageSlot, "thumbnail", "it still keeps the section's image place, for a tile");
   const old = await buildCard({ ...ctx, fields: [], image: "none" }, v.file("Books/Infinity.md"));
   assert.equal(old.meta, "");
   assert.equal(old.image, null);
+  assert.equal(old.imageSlot, "none");
   assert.deepEqual(projectFields(v.file("Books/Plain.md"), snap.cacheOf(v.file("Books/Plain.md")), ["author", "missing"], NOW), ["Anon"]);
 });
 

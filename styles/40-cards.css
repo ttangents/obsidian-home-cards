@@ -90,6 +90,24 @@
   gap: var(--size-4-3);
 }
 
+/* In the grid, the head is two rows on one left edge: the glyph or
+   thumbnail beside the title, then the pill row under both, flush
+   with the card's edge as the summary and footer are. The headtext
+   steps aside (display: contents) so the title and pills place
+   themselves on the head's grid; the rows layout keeps its one line
+   (70-rows.css). */
+.home-cards[data-view="grid"] .hc-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--size-4-3);
+}
+.home-cards[data-view="grid"] .hc-card:is(.has-glyph, .has-thumb) .hc-card-head {
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--size-4-3);
+}
+.home-cards[data-view="grid"] .hc-card-headtext { display: contents; }
+.home-cards[data-view="grid"] .hc-pills { grid-column: 1 / -1; }
+
 .hc-title {
   font-family: var(--h3-font);
   font-size: var(--h3-size);

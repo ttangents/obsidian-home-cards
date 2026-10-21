@@ -124,6 +124,40 @@
   padding: 0 var(--size-4-3);
 }
 
+/* A section that shows images leads each row with a square as tall
+   as the row's two lines, centered on them, in a column of its own:
+   title, sentence and type label then share one left edge in every
+   row of the section. The head steps aside so the image and the
+   title place themselves on the row's grid. */
+.home-cards[data-view="rows"] .hc-grid {
+  --hc-row-media: calc(
+    var(--font-ui-medium) * var(--line-height-tight) + var(--size-2-1) +
+      var(--font-ui-small) * var(--line-height-normal)
+  );
+}
+.home-cards[data-view="rows"] .hc-card.has-media {
+  grid-template-columns: var(--hc-row-media) minmax(0, 1fr) max-content;
+  grid-template-areas:
+    "media head foot"
+    "media dek  dek";
+}
+.home-cards[data-view="rows"] .hc-card.has-media .hc-card-head { display: contents; }
+.home-cards[data-view="rows"] .hc-card.has-media .hc-card-headtext { grid-area: head; }
+.home-cards[data-view="rows"] .hc-thumb {
+  grid-area: media;
+  align-self: center;
+  width: var(--hc-row-media);
+  height: var(--hc-row-media);
+  font-size: var(--font-ui-medium);
+}
+/* A row without a sentence is one line; its image shrinks to it. */
+.home-cards[data-view="rows"] .hc-card.has-media:has(.hc-dek.is-empty) .hc-thumb,
+.home-cards[data-view="rows"] .hc-card.has-media:not(:has(.hc-dek)) .hc-thumb {
+  grid-row: 1;
+  width: calc(var(--font-ui-medium) * var(--line-height-tight));
+  height: calc(var(--font-ui-medium) * var(--line-height-tight));
+}
+
 /* Phones: no glyph; the sentence runs the full width. */
 body.is-phone .home-cards[data-view="rows"] .hc-glyph { display: none; }
 body.is-phone .home-cards[data-view="rows"] .hc-card.has-glyph .hc-dek { padding-inline-start: 0; }

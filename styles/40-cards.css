@@ -79,23 +79,13 @@
   width: 1em;
   height: 1em;
 }
-/* The headtext stacks the title over its pill row on the same card
-   rhythm; the head sits at the top of the card, so its gap to the
-   summary is the card's own gap. */
-.hc-card-headtext {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--size-4-3);
-}
 
 /* In the grid, the head is two rows on one left edge: the glyph or
    thumbnail beside the title, then the pill row under both, flush
-   with the card's edge as the summary and footer are. The headtext
-   steps aside (display: contents) so the title and pills place
-   themselves on the head's grid; the rows layout keeps its one line
-   (70-rows.css). */
+   with the card's edge as the summary and footer are. The head
+   holds the three as siblings, so each takes its own cell; the rows
+   layout runs them along one line instead (70-rows.css). The head's
+   row gap matches the card's own rhythm. */
 .home-cards[data-view="grid"] .hc-card-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -103,9 +93,7 @@
 }
 .home-cards[data-view="grid"] .hc-card:is(.has-glyph, .has-thumb) .hc-card-head {
   grid-template-columns: auto minmax(0, 1fr);
-  column-gap: var(--size-4-3);
 }
-.home-cards[data-view="grid"] .hc-card-headtext { display: contents; }
 .home-cards[data-view="grid"] .hc-pills { grid-column: 1 / -1; }
 
 .hc-title {

@@ -134,6 +134,7 @@ function renderDek(el: HTMLElement, card: CardItem): void {
 export function settleDek(el: HTMLElement, dek: string): void {
   delete el.dataset.hcPending;
   el.toggleClass("is-empty", !dek);
+  el.closest(".hc-card")?.toggleClass("no-dek", !dek);
   el.setText(dek || NO_DEK);
 }
 
@@ -166,14 +167,17 @@ function renderCard(
       el.removeClass("has-cover");
     });
   }
+  // One flat head: media or glyph, title, pills. Each layout places them
+  // on its own grid or line (40-cards.css, 70-rows.css).
   const head = el.createDiv({ cls: "hc-card-head" });
-  const text = head.createDiv({ cls: "hc-card-headtext" });
+  head.createEl("h3", { cls: "hc-title", text: card.title });
+  renderPills(head, card, opts);
   if (media) renderMedia(head, card);
   else if (opts.showGlyph) head.prepend(renderGlyph(head, card));
-  text.createEl("h3", { cls: "hc-title", text: card.title });
-  renderPills(text, card, opts);
 
   if (opts.showDeks) renderDek(el, card);
+  // A card known to have no sentence; the rows layout sizes its image to one line.
+  el.toggleClass("no-dek", !opts.showDeks || card.dek === "");
   if (card.meta) el.createEl("footer", { cls: "hc-foot", text: card.meta });
 
   const go = (evt: MouseEvent | KeyboardEvent) => actions.open(card.file, paneFor(evt));

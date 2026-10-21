@@ -49,21 +49,18 @@
 .home-cards[data-view="rows"] .hc-card-head {
   grid-area: head;
   align-items: baseline;
-  gap: var(--hc-row-gap);
+  gap: var(--size-4-2);
   min-width: 0;
 }
 .home-cards[data-view="rows"] .hc-glyph {
+  /* With the head's gap, the glyph's column is as wide as the
+     sentence's indent below it. */
+  margin-inline-end: calc(var(--hc-row-gap) - var(--size-4-2));
   width: var(--hc-row-glyph);
   height: auto;
   background: transparent;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
-}
-.home-cards[data-view="rows"] .hc-card-headtext {
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--size-4-2);
-  min-width: 0;
 }
 /* In the index the type label runs inline with the title as plain
    text (a filled pill would be too loud on one line), and the tags
@@ -127,8 +124,8 @@
 /* A section that shows images leads each row with a square as tall
    as the row's two lines, centered on them, in a column of its own:
    title, sentence and type label then share one left edge in every
-   row of the section. The head steps aside so the image and the
-   title place themselves on the row's grid. */
+   row of the section. The row's padding makes the column, and the
+   image sits in it, centered on the row's height. */
 .home-cards[data-view="rows"] .hc-grid {
   --hc-row-media: calc(
     var(--font-ui-medium) * var(--line-height-tight) + var(--size-2-1) +
@@ -136,24 +133,21 @@
   );
 }
 .home-cards[data-view="rows"] .hc-card.has-media {
-  grid-template-columns: var(--hc-row-media) minmax(0, 1fr) max-content;
-  grid-template-areas:
-    "media head foot"
-    "media dek  dek";
+  position: relative;
+  padding-inline-start: calc(var(--size-4-2) + var(--hc-row-media) + var(--hc-row-gap));
 }
-.home-cards[data-view="rows"] .hc-card.has-media .hc-card-head { display: contents; }
-.home-cards[data-view="rows"] .hc-card.has-media .hc-card-headtext { grid-area: head; }
 .home-cards[data-view="rows"] .hc-thumb {
-  grid-area: media;
-  align-self: center;
+  position: absolute;
+  inset-inline-start: var(--size-4-2);
+  top: 50%;
+  translate: 0 -50%;
   width: var(--hc-row-media);
   height: var(--hc-row-media);
   font-size: var(--font-ui-medium);
 }
-/* A row without a sentence is one line; its image shrinks to it. */
-.home-cards[data-view="rows"] .hc-card.has-media:has(.hc-dek.is-empty) .hc-thumb,
-.home-cards[data-view="rows"] .hc-card.has-media:not(:has(.hc-dek)) .hc-thumb {
-  grid-row: 1;
+/* A row without a sentence is one line; its image shrinks to that
+   line and keeps the column's left edge. */
+.home-cards[data-view="rows"] .hc-card.no-dek .hc-thumb {
   width: calc(var(--font-ui-medium) * var(--line-height-tight));
   height: calc(var(--font-ui-medium) * var(--line-height-tight));
 }

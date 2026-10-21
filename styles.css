@@ -854,23 +854,13 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
   width: 1em;
   height: 1em;
 }
-/* The headtext stacks the title over its pill row on the same card
-   rhythm; the head sits at the top of the card, so its gap to the
-   summary is the card's own gap. */
-.hc-card-headtext {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--size-4-3);
-}
 
 /* In the grid, the head is two rows on one left edge: the glyph or
    thumbnail beside the title, then the pill row under both, flush
-   with the card's edge as the summary and footer are. The headtext
-   steps aside (display: contents) so the title and pills place
-   themselves on the head's grid; the rows layout keeps its one line
-   (70-rows.css). */
+   with the card's edge as the summary and footer are. The head
+   holds the three as siblings, so each takes its own cell; the rows
+   layout runs them along one line instead (70-rows.css). The head's
+   row gap matches the card's own rhythm. */
 .home-cards[data-view="grid"] .hc-card-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -878,9 +868,7 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
 }
 .home-cards[data-view="grid"] .hc-card:is(.has-glyph, .has-thumb) .hc-card-head {
   grid-template-columns: auto minmax(0, 1fr);
-  column-gap: var(--size-4-3);
 }
-.home-cards[data-view="grid"] .hc-card-headtext { display: contents; }
 .home-cards[data-view="grid"] .hc-pills { grid-column: 1 / -1; }
 
 .hc-title {
@@ -1093,21 +1081,18 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
 .home-cards[data-view="rows"] .hc-card-head {
   grid-area: head;
   align-items: baseline;
-  gap: var(--hc-row-gap);
+  gap: var(--size-4-2);
   min-width: 0;
 }
 .home-cards[data-view="rows"] .hc-glyph {
+  /* With the head's gap, the glyph's column is as wide as the
+     sentence's indent below it. */
+  margin-inline-end: calc(var(--hc-row-gap) - var(--size-4-2));
   width: var(--hc-row-glyph);
   height: auto;
   background: transparent;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
-}
-.home-cards[data-view="rows"] .hc-card-headtext {
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--size-4-2);
-  min-width: 0;
 }
 /* In the index the type label runs inline with the title as plain
    text (a filled pill would be too loud on one line), and the tags
@@ -1171,8 +1156,8 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
 /* A section that shows images leads each row with a square as tall
    as the row's two lines, centered on them, in a column of its own:
    title, sentence and type label then share one left edge in every
-   row of the section. The head steps aside so the image and the
-   title place themselves on the row's grid. */
+   row of the section. The row's padding makes the column, and the
+   image sits in it, centered on the row's height. */
 .home-cards[data-view="rows"] .hc-grid {
   --hc-row-media: calc(
     var(--font-ui-medium) * var(--line-height-tight) + var(--size-2-1) +
@@ -1180,24 +1165,21 @@ body.is-phone .hc-update-open { margin-inline-start: calc(var(--icon-s) + var(--
   );
 }
 .home-cards[data-view="rows"] .hc-card.has-media {
-  grid-template-columns: var(--hc-row-media) minmax(0, 1fr) max-content;
-  grid-template-areas:
-    "media head foot"
-    "media dek  dek";
+  position: relative;
+  padding-inline-start: calc(var(--size-4-2) + var(--hc-row-media) + var(--hc-row-gap));
 }
-.home-cards[data-view="rows"] .hc-card.has-media .hc-card-head { display: contents; }
-.home-cards[data-view="rows"] .hc-card.has-media .hc-card-headtext { grid-area: head; }
 .home-cards[data-view="rows"] .hc-thumb {
-  grid-area: media;
-  align-self: center;
+  position: absolute;
+  inset-inline-start: var(--size-4-2);
+  top: 50%;
+  translate: 0 -50%;
   width: var(--hc-row-media);
   height: var(--hc-row-media);
   font-size: var(--font-ui-medium);
 }
-/* A row without a sentence is one line; its image shrinks to it. */
-.home-cards[data-view="rows"] .hc-card.has-media:has(.hc-dek.is-empty) .hc-thumb,
-.home-cards[data-view="rows"] .hc-card.has-media:not(:has(.hc-dek)) .hc-thumb {
-  grid-row: 1;
+/* A row without a sentence is one line; its image shrinks to that
+   line and keeps the column's left edge. */
+.home-cards[data-view="rows"] .hc-card.no-dek .hc-thumb {
   width: calc(var(--font-ui-medium) * var(--line-height-tight));
   height: calc(var(--font-ui-medium) * var(--line-height-tight));
 }

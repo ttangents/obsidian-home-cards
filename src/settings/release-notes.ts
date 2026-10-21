@@ -57,8 +57,11 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
     version: "1.32.1",
     date: "2026-10-21",
-    headline: "Simpler card styles, with no change to how cards look.",
+    headline: "Pinned sections lead the page and stay hidden until you pin a note.",
     announce: false,
+    changed: [
+      "A Pinned section always comes first on its page, wherever it sits in the section list, and claims its notes before any other section. It stays hidden while you have no pins.",
+    ],
     improved: [
       "Home Cards lays out card headers and image rows with simpler styles, which clear the warnings from Obsidian's automated review. Cards look as they did in 1.32.0.",
     ],

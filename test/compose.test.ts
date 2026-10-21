@@ -167,3 +167,17 @@ test("Rediscover draws untouched notes in an order that holds for a day", async 
   assert.notEqual(order(morning), order(tomorrow), "reshuffled the next day");
   assert.match(morning[0].cards[0].meta, /^Untouched for \d+ months/);
 });
+
+test("Pinned sections lead the page wherever the list puts them", async () => {
+  const settings = { ...defaultSettings(), dedupe: true, marks: { pinned: ["c.md"], snoozed: {}, quiet: [] } };
+  const list = [
+    section({ id: "mod", kind: "recent-modified", count: 2 }),
+    section({ id: "off", kind: "pinned", enabled: false }),
+    section({ id: "pins", kind: "pinned" }),
+  ];
+  const composed = await composeSections(v.app, settings, { sections: list });
+  assert.deepEqual(composed.map((c) => c.config.id), ["pins", "mod"]);
+  // The pin claims c.md first, so Recently modified moves on to the next notes.
+  assert.deepEqual(composed[0].cards.map((c) => c.file.path), ["c.md"]);
+  assert.deepEqual(composed[1].cards.map((c) => c.file.path), ["d.md", "a.md"]);
+});

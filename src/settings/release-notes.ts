@@ -55,6 +55,15 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.32.1",
+    date: "2026-10-21",
+    headline: "Simpler card styles, with no change to how cards look.",
+    announce: false,
+    improved: [
+      "Home Cards lays out card headers and image rows with simpler styles, which clear the warnings from Obsidian's automated review. Cards look as they did in 1.32.0.",
+    ],
+  },
+  {
     version: "1.32.0",
     date: "2026-10-20",
     headline:

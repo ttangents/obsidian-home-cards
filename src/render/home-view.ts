@@ -521,6 +521,8 @@ export class HomeView extends ItemView implements HoverParent {
     };
     // An empty section that takes moves stays, as a place to move cards to.
     if (!page.isHome) sections = sections.filter((s) => s.cards.length > 0 || takesMoves(s.config.id));
+    // A Pinned section shows only while it has pins to show, on every page.
+    sections = sections.filter((s) => s.config.kind !== "pinned" || s.cards.length > 0);
 
     // Built detached, then swapped in whole: no intermediate empty state.
     const next = createDiv();
@@ -686,7 +688,6 @@ export class HomeView extends ItemView implements HoverParent {
 
 /** What an empty section says when its source explains the emptiness better than "no matches". */
 const EMPTY_BY_KIND: Partial<Record<SectionConfig["kind"], string>> = {
-  pinned: "Pin notes here from a card's menu, or from a note's menu anywhere in Obsidian.",
   continue: "Notes you open on this device appear here, grouped by work session.",
   related: "Notes linked to what you open appear here.",
 };

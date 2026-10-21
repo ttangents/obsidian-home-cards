@@ -32,5 +32,6 @@ export function sectionSummary(cfg: SectionConfig): string {
     bits.push(`where ${describeCondition(conditions[0])}${more}`);
   }
   bits.push(cards);
+  if (cfg.kind === "pinned") bits.push("always first, hidden without pins");
   return bits.join(" · ");
 }

@@ -30,7 +30,7 @@ import { addChoices } from "./widgets";
 
 /** What a source draws on, where that is not obvious from its name. */
 const SOURCE_NOTES: Partial<Record<SectionKind, string>> = {
-  pinned: "Notes you pin from a card's menu, the latest pin first.",
+  pinned: "Notes you pin from a card's menu, the latest pin first. A Pinned section always leads the page, and it stays hidden while you have no pins.",
   continue: "Your latest work session on this device, then notes edited during it, then the session before.",
   related: "Notes linked to what you opened most recently, or sharing links or tags with it.",
   "recent-opened": "Notes opened on this device, the latest first.",

@@ -28,6 +28,17 @@ export interface ComposedSection {
 /** "See more" can reveal this many pages of `count` cards beyond the first. */
 export const MORE_PAGES = 3;
 
+/**
+ * The enabled sections in page order: Pinned sections first, wherever the
+ * list puts them, then the rest in list order. Pins are what the reader
+ * chose to keep in view, so they lead the page and claim their notes
+ * before any other section does.
+ */
+export function pageOrder(sections: readonly SectionConfig[]): SectionConfig[] {
+  const enabled = sections.filter((cfg) => cfg.enabled);
+  return [...enabled.filter((cfg) => cfg.kind === "pinned"), ...enabled.filter((cfg) => cfg.kind !== "pinned")];
+}
+
 /** Typify icons when the glyph setting asks for them, else none. */
 export async function iconsFor(
   app: App,
@@ -61,7 +72,7 @@ export async function composeSections(
   const icons = await iconsFor(app, settings);
   const vault = new VaultSnapshot(app, now, opened, scope, activity);
   const taken = new Set<string>();
-  const sections = pageSections.filter((cfg) => cfg.enabled);
+  const sections = pageOrder(pageSections);
 
   // First pass: each section claims its visible cards, in order, so
   // section order sets precedence.

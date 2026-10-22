@@ -241,7 +241,7 @@ export interface SectionOptions {
   /** Lets cards be dragged out; the id tells a drop where they came from. */
   dragId?: string;
   /** Accepts dropped cards, making the stated change to each. */
-  drop?: { hint: string; run: (path: string) => void };
+  drop?: { hint: string; run: (path: string, fromSection: string) => void };
 }
 
 /**
@@ -366,7 +366,7 @@ function acceptDrops(section: HTMLElement, sectionId: string, drop: NonNullable<
     clear();
     if (!from || !accepts(evt)) return;
     evt.preventDefault();
-    drop.run(from.path);
+    drop.run(from.path, from.sectionId);
   });
   section.addEventListener("dragend", clear);
 }

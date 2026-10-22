@@ -12,7 +12,7 @@ This document records the rules the code follows, the shape that results, and th
 
 **Facts about a note belong in the note; preferences about presenting it belong in Home Cards.** A note's status, due date and cover image are facts. A pin, a snooze or "don't rediscover" is presentation state, so it lives in `data.json` and leaves the note untouched.
 
-**Integrations go through public APIs or shared vault data.** Home Cards reaches another plugin only through an API that plugin documents, or through vault data both understand. The Typify icon reader predates this rule. It stays because it is opt-in, read-only and fails to nothing, and it sits alone in `src/compose/legacy-typify.ts`, marked as a pattern not to copy.
+**Integrations go through public APIs or shared vault data.** Home Cards reaches another plugin only through an API that plugin documents, or through vault data both understand. Relate is the model: it hands its documented API over public workspace events (`relate:ready`, answered on `relate:request`; `relate:changed`; `relate:unload`), `compose/relate.ts` checks the contract version and every method before use, and each Relate call is guarded so a failure empties one section. Sources and strategies that need Relate carry `needs: "relate"` in their registries; the editor offers them only while Relate runs, and stored settings keep them when it does not. The Typify icon reader predates this rule. It stays because it is opt-in, read-only and fails to nothing, and it sits alone in `src/compose/legacy-typify.ts`, marked as a pattern not to copy.
 
 **Omission beats compromise.** A feature that needs a private API waits until Obsidian offers a public one.
 
@@ -56,7 +56,7 @@ Home Cards touches Obsidian in three places, each kept small:
 - **A complete section** creates notes from its + button and accepts dropped cards (see `sectionWrite` in `compose/templates.ts`). A section is complete when the facts it states as exact values are enough to make a note belong there. A section that states nothing exact, or that selects by activity, age, pins or links, accepts no changes.
 - **Keyboard** controls run through the view's own `Scope`.
 
-**Surface** decides where cards appear: the home page, named pages, and the Bases view. A page is a composition of sections over a scope. A whole-vault page with its own sections serves as a second home view. The Bases view shares card rendering but keeps Bases as its query engine, and Home Cards never uses Bases internally.
+**Surface** decides where cards appear: the home page, named pages, and the Bases view. A page is a composition of sections over a scope. A whole-vault page with its own sections serves as a second home view. A note's page has no record: `compose/note-page.ts` makes its sections from the note's links, and from Relate's relationships when Relate runs, each time it is drawn. The Bases view shares card rendering but keeps Bases as its query engine, and Home Cards never uses Bases internally.
 
 ## State
 

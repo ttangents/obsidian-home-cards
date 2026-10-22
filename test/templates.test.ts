@@ -103,3 +103,30 @@ test("sources that select by activity or age take no new notes", () => {
   assert.ok(!acceptsMoves(bare), "a section that states nothing has no change to make");
   assert.ok(!sectionWrite(blankSection({ id: "s", kind: "property", propertyKey: "status" }), NOW).complete, "a key without a value");
 });
+
+test("a list gains a moved card's value and keeps its other members", async () => {
+  const { mergeValue, describeChanges } = await import("../src/compose/templates");
+  assert.deepEqual(mergeValue(["[[Atlas]]", "[[Q2 Plan]]"], "[[Q3 Plan]]"), { next: ["[[Atlas]]", "[[Q2 Plan]]", "[[Q3 Plan]]"], change: "added" });
+  assert.deepEqual(mergeValue(["[[Q3 Plan|Plan]]"], "Q3 Plan").change, "unchanged");
+  assert.deepEqual(mergeValue("waiting", "active"), { next: "active", change: "set" });
+  assert.deepEqual(mergeValue("[[Q3 Plan]]", "[[Q3 Plan]]").change, "unchanged");
+  assert.deepEqual(mergeValue(undefined, 4), { next: 4, change: "set" });
+  assert.deepEqual(mergeValue([], "x"), { next: ["x"], change: "added" });
+  assert.equal(
+    describeChanges([{ key: "project", value: "[[Q3 Plan]]", change: "added" }, { key: "status", value: "active", change: "set" }], ["reading"]),
+    "Added Q3 Plan to project, set status to active and added #reading"
+  );
+  assert.equal(describeChanges([{ key: "status", value: "x", change: "unchanged" }], []), "");
+});
+
+test("a card moved between sections swaps the value the first section stated", async () => {
+  const { mergeValue, describeChanges, plainValue } = await import("../src/compose/templates");
+  assert.deepEqual(mergeValue(["waiting"], "active", "waiting"), { next: ["active"], change: "replaced" });
+  assert.deepEqual(mergeValue(["[[A]]", "[[B]]"], "[[C]]", "[[A]]"), { next: ["[[B]]", "[[C]]"], change: "replaced" });
+  assert.deepEqual(mergeValue(["[[A]]", "[[C]]"], "[[C]]", "[[A]]"), { next: ["[[C]]"], change: "replaced" });
+  assert.deepEqual(mergeValue(["[[B]]"], "[[C]]", "[[A]]"), { next: ["[[B]]", "[[C]]"], change: "added" }, "nothing to leave behind");
+  assert.deepEqual(mergeValue("waiting", "active", "waiting"), { next: "active", change: "set" });
+  assert.equal(plainValue("[[Q3 Plan|Plan]]"), "Q3 Plan");
+  assert.equal(plainValue(4), "4");
+  assert.equal(describeChanges([{ key: "status", value: "active", change: "replaced", from: "waiting" }], []), "Changed status from waiting to active");
+});

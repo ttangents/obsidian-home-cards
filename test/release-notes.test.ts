@@ -145,7 +145,8 @@ test("release notes run newest first, with dates, headlines and items", () => {
     assert.ok(parseVersion(n.version), `${n.version} is a version`);
     assert.match(n.date, /^\d{4}-\d{2}-\d{2}$/, `${n.version} date`);
     assert.ok(n.headline.trim().endsWith("."), `${n.version} headline is a sentence`);
-    const items = RELEASE_GROUPS.flatMap((g) => n[g.key] ?? []);
+    const items = [...RELEASE_GROUPS.flatMap((g) => n[g.key] ?? []), ...(n.worksWith?.items ?? [])];
+    if (n.worksWith) assert.match(n.worksWith.url, /^https:\/\/community\.obsidian\.md\/plugins\//, `${n.version} links to the directory`);
     assert.ok(items.length > 0, `${n.version} lists a change`);
     for (const item of items) assert.ok(/[.)"]$/.test(item.trim()), `${n.version}: "${item}" ends a sentence`);
     const next = RELEASE_NOTES[i + 1];

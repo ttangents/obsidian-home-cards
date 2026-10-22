@@ -134,3 +134,12 @@ input.hc-search {
 @media (prefers-reduced-motion: reduce) {
   .hc-reload.is-spinning .svg-icon { animation: none; opacity: 0.5; }
 }
+
+/* A note's page: the title opens the note. */
+.hc-greeting.is-note-link {
+  cursor: var(--cursor-link);
+}
+.hc-greeting.is-note-link:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--text-faint);
+}

@@ -17,6 +17,8 @@ import {
   CARD_IMAGES,
   FILE_FIELDS,
   isChoice,
+  isGenerated,
+  needsRelate,
   REDISCOVER_STRATEGIES,
   LIMITS,
   SECTION_KINDS,
@@ -34,10 +36,11 @@ const SOURCE_NOTES: Partial<Record<SectionKind, string>> = {
   continue: "Your latest work session on this device, then notes edited during it, then the session before.",
   related: "Notes linked to what you opened most recently, or sharing links or tags with it.",
   "recent-opened": "Notes opened on this device, the latest first.",
+  relate: "Notes from a search in the Relate plugin, which reads relationships, chains of links and dates. Each card says why it matches.",
 };
 
 /** Free-text section fields bound by the same kind of row. */
-type TextKey = "propertyValue" | "tag" | "filterTags" | "filterProps" | "filterFolders";
+type TextKey = "propertyValue" | "tag" | "filterTags" | "filterProps" | "filterFolders" | "query";
 
 export class SectionModal extends Modal {
   /** Frontmatter keys and their types, gathered once per opening: the walk is vault-wide. */
@@ -108,8 +111,14 @@ export class SectionModal extends Modal {
         })
     );
 
+    // Sources that need Relate appear while it runs, or when this section
+    // already uses one; sources for a note's page never appear.
+    const relate = this.plugin.relate !== null;
+    const offered = <T extends { readonly id: string }>(list: readonly T[], current: string) =>
+      list.filter((k) => (relate || k.id === current || !needsRelate(k)));
+    const kinds = offered(SECTION_KINDS, cfg.kind).filter((k) => k.id === cfg.kind || !isGenerated(k.id));
     row("Source", SOURCE_NOTES[cfg.kind] ?? "").addDropdown((d) =>
-      addChoices(d, SECTION_KINDS)
+      addChoices(d, kinds)
         .setValue(cfg.kind)
         .onChange((v) => {
           if (!isChoice(SECTION_KINDS, v)) return;
@@ -131,7 +140,7 @@ export class SectionModal extends Modal {
     if (cfg.kind === "rediscover") {
       const strategy = REDISCOVER_STRATEGIES.find((st) => st.id === cfg.strategy);
       row("Strategy", strategy?.desc ?? "").addDropdown((d) =>
-        addChoices(d, REDISCOVER_STRATEGIES)
+        addChoices(d, offered(REDISCOVER_STRATEGIES, cfg.strategy))
           .setValue(cfg.strategy)
           .onChange((v) => {
             if (!isChoice(REDISCOVER_STRATEGIES, v)) return;
@@ -154,6 +163,15 @@ export class SectionModal extends Modal {
         });
       });
       text("Value", "Optional. Leave empty to include every note with the property.", "Report", "propertyValue");
+    }
+
+    if (cfg.kind === "relate") {
+      text(
+        "Search",
+        relate ? "Any search Relate understands." : "Relate is not running, so this section stays empty until it is.",
+        "notes of Q3 Plan this week",
+        "query"
+      );
     }
 
     if (cfg.kind === "tag") {

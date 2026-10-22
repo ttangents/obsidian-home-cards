@@ -11,6 +11,7 @@ import { inferType, propertyValue } from "./conditions";
 import { IMAGE_FILE, imageLinkFor } from "./images";
 import type { ActivityFacts } from "./activity";
 import type { ScopeTest } from "./scope";
+import type { RelateView } from "./relate";
 
 /**
  * One compose's view of the vault, shared by every section: the note
@@ -40,7 +41,9 @@ export class VaultSnapshot {
     /** The page's scope: the snapshot holds only the notes it admits. */
     scope: ScopeTest | null = null,
     /** Opens and visits Home Cards observed (see activity.ts). */
-    readonly activity: ActivityFacts = NO_ACTIVITY
+    readonly activity: ActivityFacts = NO_ACTIVITY,
+    /** Relate, when it is installed and running; see relate.ts. */
+    readonly relate: RelateView | null = null
   ) {
     this.files = notesIn(app, scope);
   }

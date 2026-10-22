@@ -1,46 +1,41 @@
-/* --- Sections -------------------------------------------- */
+/* --- Sections ---------------------------------------------
+   A section heading is a quiet title bar: the name carries it,
+   the count follows in plain small text, and the fold chevron
+   and + stay faint until the pointer or the keyboard reaches
+   them.
+   ---------------------------------------------------------- */
 
-.hc-section { margin-top: var(--size-4-8); }
+.hc-section { margin-top: var(--hc-section-gap); }
+/* The first section sits closer to the masthead than to its
+   neighbours, so the header reads as the page's own top. */
+.hc-body > .hc-section:first-child { margin-top: var(--size-4-8); }
 .hc-section.is-hidden { display: none; }
 
-/* Heading, count and fold control share one centered line, so the
-   small count sits at the middle of the heading's capitals, not on
-   its baseline. */
 .hc-section-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--size-4-2);
-  margin-bottom: var(--size-4-3);
+  margin-bottom: var(--hc-head-gap);
 }
+/* Section names take the theme's heading face and color at the
+   third heading step: clear authority over card titles, and well
+   below the page's own title. */
 .hc-section-head h2 {
   font-family: var(--h2-font);
-  font-size: var(--h2-size);
+  font-size: var(--h3-size);
   font-weight: var(--h2-weight);
   font-style: var(--h2-style);
   font-variant: var(--h2-variant);
-  line-height: var(--h2-line-height);
+  line-height: var(--line-height-tight);
   color: var(--h2-color);
   margin: 0;
   min-width: 0;
 }
-/* The count wears the theme's tag pill, the same metrics and colors as
-   the tags on the cards. The tag fill is translucent in most themes, so
-   it sits on the theme background to hold its own over a pattern. */
 .hc-count {
   flex: none;
-  font-size: var(--tag-size);
-  font-weight: var(--tag-weight);
+  font-size: var(--font-ui-small);
   font-variant-numeric: tabular-nums;
-  line-height: var(--line-height-tight);
-  min-width: 2em;
-  text-align: center;
-  padding: var(--tag-padding-y) var(--tag-padding-x);
-  border: var(--tag-border-width) solid var(--tag-border-color);
-  border-radius: var(--tag-radius);
-  color: var(--tag-color);
-  background:
-    linear-gradient(var(--tag-background), var(--tag-background)),
-    linear-gradient(var(--background-primary), var(--background-primary));
+  color: var(--hc-text-meta);
 }
 
 /* Folding. The whole heading row is the control; the chevron at the
@@ -49,6 +44,7 @@
 .hc-section-head.is-foldable { cursor: pointer; }
 .hc-fold {
   flex: none;
+  align-self: center;
   margin-inline-start: auto;
   /* The glyph, not the hit area, lines up with the cards' right edge. */
   margin-inline-end: calc(-1 * var(--size-2-2));
@@ -60,8 +56,14 @@
   border: none;
   box-shadow: none;
   color: var(--text-faint);
+  opacity: 0.6;
+  transition: opacity var(--anim-duration-fast) var(--anim-motion-smooth);
 }
-.hc-section-head.is-foldable:hover .hc-fold { color: var(--icon-color-hover); }
+.hc-section-head.is-foldable:hover .hc-fold,
+.hc-fold:focus-visible {
+  opacity: 1;
+  color: var(--icon-color-hover);
+}
 .hc-fold .svg-icon {
   transition: rotate var(--anim-duration-fast) var(--anim-motion-smooth);
 }
@@ -78,16 +80,17 @@
 /* While a filter holds every section open, the fold state would lie. */
 .hc-body.is-filtering .hc-fold { visibility: hidden; }
 
-/* See more and Show fewer: small buttons centered under the cards, on
-   the card surface so they hold their own over a pattern. See more owns
-   the center column and never moves, so repeated clicks land on it;
-   Show fewer joins to its right, or takes the center once nothing more
-   is left. */
+/* See more and Show fewer: small text buttons centered under the
+   cards. See more owns the center column and never moves, so
+   repeated clicks land on it; Show fewer joins to its right, or
+   takes the center once nothing more is left. On a patterned page
+   they sit on the same underlay as the cards, so the text holds its
+   contrast; on a plain page they have no surface at all. */
 .hc-more-row {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   gap: var(--size-4-2);
-  margin-top: var(--size-4-4);
+  margin-top: var(--size-4-3);
 }
 .hc-more-row.is-hidden,
 .hc-more-row > .is-hidden { display: none; }
@@ -100,20 +103,16 @@
   gap: var(--size-2-2);
   height: var(--input-height);
   padding: 0 var(--size-4-3) 0 var(--size-4-2);
-  border: var(--border-width) solid var(--hc-card-border);
-  border-radius: var(--radius-l);
-  background:
-    linear-gradient(var(--hc-surface), var(--hc-surface)),
-    linear-gradient(var(--hc-underlay), var(--hc-underlay));
-  box-shadow: inset 0 0 0 100vmax var(--hc-card-tint, transparent), var(--hc-card-shadow);
-  -webkit-backdrop-filter: var(--hc-card-blur);
-  backdrop-filter: var(--hc-card-blur);
+  border: none;
+  border-radius: var(--hc-radius-control);
+  background: var(--hc-underlay);
+  box-shadow: none;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
   cursor: pointer;
   transition:
     color var(--anim-duration-fast) var(--anim-motion-smooth),
-    box-shadow var(--anim-duration-fast) var(--anim-motion-smooth);
+    background-color var(--anim-duration-fast) var(--anim-motion-smooth);
 }
 .hc-more-icon { display: flex; }
 .hc-more-row > button .svg-icon {
@@ -121,15 +120,8 @@
   height: var(--icon-s);
 }
 .hc-more-row > button:hover {
-  --hc-card-tint: var(--hc-card-tint-hover);
   color: var(--text-normal);
-  border-color: var(--hc-card-border-hover);
-}
-/* Rows have no card surface, so the buttons drop theirs too. */
-.home-cards[data-view="rows"] .hc-more-row > button {
-  background: transparent;
-  border-color: var(--hc-hair);
-  box-shadow: inset 0 0 0 100vmax var(--hc-card-tint, transparent);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  background:
+    linear-gradient(var(--background-modifier-hover), var(--background-modifier-hover)),
+    linear-gradient(var(--hc-underlay), var(--hc-underlay));
 }

@@ -4,54 +4,68 @@
    40-cards.css reads them, so every surface shares one hover,
    focus and preview behavior and differs only in material.
 
-   Flat: the theme's secondary surface inside a hairline, the
-   way Obsidian draws its own panels. Hover tints the fill.
+   Flat, the default and the reference: the theme's secondary
+   surface inside a hairline, the way Obsidian draws its own
+   panels, with no shadow. Hover brings the edge up a step, adds
+   a shadow just deep enough to read as touch, and lifts the card
+   by a pixel.
 
-   Elevated: a borderless card on the theme's shadow. Hover
-   lifts the card and deepens the shadow. Dark themes show
-   little shadow, so there the card also takes a lighter fill
+   Elevated: a card close to the page's own color, set apart
+   by a small shadow instead of a fill. Dark themes show little
+   shadow, so there the card also takes a slightly lighter fill
    and a faint edge, as a raised panel catches light.
 
    Frosted: a translucent fill that blurs the background
-   pattern behind it. Hover thickens the frost. Over the plain
-   background it reads as a quiet card with a faint edge.
+   pattern behind it. Over the plain background it reads as a
+   quiet card with a faint edge.
    ---------------------------------------------------------- */
 
 .home-cards {
+  /* Shadows small enough to stay crisp: one tight contact shadow,
+     one soft one, both from the theme's text color so they suit
+     light and dark alike. */
+  --hc-shadow-rest: 0 1px 2px color-mix(in srgb, var(--text-normal) 5%, transparent);
+  --hc-shadow-hover:
+    0 1px 2px color-mix(in srgb, var(--text-normal) 6%, transparent),
+    0 4px 12px color-mix(in srgb, var(--text-normal) 6%, transparent);
+
   --hc-surface: var(--background-secondary);
   /* Painted under the surface on patterned pages, so a theme with
      translucent surfaces still keeps the pattern behind the text
      (see 10-backgrounds.css). Transparent elsewhere. */
   --hc-underlay: transparent;
   --hc-card-border: var(--hc-hair);
-  --hc-card-border-hover: var(--background-modifier-border-hover);
+  --hc-card-border-hover: var(--hc-line-hover);
   /* Shadows are lists, so "no shadow" is a transparent one: the card
      composes these with its hover tint and focus ring. */
   --hc-card-shadow: 0 0 transparent;
-  --hc-card-shadow-hover: var(--hc-card-shadow);
-  --hc-card-tint-hover: var(--background-modifier-hover);
-  --hc-card-lift: none;
+  --hc-card-shadow-hover: var(--hc-shadow-hover);
+  --hc-card-tint-hover: color-mix(in srgb, var(--background-modifier-hover) 50%, transparent);
+  --hc-card-lift: 0 -1px;
   --hc-card-blur: none;
 }
 
 .home-cards[data-surface="elevated"] {
-  --hc-surface: var(--background-primary);
-  --hc-card-border: transparent;
-  --hc-card-border-hover: transparent;
-  --hc-card-shadow: var(--shadow-s);
-  --hc-card-shadow-hover: var(--shadow-l);
+  /* A breath of the secondary color keeps a light card from reading
+     as a hard white sheet over a pattern or picture. */
+  --hc-surface: color-mix(in srgb, var(--background-primary) 75%, var(--background-secondary));
+  --hc-card-border: color-mix(in srgb, var(--hc-hair) 50%, transparent);
+  --hc-card-shadow: var(--hc-shadow-rest);
   --hc-card-tint-hover: transparent;
-  --hc-card-lift: 0 calc(-1 * var(--size-2-1));
 }
 .theme-dark .home-cards[data-surface="elevated"] {
-  --hc-surface: color-mix(in srgb, var(--background-primary), var(--text-normal) 5%);
+  --hc-surface: color-mix(in srgb, var(--background-primary), var(--text-normal) 4%);
   --hc-card-border: color-mix(in srgb, var(--text-normal) 7%, transparent);
   --hc-card-border-hover: color-mix(in srgb, var(--text-normal) 12%, transparent);
 }
 
 .home-cards[data-surface="frosted"] {
-  --hc-surface: color-mix(in srgb, var(--background-primary) 50%, transparent);
+  --hc-surface: color-mix(in srgb, var(--background-primary) 55%, transparent);
   --hc-card-border: color-mix(in srgb, var(--hc-hair) 70%, transparent);
-  --hc-card-tint-hover: color-mix(in srgb, var(--background-primary) 35%, transparent);
-  --hc-card-blur: blur(12px) saturate(1.15);
+  --hc-card-tint-hover: color-mix(in srgb, var(--background-primary) 30%, transparent);
+  --hc-card-blur: blur(12px) saturate(1.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-cards { --hc-card-lift: none; }
 }

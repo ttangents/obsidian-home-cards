@@ -74,6 +74,18 @@ Sessions, relationships and every ranking are derived on demand from these recor
 
 `data.json` carries a `version`. The normalizer reads every earlier shape, so old settings load unchanged and every new source is opt-in.
 
+## Visual system
+
+Home Cards contributes layout and hierarchy; the active theme contributes faces, colors and character. Every value in `styles/` resolves to an Obsidian variable or to one of a few tokens declared at the top of `styles/00-base.css`, so a change to the rhythm or the hierarchy happens in one place.
+
+- **Salience.** From most to least prominent: the page title, section names, card titles, images where a section shows them, summaries, metadata, controls, background. Section names use the theme's heading face at the third heading step, card titles the heading face just above body size and semibold, summaries the body face in muted text, and metadata a mix of muted and faint text that stays readable in light themes.
+- **Rhythm.** Sections sit 40px apart, a heading 12px above its cards, cards 12px apart, and a card's own lines 8px apart.
+- **Lines and corners.** Three line strengths: the theme's hairline at rest, its hover border, and the accent for keyboard focus. Three radii: surfaces, controls, and small labels and images.
+- **Labels.** A card shows at most one shaped label, its type, as a small tinted rectangle. Tags and every other field are plain text.
+- **Surfaces.** Flat is the reference: the theme's secondary color, a hairline, no shadow at rest, and a small shadow with a one-pixel lift on hover. Elevated and Frosted vary the material, never the behavior.
+- **Modes.** Grid carries card surfaces and images. Rows carry none: hairlines divide them, the section is the container, and hover is a faint band.
+- **Background.** Patterns are texture. Their veils keep under half of each tile's ink in light themes and half in dark ones; custom backgrounds keep the fade the reader sets.
+
 ## Performance
 
 Each compose builds one snapshot. It reads the note list once, builds the link graph and link totals at most once, and shares them across sections. Card text loads lazily, only for visible cards, through a cache that invalidates on file modification. The activity log writes after opens settle, not on every open. Related-note scoring passes over neighbours with more than 50 links, which bounds its cost on large vaults. No background work runs while the vault is unchanged.

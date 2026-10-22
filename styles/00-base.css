@@ -15,8 +15,35 @@
 .home-cards {
   --hc-card-min: 262px;
   --hc-dek-lines: 3;
+
+  /* Rhythm. Large spaces separate ideas, small ones group them: the
+     gap between sections is three times the gap between cards. */
+  --hc-section-gap: var(--size-4-10);
+  --hc-head-gap: var(--size-4-3);
   --hc-gap: var(--size-4-3);
+  --hc-card-pad: var(--size-4-4);
+  --hc-card-inner: var(--size-4-2);
+
+  /* Three line strengths and no more: a hairline at rest, a stronger
+     line on hover, and the theme's accent for keyboard focus. */
   --hc-hair: var(--background-modifier-border);
+  --hc-line-hover: var(--background-modifier-border-hover);
+  --hc-focus: var(--interactive-accent);
+
+  /* Three radii: surfaces, controls, and small labels and images. */
+  --hc-radius: var(--radius-m);
+  --hc-radius-control: var(--radius-s);
+  --hc-radius-small: var(--radius-s);
+
+  /* Type, in descending order of salience below the page title. The
+     theme supplies every face and color; these set only the steps. */
+  --hc-title-size: 1.0625em;
+  --hc-dek-size: 0.875em;
+  --hc-meta-size: var(--font-ui-smaller);
+  /* Metadata sits between the theme's muted and faint text: quieter
+     than a summary, and still clear of the contrast floor that faint
+     text alone falls under in light themes. */
+  --hc-text-meta: color-mix(in srgb, var(--text-muted) 65%, var(--text-faint));
 
   /* Anchor to the theme's own reading size so its em-based heading
      scale lands here exactly as it does inside a note. */

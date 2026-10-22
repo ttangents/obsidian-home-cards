@@ -311,25 +311,27 @@ export class HomeView extends ItemView implements HoverParent {
       evt.preventDefault();
     });
 
-    // One control cluster: the layout glyphs, a hairline, then the
-    // background picker and recompose. Each button names itself in an
-    // Obsidian tooltip, which also sets its aria-label.
+    // Three weights, left to right: the filter, which earns its width;
+    // the layout switch, one compact segmented control; then the page
+    // actions as plain icons in Obsidian's own clickable-icon style,
+    // quieter than both. Each button names itself in an Obsidian
+    // tooltip, which also sets its aria-label.
     const seg = controls.createDiv({ cls: "hc-seg" });
-    const button = (label: string, icon: string, cls?: string) => {
-      const btn = seg.createEl("button", cls ? { cls } : {});
+    const tools = controls.createDiv({ cls: "hc-tools" });
+    const button = (parent: HTMLElement, label: string, icon: string, cls?: string) => {
+      const btn = parent.createEl("button", cls ? { cls } : {});
       setIcon(btn, icon);
       setTooltip(btn, label, { placement: "bottom" });
       return btn;
     };
     const toggles = new Map<ViewMode, HTMLElement>();
     for (const mode of VIEW_MODES) {
-      const btn = button(`${mode.label} view`, mode.icon);
+      const btn = button(seg, `${mode.label} view`, mode.icon);
       btn.addEventListener("click", () => this.setMode(mode.id));
       toggles.set(mode.id, btn);
     }
-    seg.createSpan({ cls: "hc-seg-divider", attr: { "aria-hidden": "true" } });
     const action = (cls: string, label: string, icon: string, run: (where: PaneType | false) => void) => {
-      const btn = button(label, icon, cls);
+      const btn = button(tools, label, icon, `${cls} clickable-icon`);
       btn.addEventListener("click", (evt) => run(paneFor(evt)));
       return btn;
     };
@@ -344,7 +346,7 @@ export class HomeView extends ItemView implements HoverParent {
     const pageSettings = action("hc-page-settings", "Page settings", "sliders-horizontal", () =>
       this.plugin.editPage(this.ref)
     );
-    const pickerToggle = button("Background", "swatch-book", "hc-picker-toggle");
+    const pickerToggle = button(tools, "Background", "swatch-book", "hc-picker-toggle clickable-icon");
     pickerToggle.setAttrs({ "aria-haspopup": "dialog", "aria-expanded": "false" });
     // Older Obsidian builds ship a Lucide set without swatch-book.
     if (!pickerToggle.firstElementChild) setIcon(pickerToggle, "palette");
@@ -352,7 +354,7 @@ export class HomeView extends ItemView implements HoverParent {
       if (this.picker) this.closePicker();
       else this.openPicker(controls, pickerToggle);
     });
-    const recompose = button("Recompose", "refresh-cw", "hc-reload");
+    const recompose = button(tools, "Recompose", "refresh-cw", "hc-reload clickable-icon");
     recompose.addEventListener("click", () => void this.recomposeNow(recompose));
 
     const notice = wrap.createDiv({ cls: "hc-update" });

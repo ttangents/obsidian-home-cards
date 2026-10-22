@@ -15,7 +15,7 @@
     linear-gradient(var(--hc-surface), var(--hc-surface)),
     linear-gradient(var(--hc-underlay), var(--hc-underlay));
   border: var(--border-width) solid var(--hc-card-border);
-  border-radius: var(--radius-m);
+  border-radius: var(--hc-radius);
   box-shadow: var(--hc-card-shadow);
   -webkit-backdrop-filter: var(--hc-card-blur);
   backdrop-filter: var(--hc-card-blur);

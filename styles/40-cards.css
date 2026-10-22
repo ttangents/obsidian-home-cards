@@ -19,16 +19,16 @@
     linear-gradient(var(--hc-surface), var(--hc-surface)),
     linear-gradient(var(--hc-underlay), var(--hc-underlay));
   border: var(--border-width) solid var(--hc-card-border);
-  border-radius: var(--radius-m);
+  border-radius: var(--hc-radius);
   box-shadow: inset 0 0 0 100vmax var(--hc-card-tint), var(--hc-card-shadow);
   -webkit-backdrop-filter: var(--hc-card-blur);
   backdrop-filter: var(--hc-card-blur);
-  padding: var(--size-4-4);
+  padding: var(--hc-card-pad);
   display: flex;
   flex-direction: column;
-  /* One rhythm governs the card: title, pill row and summary are all
-     separated by this gap, so the spacing reads as consistent. */
-  gap: var(--size-4-3);
+  /* One rhythm inside the card: title, label line and summary sit
+     closer together than cards sit to each other. */
+  gap: var(--hc-card-inner);
   cursor: pointer;
   outline: none;
   transition:
@@ -37,7 +37,8 @@
     translate var(--anim-duration-fast) var(--anim-motion-smooth);
 }
 /* Pointer devices only: on touch screens a tapped card would keep its
-   hover state after the note opens. */
+   hover state after the note opens. A translate moves only the card's
+   paint, so its neighbours never shift. */
 @media (hover: hover) {
   .hc-card:hover {
     --hc-card-tint: var(--hc-card-tint-hover);
@@ -46,15 +47,15 @@
     translate: var(--hc-card-lift);
   }
 }
+/* Focus is a ring in the theme's focus color, outside the card's
+   edge, so it reads apart from hover, which changes only the fill,
+   the edge and the shadow. */
 .hc-card:focus-visible {
-  border-color: var(--background-modifier-border-focus);
+  border-color: var(--hc-focus);
   box-shadow:
     inset 0 0 0 100vmax var(--hc-card-tint),
-    0 0 0 var(--border-width) var(--background-modifier-border-focus),
+    0 0 0 2px var(--hc-focus),
     var(--hc-card-shadow);
-}
-@media (prefers-reduced-motion: reduce) {
-  .hc-card { --hc-card-lift: none; }
 }
 
 .hc-card-head {
@@ -62,17 +63,21 @@
   gap: var(--size-4-2);
   align-items: flex-start;
 }
+/* The glyph matches the title's first line in height and sits on it. */
 .hc-glyph {
   flex: none;
-  width: 1.7em;
-  height: 1.7em;
+  /* The letter is a step smaller than the title; the box is one title
+     line square. */
+  width: calc(1em / 0.8 * var(--line-height-tight));
+  height: calc(1em / 0.8 * var(--line-height-tight));
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-s);
+  border-radius: var(--hc-radius-small);
   background: var(--background-modifier-hover);
-  color: var(--text-muted);
-  font-family: var(--h3-font);
+  color: var(--text-faint);
+  font-family: var(--h4-font);
+  font-size: calc(var(--hc-title-size) * 0.8);
 }
 .hc-glyph.has-icon { color: var(--icon-color); }
 .hc-glyph .svg-icon {
@@ -89,21 +94,22 @@
 .home-cards[data-view="grid"] .hc-card-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--size-4-3);
+  gap: var(--hc-card-inner) var(--size-4-3);
 }
 .home-cards[data-view="grid"] .hc-card:is(.has-glyph, .has-thumb) .hc-card-head {
   grid-template-columns: auto minmax(0, 1fr);
 }
 .home-cards[data-view="grid"] .hc-pills { grid-column: 1 / -1; }
 
+/* Card titles take the theme's heading face at a step just above the
+   body text, semibold, in the normal text color: prominent without
+   the weight of a heading, and below the section names. */
 .hc-title {
-  font-family: var(--h3-font);
-  font-size: var(--h3-size);
-  font-weight: var(--h3-weight);
-  font-style: var(--h3-style);
-  font-variant: var(--h3-variant);
-  line-height: var(--h3-line-height);
-  color: var(--h3-color);
+  font-family: var(--h4-font);
+  font-size: var(--hc-title-size);
+  font-weight: var(--font-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--text-normal);
   margin: 0;
   text-wrap: balance;
 }

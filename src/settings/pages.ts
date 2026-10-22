@@ -12,7 +12,7 @@
  * Nothing here touches the vault, so the tests exercise it directly.
  */
 
-import { folderName, normalizeFolderPath, reparent } from "./folders";
+import { folderName, normalizeFolderPath, noteName, reparent } from "./folders";
 import {
   blankScope,
   LIMITS,
@@ -29,14 +29,18 @@ export interface PageRef {
   page?: string;
   /** A folder's path: its named page if it has one, else a plain folder page. */
   folder?: string;
+  /** A note's path: the page of what the note links to and what links to it. */
+  note?: string;
 }
 
 export interface ResolvedPage {
   /** Identity of the page: equal keys are the same tab and the same folded sections. */
   key: string;
   isHome: boolean;
-  /** The saved record; null for the home page and for a folder without one. */
+  /** The saved record; null for the home page, a folder without one, and a note's page. */
   record: NamedPage | null;
+  /** A note's page: the note's path. Its sections come from the note's links; see compose/note-page.ts. */
+  note?: string;
   title: string;
   scope: PageScope;
   /** The sections to compose: the page's own or the home page's. */
@@ -48,8 +52,9 @@ export interface ResolvedPage {
 
 /** Read a saved view state. Anything unrecognizable is the home page. */
 export function refFromState(state: unknown): PageRef {
-  const raw = (state ?? {}) as { page?: unknown; folder?: unknown };
+  const raw = (state ?? {}) as { page?: unknown; folder?: unknown; note?: unknown };
   if (typeof raw.page === "string" && raw.page) return { page: raw.page };
+  if (typeof raw.note === "string" && raw.note.endsWith(".md")) return { note: raw.note };
   if (typeof raw.folder === "string") {
     const folder = normalizeFolderPath(raw.folder);
     if (folder) return { folder };
@@ -60,11 +65,12 @@ export function refFromState(state: unknown): PageRef {
 export function stateFromRef(ref: PageRef): Record<string, string> {
   if (ref.page) return { page: ref.page };
   if (ref.folder) return { folder: ref.folder };
+  if (ref.note) return { note: ref.note };
   return {};
 }
 
 export function sameRef(a: PageRef, b: PageRef): boolean {
-  return (a.page ?? "") === (b.page ?? "") && (a.folder ?? "") === (b.folder ?? "");
+  return (a.page ?? "") === (b.page ?? "") && (a.folder ?? "") === (b.folder ?? "") && (a.note ?? "") === (b.note ?? "");
 }
 
 // ------------------------------------------------------------------ lookup
@@ -129,6 +135,18 @@ export function resolvePage(
       scope,
       sections: settings.sections,
       icon: scopeIcon(scope),
+    };
+  }
+  if (ref.note) {
+    return {
+      key: `note:${ref.note}`,
+      isHome: false,
+      record: null,
+      note: ref.note,
+      title: noteName(ref.note),
+      scope: blankScope(),
+      sections: [],
+      icon: "file-text",
     };
   }
   return {

@@ -5,8 +5,8 @@
  * only draws.
  *
  * The notes are plain text set with `setText`, never parsed as HTML or
- * Markdown, and the window loads nothing from the web. Its one link opens
- * the releases page in the browser.
+ * Markdown, and the window loads nothing from the web. Its links open the
+ * releases page, and the page of a companion plugin, in the browser.
  */
 
 import { Modal, setIcon, setTooltip, type App } from "obsidian";
@@ -70,6 +70,16 @@ export class WhatsNewModal extends Modal {
         release.createDiv({ cls: "hc-release-group", text: group.label });
         const list = release.createEl("ul");
         for (const item of items) list.createEl("li", { text: item });
+      }
+      const other = note.worksWith;
+      if (other) {
+        release.createDiv({ cls: "hc-release-group", text: `Works with ${other.plugin}` });
+        const intro = release.createEl("p", { cls: "hc-release-intro" });
+        intro.appendText("Home Cards works well with ");
+        intro.createEl("a", { text: other.plugin, href: other.url });
+        intro.appendText(`, my other plugin, ${other.about}. You don't need it to use Home Cards. If you use both:`);
+        const list = release.createEl("ul");
+        for (const item of other.items) list.createEl("li", { text: item });
       }
     }
 

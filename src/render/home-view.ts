@@ -22,19 +22,20 @@ import {
   Scope,
   setIcon,
   setTooltip,
+  TFile,
   TFolder,
   type HoverParent,
-  type TFile,
   type HoverPopover,
   type PaneType,
   type ViewStateResult,
   type WorkspaceLeaf,
 } from "obsidian";
-import { composeSections, type ComposedSection } from "../compose/compose";
+import { composePage, type ComposedPage } from "../compose/compose";
 import { greetingFor, withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
 import { compilePageScope, type ScopeTest } from "../compose/scope";
 import { notesIn } from "../compose/vault";
+import type { RelateApi } from "../compose/relate";
 import { reparent } from "../settings/folders";
 import {
   refFromState,
@@ -175,9 +176,14 @@ export class HomeView extends ItemView implements HoverParent {
     this.greeting = this.pickGreeting();
     this.shell = this.buildShell(this.contentEl);
     this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
-    // A folder page follows its folder. Setting the state renames the tab.
+    // A folder page follows its folder, and a note's page its note.
+    // Setting the state renames the tab.
     this.registerEvent(
       this.app.vault.on("rename", (file, oldPath) => {
+        if (this.ref.note && file instanceof TFile && this.ref.note === oldPath) {
+          void this.leaf.setViewState({ type: VIEW_TYPE_HOME, state: { note: file.path } });
+          return;
+        }
         const folder = this.ref.folder;
         if (!folder || !(file instanceof TFolder)) return;
         const next = reparent(folder, oldPath, file.path);
@@ -234,8 +240,9 @@ export class HomeView extends ItemView implements HoverParent {
     // Resolved once, so the header and the body agree and the vault is
     // walked once for this page's notes.
     const page = this.page();
-    const test = page ? compilePageScope(page.scope) : null;
-    const count = page ? notesIn(this.app, test).length : 0;
+    const test = page && !page.note ? compilePageScope(page.scope) : null;
+    // A note's page learns its count from the compose, which repaints the header.
+    const count = page && !page.note ? notesIn(this.app, test).length : null;
     this.syncTab(page);
     this.paintHeader(shell, page, count);
     this.paintNotice(shell, page);
@@ -268,6 +275,16 @@ export class HomeView extends ItemView implements HoverParent {
 
     const masthead = top.createDiv({ cls: "hc-masthead" });
     const greeting = masthead.createEl("h1", { cls: "hc-greeting" });
+    // On a note's page the title opens the note.
+    const openNote = (evt: MouseEvent | KeyboardEvent) => {
+      const note = this.page()?.note;
+      const file = note ? this.app.vault.getFileByPath(note) : null;
+      if (file) void this.app.workspace.getLeaf(paneFor(evt)).openFile(file);
+    };
+    greeting.addEventListener("click", openNote);
+    greeting.addEventListener("keydown", (evt) => {
+      if (evt.key === "Enter") openNote(evt);
+    });
     const dateline = masthead.createDiv({ cls: "hc-dateline" });
 
     const controls = top.createDiv({ cls: "hc-controls" });
@@ -349,15 +366,20 @@ export class HomeView extends ItemView implements HoverParent {
     return shell;
   }
 
-  private paintHeader(shell: Shell, page: ResolvedPage | null, count: number): void {
+  private paintHeader(shell: Shell, page: ResolvedPage | null, count: number | null): void {
     const s = this.plugin.settings;
     const home = page?.isHome ?? false;
-    shell.pageSettings.toggle(page !== null && !home);
+    // A note's page has no settings: its sections follow the note.
+    shell.pageSettings.toggle(page !== null && !home && !page.note);
 
     // Any other page is titled by its name, whatever the greeting setting
     // says: the title is what tells its tab from the home page.
     shell.greeting.toggle(!home || s.greetingEnabled);
     shell.greeting.setText(home ? withName(this.greeting, s.greetingName) : (page?.title ?? "Missing page"));
+    const linked = !!page?.note;
+    shell.greeting.toggleClass("is-note-link", linked);
+    if (linked) shell.greeting.setAttrs({ role: "link", tabindex: "0", "aria-label": `Open ${page?.title ?? "the note"}` });
+    else for (const a of ["role", "tabindex", "aria-label"]) shell.greeting.removeAttribute(a);
 
     const bits: string[] = [];
     if (home) {
@@ -373,7 +395,7 @@ export class HomeView extends ItemView implements HoverParent {
       const where = datelineScope(page);
       if (where) bits.push(where);
     }
-    if (page && (s.showNoteCount || !home)) bits.push(`${count} ${count === 1 ? "note" : "notes"}`);
+    if (page && count !== null && (s.showNoteCount || !home)) bits.push(`${count} ${count === 1 ? "note" : "notes"}`);
     shell.dateline.setText(bits.join("  ·  "));
   }
 
@@ -465,7 +487,7 @@ export class HomeView extends ItemView implements HoverParent {
     shell: Shell,
     page: ResolvedPage | null,
     test: ScopeTest | null,
-    count: number
+    scopeCount: number | null
   ): Promise<void> {
     const token = ++this.generation;
     const { app, plugin } = this;
@@ -475,9 +497,11 @@ export class HomeView extends ItemView implements HoverParent {
     // its tab behind with a line saying so.
     const gone = !page
       ? "This page no longer exists."
-      : page.scope.kind === "folder" && page.scope.folder && !app.vault.getFolderByPath(page.scope.folder)
-        ? "This folder no longer exists."
-        : null;
+      : page.note && !app.vault.getFileByPath(page.note)
+        ? "This note no longer exists."
+        : page.scope.kind === "folder" && page.scope.folder && !app.vault.getFolderByPath(page.scope.folder)
+          ? "This folder no longer exists."
+          : null;
     if (!page || gone) {
       this.disposeDeks?.();
       this.disposeDeks = null;
@@ -486,14 +510,18 @@ export class HomeView extends ItemView implements HoverParent {
       return;
     }
 
-    let sections: ComposedSection[];
+    const relate = plugin.relate;
+    let composed: ComposedPage;
     try {
-      sections = await composeSections(app, settings, {
+      composed = await composePage(app, settings, {
         deks: (file) => plugin.dekCache.get(app, file, settings),
         opened: plugin.openHistory.list(),
         activity: plugin.activity,
         sections: page.sections,
         scope: test,
+        relate,
+        searches: plugin.relateSearches,
+        note: page.note,
       });
     } catch (err) {
       console.error("Home Cards: compose failed", err);
@@ -508,13 +536,18 @@ export class HomeView extends ItemView implements HoverParent {
     }
     // A newer compose, or a close, happened while files were being read.
     if (token !== this.generation) return;
+    // A note's page makes its sections from the note each time it is drawn.
+    const pageSections = composed.configs;
+    let sections = composed.sections;
+    const count = scopeCount ?? composed.notes;
+    if (page.note) this.paintHeader(shell, page, count);
 
     // A scope narrows every section, so many come up empty there; the page
     // shows the ones that have cards. The home page keeps its empty ones,
     // which tell the reader why a section is bare.
     // What each section implies for a note given to it: the basis for its
     // + button, for dropping cards on it, and for Move to in card menus.
-    const writes = new Map(page.sections.map((cfg) => [cfg.id, sectionWrite(cfg, new Date())]));
+    const writes = new Map(pageSections.map((cfg) => [cfg.id, sectionWrite(cfg, new Date())]));
     const takesMoves = (id: string) => {
       const w = writes.get(id);
       return w !== undefined && acceptsMoves(w);
@@ -527,39 +560,43 @@ export class HomeView extends ItemView implements HoverParent {
     // Built detached, then swapped in whole: no intermediate empty state.
     const next = createDiv();
     const empty = (text: string) => next.createDiv({ cls: "hc-empty", text });
-    if (!page.isHome && count === 0) {
+    if (page.note && !sections.length) {
+      // Similar notes can fill a note's page that has no links, so the
+      // page is empty only when every section is.
+      empty(relate ? "This note has no links, backlinks or relationships yet." : "This note has no links or backlinks yet.");
+    } else if (!page.isHome && !page.note && count === 0) {
       empty(emptyPageText(page));
     } else if (!sections.length) {
       empty(
-        page.sections.some((cfg) => cfg.enabled)
-          ? "No notes on this page match its sections."
+        pageSections.some((cfg) => cfg.enabled)
+            ? "No notes on this page match its sections."
           : page.isHome
             ? "Turn on a section in Settings → Home Cards to fill this page."
             : "Turn on a section in this page's settings to fill it."
       );
-    } else if (count === 0) {
+    } else if (count === 0 && !page.note) {
       // A new vault: one line beats a column of empty sections.
       empty("Cards appear here as you write notes.");
     } else {
       const collapsed = new Set(this.collapsedIds());
       const pageTemplate = templateForScope(page.scope);
       const targets = sections.filter((s) => takesMoves(s.config.id));
-      const moveTo = (cfg: SectionConfig): SectionMove | null => {
+      const moveTo = (cfg: SectionConfig, from: SectionConfig): SectionMove | null => {
         const write = writes.get(cfg.id);
         if (!write) return null;
         return {
           title: sectionTitle(cfg),
           change: describeTemplate(write.template),
-          run: (file) => void this.applyChange(file, write.template),
+          run: (file) => void this.applyChange(file, write.template, writes.get(from.id)?.template),
         };
       };
       for (const { config, cards, more, claimed } of sections) {
         const write = writes.get(config.id);
         const own = write?.complete && hasFacts(write.template) ? mergeTemplates(pageTemplate, write.template) : null;
-        const moves = targets.filter((t) => t.config.id !== config.id).flatMap((t) => moveTo(t.config) ?? []);
+        const moves = targets.filter((t) => t.config.id !== config.id).flatMap((t) => moveTo(t.config, config) ?? []);
         const emptyText = claimed
           ? "Every matching note already appears in a section above."
-          : (EMPTY_BY_KIND[config.kind] ?? "This section has no matching notes.");
+          : (emptyFor(config, relate) ?? EMPTY_BY_KIND[config.kind] ?? "This section has no matching notes.");
         const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
           menuContext: { sectionKind: config.kind, moves },
           create: own
@@ -573,9 +610,9 @@ export class HomeView extends ItemView implements HoverParent {
             write && takesMoves(config.id)
               ? {
                   hint: `Drop to ${lowerFirst(describeTemplate(write.template))}`,
-                  run: (path) => {
+                  run: (path, fromSection) => {
                     const file = app.vault.getFileByPath(path);
-                    if (file) void this.applyChange(file, write.template);
+                    if (file) void this.applyChange(file, write.template, writes.get(fromSection)?.template);
                   },
                 }
               : undefined,
@@ -616,10 +653,10 @@ export class HomeView extends ItemView implements HoverParent {
   }
 
   /** Make a section's stated change to a note, through Obsidian, and say what changed. */
-  private async applyChange(file: TFile, template: NoteTemplate): Promise<void> {
+  private async applyChange(file: TFile, template: NoteTemplate, from?: NoteTemplate): Promise<void> {
     try {
-      await applyTemplate(this.app, file, template);
-      new Notice(`${describeTemplate(template)} on ${file.basename}.`);
+      const done = await applyTemplate(this.app, file, template, from);
+      new Notice(done ? `${done} on ${file.basename}.` : `${file.basename} already has these values.`);
     } catch (err) {
       console.error("Home Cards: could not change the note", err);
       new Notice(`Could not change ${file.basename}. See the console for details.`);
@@ -692,12 +729,36 @@ const EMPTY_BY_KIND: Partial<Record<SectionConfig["kind"], string>> = {
   related: "Notes linked to what you open appear here.",
 };
 
+/** What an empty section that needs Relate says, when Relate explains the emptiness. */
+function emptyFor(cfg: SectionConfig, relate: RelateApi | null): string | undefined {
+  if (cfg.kind === "relate") {
+    if (!relate) return "This section shows a search from the Relate plugin, which is not running.";
+    if (!cfg.query.trim()) return "Add a search in this section's settings.";
+    return "Relate found no notes for this search.";
+  }
+  if (cfg.kind === "rediscover" && cfg.strategy === "unlinked") {
+    if (!relate) return "This strategy uses search by meaning from the Relate plugin, which is not running.";
+    if (!safely(() => relate.meaningReady())) return "Turn on search by meaning in Relate's settings to fill this section.";
+  }
+  return undefined;
+}
+
+/** A call into another plugin that cannot break the page. */
+function safely(fn: () => boolean): boolean {
+  try {
+    return fn();
+  } catch {
+    return false;
+  }
+}
+
 /** "Set status" → "set status", leaving values as they are. */
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
 /** What a page's dateline says about its scope; empty when it has none to say. */
 function datelineScope(page: ResolvedPage): string {
   const { scope } = page;
+  if (page.note) return page.note.split("/").slice(0, -1).join(" / ");
   switch (scope.kind) {
     case "folder":
       // The folders above this one place it; its own name is the title.

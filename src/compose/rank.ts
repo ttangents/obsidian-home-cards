@@ -15,6 +15,7 @@ import { compileScope, tagsOf } from "./scope";
 import { cleanTitle } from "./text";
 import { firstValue, frontmatterValue, asStringList } from "./values";
 import type { VaultSnapshot } from "./vault";
+import { closeness, hitLead } from "./relate";
 
 /** A ranked note, with the figure it ranked on when that is worth showing. */
 export interface Ranked {
@@ -143,6 +144,37 @@ export function rankSection(
       return continueWorking(vault, pool);
     case "related":
       return relatedToRecent(vault, pool);
+    case "relate": {
+      const hits = vault.relate?.results(cfg.query) ?? [];
+      const byPath = new Map(pool.map((f) => [f.path, f]));
+      return hits.flatMap((hit) => {
+        const file = byPath.get(hit.path);
+        return file ? [{ file, lead: hitLead(hit, cfg.query) }] : [];
+      });
+    }
+    case "links-out":
+    case "links-in": {
+      const { out, in: inn } = vault.links();
+      const paths = (cfg.kind === "links-out" ? out : inn).get(cfg.note) ?? new Set<string>();
+      // With Relate, a link that a relationship covers belongs to that relationship's section.
+      const covered = new Set((vault.relate?.connections(cfg.note) ?? []).map((c) => c.path));
+      const hits = pool.filter((f) => paths.has(f.path) && f.path !== cfg.note && !covered.has(f.path));
+      return plain(cfg.kind === "links-in" ? hits.sort((a, b) => b.stat.mtime - a.stat.mtime) : hits);
+    }
+    case "relationship": {
+      const byPath = new Map(pool.map((f) => [f.path, f]));
+      const conns = vault.relate?.connections(cfg.note) ?? [];
+      return plain(conns.filter((c) => c.prop === cfg.relation).flatMap((c) => byPath.get(c.path) ?? []));
+    }
+    case "similar": {
+      const byPath = new Map(pool.map((f) => [f.path, f]));
+      // Enough for the first cards and three pages of See more.
+      const hits = vault.relate?.meaningReady() ? vault.relate.similar(cfg.note, cfg.count * 4) : [];
+      return hits.flatMap((h) => {
+        const file = byPath.get(h.path);
+        return file && file.path !== cfg.note ? [{ file, lead: closeness(h.score) }] : [];
+      });
+    }
     case "tag": {
       const want = cfg.tag.replace(/^#/, "").toLowerCase();
       if (!want) return [];

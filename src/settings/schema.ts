@@ -18,7 +18,14 @@ interface Choice<Id extends string = string> {
 
 // ------------------------------------------------------------- registries
 
-/** How a section chooses its notes. Labels double as default headings. */
+/**
+ * How a section chooses its notes. Labels double as default headings.
+ *
+ * `needs: "relate"` marks a source that only the Relate plugin can fill;
+ * the section editor offers it only while Relate is running, and a stored
+ * section keeps it when Relate is gone. `generated` marks a source that
+ * only a note's page uses; the editor never offers it.
+ */
 export const SECTION_KINDS = [
   { id: "recent-opened", label: "Recently opened" },
   { id: "recent-created", label: "Recently created" },
@@ -31,7 +38,12 @@ export const SECTION_KINDS = [
   { id: "pinned", label: "Pinned" },
   { id: "continue", label: "Continue working" },
   { id: "related", label: "Related to recent work" },
-] as const satisfies readonly Choice[];
+  { id: "relate", label: "Relate search", needs: "relate" },
+  { id: "links-out", label: "Links in this note", generated: true },
+  { id: "links-in", label: "Backlinks", generated: true },
+  { id: "relationship", label: "Relationship", needs: "relate", generated: true },
+  { id: "similar", label: "Similar in meaning", needs: "relate", generated: true },
+] as const satisfies readonly (Choice & { needs?: "relate"; generated?: true })[];
 export type SectionKind = (typeof SECTION_KINDS)[number]["id"];
 
 /**
@@ -46,7 +58,13 @@ export const REDISCOVER_STRATEGIES = [
   { id: "on-this-day", label: "On this day", desc: "Notes created or last edited in this week of an earlier year." },
   { id: "hubs", label: "Sleeping hubs", desc: "Untouched notes with many links in and out, not opened lately." },
   { id: "old-friends", label: "Old friends", desc: "Notes you opened often that you have not opened for a while." },
-] as const satisfies readonly (Choice & { desc: string })[];
+  {
+    id: "unlinked",
+    label: "Similar but unlinked",
+    desc: "Notes close in meaning to the notes you opened most recently but not linked to them, which you have not opened lately. Uses Relate's search by meaning.",
+    needs: "relate",
+  },
+] as const satisfies readonly (Choice & { desc: string; needs?: "relate" })[];
 export type RediscoverStrategy = (typeof REDISCOVER_STRATEGIES)[number]["id"];
 
 /** Page layouts, with the Lucide icon each toggle button shows. */
@@ -170,6 +188,17 @@ export const FILE_FIELDS = [
   { id: "file.mtime", label: "Modified", type: "date" },
 ] as const satisfies readonly (Choice & { type: ValueType })[];
 
+/** Whether a registry entry needs the Relate plugin. */
+export function needsRelate(entry: { readonly id: string }): boolean {
+  return "needs" in entry && entry.needs === "relate";
+}
+
+/** Whether a section source appears only on a note's page. */
+export function isGenerated(kind: SectionKind): boolean {
+  const entry = SECTION_KINDS.find((k) => k.id === kind);
+  return !!entry && "generated" in entry && entry.generated === true;
+}
+
 /** Type guard: is `value` one of the registry's ids? */
 export function isChoice<R extends readonly Choice[]>(
   registry: R,
@@ -219,6 +248,12 @@ export interface SectionConfig {
    */
   fields: string[];
   image: CardImage;
+  /** `relate` sections: the search, in Relate's words, such as "notes of Q3 Plan". */
+  query: string;
+  /** Sections on a note's page: the note's path. */
+  note: string;
+  /** `relationship` sections: the property, named from the note's side. */
+  relation: string;
 }
 
 /**
@@ -388,6 +423,9 @@ export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions" | "fields"
   conditions: Object.freeze([]),
   fields: Object.freeze([]),
   image: "none",
+  query: "",
+  note: "",
+  relation: "",
 });
 
 /**
@@ -510,6 +548,10 @@ export function autoTitle(cfg: SectionConfig): string {
     }
     case "rediscover":
       return cfg.strategy === "forgotten" ? labelOf(SECTION_KINDS, cfg.kind) : labelOf(REDISCOVER_STRATEGIES, cfg.strategy);
+    case "relate":
+      return cfg.query.trim() || labelOf(SECTION_KINDS, cfg.kind);
+    case "relationship":
+      return cfg.relation || labelOf(SECTION_KINDS, cfg.kind);
     default:
       return labelOf(SECTION_KINDS, cfg.kind);
   }

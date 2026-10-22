@@ -24,6 +24,11 @@ export function folderName(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
 }
 
+/** A note's name from its path: "Projects/Q3 Plan.md" is "Q3 Plan". */
+export function noteName(path: string): string {
+  return folderName(path).replace(/\.md$/, "");
+}
+
 /** Whether a vault path lies under `folder`. The root ("") holds every path. */
 export function isInside(path: string, folder: string): boolean {
   return folder === "" || path.startsWith(`${folder}/`);

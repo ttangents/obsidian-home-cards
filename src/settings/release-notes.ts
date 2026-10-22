@@ -37,6 +37,19 @@ export interface ReleaseNote {
   improved?: readonly string[];
   changed?: readonly string[];
   fixed?: readonly string[];
+  /**
+   * What a release adds for readers who also use another of the author's
+   * plugins. The window introduces that plugin and links to its page, so
+   * the notes never assume the reader has it.
+   */
+  worksWith?: {
+    plugin: string;
+    /** The plugin's page in Obsidian's community directory. */
+    url: string;
+    /** What the plugin does, after its name: "which links notes both ways". */
+    about: string;
+    items: readonly string[];
+  };
 }
 
 /** The groups a release's items fall into, in the order they show. */
@@ -54,6 +67,28 @@ export const RELEASES_URL = "https://github.com/ttangents/obsidian-home-cards/re
 export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
+  {
+    version: "1.33.0",
+    date: "2026-10-22",
+    headline: "Every note now has a page of its own.",
+    announce: true,
+    new: [
+      "Each note now has a page that shows, as cards, the notes it links to and the notes that link to it. Right-click a note and choose Open Home Cards page, or run Open page for current note. Click the page's title to open the note.",
+    ],
+    fixed: [
+      "Dropping a card on a section such as \"project is Q3 Plan\" used to replace all of the note's projects. Now the note keeps its other projects and gains the new one. Moving a card between two such sections still swaps one project for the other.",
+    ],
+    worksWith: {
+      plugin: "Relate",
+      url: "https://community.obsidian.md/plugins/relate",
+      about: "which links notes both ways and can search by meaning",
+      items: [
+        "A section can list the results of a Relate search, such as \"notes of Q3 Plan this week\", and each card says why it is there.",
+        "A note's page gives each of the note's relationships a section of its own, and lists the notes closest in meaning.",
+        "Related to recent work names the relationship behind each card, such as \"Q3 Plan's notes\". Rediscover gains Similar but unlinked.",
+      ],
+    },
+  },
   {
     version: "1.32.2",
     date: "2026-10-21",

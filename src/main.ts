@@ -37,6 +37,7 @@ import {
 import { blankScope, defaultSettings, LIMITS, newPageId, type HomeCardsSettings, type NamedPage } from "./settings/schema";
 import { checkForUpdate, compareVersions, laterVersion, recentNotes, type ReleaseNote } from "./settings/release-notes";
 import { WhatsNewModal } from "./render/whats-new";
+import { asRelateApi, RELATE_EVENTS, type RelateApi, type SearchOptions } from "./compose/relate";
 import { PageModal } from "./settings-tab/page-modal";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
 
@@ -98,6 +99,36 @@ export default class HomeCardsPlugin extends Plugin {
    */
   releaseNotes: ReleaseNote[] = [];
 
+  /**
+   * Relate's API while the Relate plugin runs, else null. Relate hands it
+   * over through workspace events; see connectRelate.
+   */
+  relate: RelateApi | null = null;
+
+  /**
+   * Relate searches kept between redraws, so every open page shares one
+   * search per query until the vault or Relate changes. A search that
+   * misses the page's wait redraws the pages when it arrives.
+   */
+  readonly relateSearches: SearchOptions = {
+    cache: new Map(),
+    onLate: () => this.refreshViews(),
+    sleep: (ms) => new Promise((resolve) => window.setTimeout(resolve, ms)),
+  };
+
+  /**
+   * One redraw per burst of changes, whether the metadata cache or Relate
+   * reports them: one edit to a relationship fires both.
+   */
+  private readonly settle = debounce(
+    () => {
+      this.relateSearches.cache?.clear();
+      this.refreshViews();
+    },
+    RESOLVE_DELAY_MS,
+    true
+  );
+
   /** Named pages that have a command, with the name each was registered under. */
   private readonly pageCommands = new Map<string, string>();
 
@@ -139,13 +170,19 @@ export default class HomeCardsPlugin extends Plugin {
     });
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
-        if (!(file instanceof TFolder) || file.isRoot()) return;
+        const ref: PageRef | null =
+          file instanceof TFolder && !file.isRoot()
+            ? { folder: file.path }
+            : file instanceof TFile && file.extension === "md"
+              ? { note: file.path }
+              : null;
+        if (!ref) return;
         menu.addItem((item) =>
           item
             .setSection("action")
             .setTitle("Open Home Cards page")
             .setIcon("layout-grid")
-            .onClick(() => void this.activateView({ folder: file.path }))
+            .onClick(() => void this.activateView(ref))
         );
       })
     );
@@ -155,10 +192,23 @@ export default class HomeCardsPlugin extends Plugin {
     this.registerObsidianProtocolHandler("home-cards", (params) => void this.openFromLink(params));
     this.syncPageCommands();
 
+    // A note's page: what the note links to, what links to it and, with
+    // Relate, its relationships.
+    this.addCommand({
+      id: "open-current-note",
+      name: "Open page for current note",
+      checkCallback: (checking) => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file || file.extension !== "md") return false;
+        if (!checking) void this.activateView({ note: file.path });
+        return true;
+      },
+    });
+    this.connectRelate();
+
     // "resolved" fires after every batch of metadata changes; one redraw
     // per burst is plenty.
-    const settle = debounce(() => this.refreshViews(), RESOLVE_DELAY_MS, true);
-    this.registerEvent(this.app.metadataCache.on("resolved", settle));
+    this.registerEvent(this.app.metadataCache.on("resolved", () => this.settle()));
 
     // Keep the open history as notes open and move.
     this.registerEvent(
@@ -238,6 +288,7 @@ export default class HomeCardsPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.settle.cancel();
     // Views are closing; write the pending edit without redrawing them.
     void this.write();
     this.saveActivity.cancel();
@@ -388,6 +439,10 @@ export default class HomeCardsPlugin extends Plugin {
       const page = findPageByName(this.settings.pages, params.page);
       if (page) await this.activateView({ page: page.id });
       else new Notice(`Home Cards: no page named "${shown(params.page)}".`);
+    } else if (params.note) {
+      const note = this.app.metadataCache.getFirstLinkpathDest(params.note, "");
+      if (note?.extension === "md") await this.activateView({ note: note.path });
+      else new Notice(`Home Cards: no note named "${shown(params.note)}".`);
     } else if (params.folder) {
       const folder = normalizeFolderPath(params.folder);
       if (folder && this.app.vault.getFolderByPath(folder)) await this.activateView({ folder });
@@ -473,6 +528,33 @@ export default class HomeCardsPlugin extends Plugin {
       }
       void this.flush();
     }).open();
+  }
+
+  // ------------------------------------------------------------------ Relate
+
+  /**
+   * Listen for the Relate plugin, which is optional. Relate announces its
+   * API with a public workspace event when it is ready and answers a
+   * request from a plugin that loaded after it, so either load order works.
+   * Home Cards never reads Relate's plugin instance or files, and a Relate
+   * whose contract it does not know counts as absent.
+   */
+  private connectRelate(): void {
+    const bus: Events = this.app.workspace;
+    const use = (api: RelateApi | null) => {
+      if (api === this.relate) return;
+      this.relate = api;
+      this.relateSearches.cache?.clear();
+      this.refreshViews();
+    };
+    this.registerEvent(bus.on(RELATE_EVENTS.ready, (api: unknown) => use(asRelateApi(api))));
+    this.registerEvent(bus.on(RELATE_EVENTS.unload, () => use(null)));
+    this.registerEvent(
+      bus.on(RELATE_EVENTS.changed, () => {
+        if (this.relate) this.settle();
+      })
+    );
+    bus.trigger(RELATE_EVENTS.request);
   }
 
   /** Subscribe to changes in the list of pages; pass the result to `registerEvent`. */

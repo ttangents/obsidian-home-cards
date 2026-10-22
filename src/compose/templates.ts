@@ -15,7 +15,7 @@
 
 import { normalizeFolderPath } from "../settings/folders";
 import type { PageScope, SectionConfig, SectionKind } from "../settings/schema";
-import { compileCondition, isFileField, statedValue } from "./conditions";
+import { compileCondition, isFileField, normalText, statedValue } from "./conditions";
 import { splitList } from "./values";
 
 export type TemplateValue = string | number | boolean;
@@ -186,11 +186,62 @@ export function acceptsMoves(write: SectionWrite): boolean {
 
 /** What applying a template does, in words: "Set status to waiting and add #reading". */
 export function describeTemplate(t: NoteTemplate): string {
-  const sets = Object.entries(t.properties).map(([k, v]) => `${k} to ${String(v)}`);
+  const sets = Object.entries(t.properties).map(([k, v]) => `${k} to ${plainValue(v)}`);
   const parts: string[] = [];
   if (sets.length) parts.push(`set ${sets.join(", ")}`);
   if (t.tags.length) parts.push(`add ${t.tags.map((tag) => `#${tag}`).join(", ")}`);
   if (t.folder) parts.push(`file in ${t.folder}`);
   const text = parts.join(" and ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** What giving a property a template's value did. */
+export type ValueChange = "set" | "added" | "replaced" | "unchanged";
+
+/** A value as a reader names it: a link's note name without brackets. */
+export function plainValue(value: unknown): string {
+  const text = String(value);
+  return /^\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]$/.exec(text.trim())?.[1] ?? text;
+}
+
+/**
+ * A property's next value when a template gives it `value`. A list keeps
+ * its members and gains the value, because a list names several things at
+ * once, such as the projects a note belongs to, and a move must not drop
+ * the others. A single value is replaced, which is what moving a card
+ * between status columns means. Values compare as conditions compare
+ * them, so `[[Q3 Plan]]` and `Q3 Plan` are the same value.
+ */
+export function mergeValue(existing: unknown, value: TemplateValue, replacing?: TemplateValue): { next: unknown; change: ValueChange } {
+  const sameAs = (target: unknown) => (v: unknown) => v === target || (normalText(v) !== "" && normalText(v) === normalText(target));
+  const same = sameAs(value);
+  if (Array.isArray(existing)) {
+    // A card moved from a section that states another value for this
+    // property leaves that value behind, so the move is a move.
+    const old = replacing === undefined ? null : sameAs(replacing);
+    const kept = old ? (existing as unknown[]).filter((v) => !old(v)) : (existing as unknown[]);
+    const dropped = kept.length < existing.length;
+    if (kept.some(same)) return dropped ? { next: kept, change: "replaced" } : { next: existing, change: "unchanged" };
+    return { next: [...kept, value], change: dropped ? "replaced" : "added" };
+  }
+  if (existing !== undefined && existing !== null && same(existing)) return { next: existing, change: "unchanged" };
+  return { next: value, change: "set" };
+}
+
+/** What applying a template changed, in words: "Added Q3 Plan to project and set status to waiting". */
+export function describeChanges(
+  changes: readonly { key: string; value: TemplateValue; change: ValueChange; from?: TemplateValue }[],
+  tags: readonly string[]
+): string {
+  const parts: string[] = [];
+  for (const c of changes) {
+    const value = plainValue(c.value);
+    if (c.change === "added") parts.push(`added ${value} to ${c.key}`);
+    else if (c.change === "set") parts.push(`set ${c.key} to ${value}`);
+    else if (c.change === "replaced") parts.push(`changed ${c.key} from ${plainValue(c.from ?? "")} to ${value}`);
+  }
+  if (tags.length) parts.push(`added ${tags.map((t) => `#${t}`).join(", ")}`);
+  if (!parts.length) return "";
+  const text = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
   return text.charAt(0).toUpperCase() + text.slice(1);
 }

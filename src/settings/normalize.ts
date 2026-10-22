@@ -170,6 +170,9 @@ function normalizeSection(e: Raw, index: number): SectionConfig[] {
     conditions: normalizeConditions(e.conditions),
     fields: normalizeFields(e.fields),
     image: choice(CARD_IMAGES, e.image, "none"),
+    query: str(e.query, ""),
+    note: str(e.note, ""),
+    relation: str(e.relation, ""),
   };
   if (!legacyUnresolved) return [cfg];
   return [cfg, blankSection({ id: `${cfg.id}-least`, kind: "least-linked" })];

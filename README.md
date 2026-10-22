@@ -20,7 +20,7 @@ Home Cards gives your vault a start page that shows what is worth your attention
   - Old friends (opened often, not lately)
 - **Card fields and images.** Each section can show up to three properties in its cards' footers, such as "Active · Leslie · Due Friday" or "David Deutsch · Rating 5 · Reading", and can show a thumbnail or a cover. Images come from the properties named in Settings (`cover, image` by default), or else the note's first embedded image, and only from your vault. A note without an image gets a tile with its initial, so the cards of a section line up, and the rows layout shows every section's images as small squares beside the title.
 - **Pins and snooze.** Pin a note to Home from its card's menu, any note menu in Obsidian, or the command palette, and a Pinned section lists your pins. A Pinned section always comes first on its page, wherever it sits in the list, and stays hidden until you pin something. Snooze a card for a week or a month, or tell Rediscover to pass a note over. Home Cards keeps these marks in its own settings and leaves your notes unchanged.
-- **Create and move notes.** A section that states exact values offers + in its heading to create a note with them; examples are a property with a value ("type is Book"), a single tag, a single folder path, or a condition such as "status is waiting". Drag a card onto such a section, or choose **Move to** in the card's menu, to give the note those values. A project board then needs only Active, Waiting and Done sections. The section shows the change before you drop, and Home Cards makes it through Obsidian's own frontmatter editing. **Set a property…** in the card menu sets any property.
+- **Create and move notes.** A section that states exact values offers + in its heading to create a note with them; examples are a property with a value ("type is Book"), a single tag, a single folder path, or a condition such as "status is waiting". Drag a card onto such a section, or choose **Move to** in the card's menu, to give the note those values. A project board then needs only Active, Waiting and Done sections. When the property holds a list, such as the projects a note belongs to, a card dropped from a section that states no value for it keeps its other values and gains the new one, and a card moved between two such sections swaps one value for the other. The section shows the change before you drop, and Home Cards makes it through Obsidian's own frontmatter editing. **Set a property…** in the card menu sets any property.
 - **Keyboard.** On a page:
   - <kbd>/</kbd> filters the cards.
   - <kbd>j</kbd> and <kbd>k</kbd> or the arrow keys move between cards.
@@ -33,6 +33,7 @@ Home Cards gives your vault a start page that shows what is worth your attention
 - **Card actions.** Right-click a card for Obsidian's file menu and Home Cards' own actions. Hold Cmd or Ctrl over a card for a preview, through the Page Preview core plugin. A middle click opens a new tab.
 - **Fold and see more.** Click a section heading to fold it; the chevron at its end shows the state, and the page remembers it. "See more" under a section shows further matches, one section's worth at a time, up to three times; "Show fewer" puts them back.
 - **Two layouts.** A grid of cards and a compact list of rows, switched from the header.
+- **A page for each note.** Right-click a note and choose **Open Home Cards page**, or run **Open page for current note**, to see what the note links to and what links to it, as cards.
 - **Pages.** A page shows the notes of one folder, one tag or one property, or of the whole vault, under the home page's sections or sections of its own. Make one with **Create a page** or in **Settings → Home Cards → Pages**. Each page opens in its own tab, from a command named for it (give it a hotkey in Obsidian's Hotkeys settings), from **Open a page**, or from a link such as `obsidian://home-cards?page=Reading`. A folder needs no setup: right-click it and choose **Open Home Cards page**. A page about a folder follows the folder when you rename or move it. **New note** on a tag or property page starts the note with that tag or property, so it appears on the page.
 - **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
 - **Your own backgrounds.** Add a PNG, JPEG, WebP or GIF from **Settings → Home Cards → Your backgrounds**, as a repeating pattern or a single picture, with a fade that sets how much of the theme's background covers it. Home Cards keeps a resized copy in its own plugin folder, so your vault gains no files or folders. Up to twelve images.
@@ -73,6 +74,17 @@ Every setting appears in Obsidian's settings search.
 - **Your backgrounds:** the images you added. Each has a name and a fade; deleting a row deletes its stored copy.
 - **Header:** the greeting and your name, holiday greetings, and the note count.
 
+### Works with Relate
+
+Home Cards works well with [Relate](https://community.obsidian.md/plugins/relate), my other plugin, which links notes both ways and can search by meaning. You don't need it to use Home Cards. If you use both:
+
+- A section can list the results of a Relate search, such as `notes of Q3 Plan this week`, and each card says why it is there, down to the chain of links that connects it.
+- A note's page gives each of the note's relationships a section of its own, then lists the links no relationship covers, then the notes closest in meaning.
+- **Related to recent work** names the relationship behind each card, such as "Q3 Plan's notes", and adds notes close in meaning to what you opened.
+- **Rediscover** gains **Similar but unlinked**: notes close in meaning to the ones you opened most recently, with no link between them, that you have not opened lately.
+
+These options appear only while Relate is running. If you turn Relate off, a section that uses it keeps its settings and says it needs Relate, and the rest of the page works as before.
+
 ### Optional: Typify icons
 
 If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, set **Cards → Glyph** to **Icon from Typify**. Home Cards then reads Typify's icon settings and shows the icon for each note's type. Home Cards only reads Typify's settings file, and only while this option is on. Without Typify, the option falls back to each note's initial letter.
@@ -83,6 +95,7 @@ If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, se
 - **Home Cards: Recompose** redraws every open home page and Home cards base view.
 - **Home Cards: Open page for current folder** opens the page for the folder of the note you are reading. It appears when that note sits in a folder.
 - **Home Cards: Open page for a folder** lists every folder and opens the one you choose.
+- **Home Cards: Open page for current note** opens a page of what the note you are reading links to and what links to it. **Open Home Cards page** in a note's menu does the same.
 - **Home Cards: Open a page** lists the home page and your pages, and opens the one you choose.
 - **Home Cards: Create a page** opens the page editor, then the new page.
 - **Home Cards: Open [name] page** exists for each page you made, and takes a hotkey.
@@ -91,7 +104,7 @@ If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, se
 
 ### Links
 
-`obsidian://home-cards` opens the home page. `obsidian://home-cards?page=Reading` opens the page named Reading, and `obsidian://home-cards?folder=Projects/Clients` opens a folder's page. A link that names nothing that exists shows a notice and does nothing else.
+`obsidian://home-cards` opens the home page. `obsidian://home-cards?page=Reading` opens the page named Reading, and `obsidian://home-cards?folder=Projects/Clients` opens a folder's page, and `obsidian://home-cards?note=Atlas` opens a note's page. A link that names nothing that exists shows a notice and does nothing else.
 
 ## Privacy and access
 
@@ -109,6 +122,8 @@ Pins, snoozes and passed-over notes sit in Home Cards' settings file, never in y
 When you add a background image, Home Cards decodes it, scales it down, and saves a copy without its metadata (such as camera and location) in a `backgrounds` folder inside its own plugin folder. It creates that folder with the first image and removes it with the last. Your original file stays where it is, and your vault's notes and attachments stay untouched.
 
 With **Icon from Typify** on, Home Cards also reads the Typify plugin's settings file in your vault's configuration folder.
+
+When the Relate plugin is running, Home Cards asks it for searches, relationships and similar notes through the interface Relate offers to other plugins. Home Cards itself sends nothing anywhere. If you set Relate to use your own embedding server, Relate sends the text of your searches and notes to that server.
 
 ## Architecture
 

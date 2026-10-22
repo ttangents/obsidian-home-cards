@@ -16,6 +16,8 @@ import type { HomeCardsSettings, SectionConfig } from "../settings/schema";
 import { relativeDay, spanSince } from "./projection";
 import type { Ranked } from "./rank";
 import type { VaultSnapshot } from "./vault";
+import { recentSeeds } from "./related";
+import { noteName } from "../settings/folders";
 
 const DAY_MS = 86_400_000;
 
@@ -148,10 +150,47 @@ export function rediscover(
           lead: `Opened ${v?.count ?? 0} times, last on ${relativeDay(new Date(v?.last ?? 0), now)}`,
         }));
     }
+    case "unlinked":
+      return similarButUnlinked(vault, pool, lastVisit);
     default:
       return forgotten().map((file) => ({
         file,
         lead: `Untouched for ${spanSince(file.stat.mtime, now)}`,
       }));
   }
+}
+
+/** Notes close in meaning to each recent note that Relate is asked for. */
+const UNLINKED_PER_SEED = 40;
+
+/**
+ * Similar but unlinked: notes close in meaning to what the reader opened
+ * most recently, with no link either way to that note, and not opened in
+ * the last two months. Needs Relate's search by meaning; empty without it.
+ */
+function similarButUnlinked(vault: VaultSnapshot, pool: readonly TFile[], lastVisit: (f: TFile) => number): Ranked[] {
+  const relate = vault.relate;
+  if (!relate?.meaningReady()) return [];
+  const seeds = recentSeeds(vault);
+  const seedSet = new Set(seeds);
+  const byPath = new Map(pool.map((f) => [f.path, f]));
+  const { out, in: inn } = vault.links();
+  const awake = vault.now.getTime() - RECENT_VISIT_DAYS * DAY_MS;
+  const best = new Map<string, { score: number; seed: string }>();
+  for (const seed of seeds) {
+    const linked = new Set([...(out.get(seed) ?? []), ...(inn.get(seed) ?? [])]);
+    for (const conn of relate.connections(seed)) linked.add(conn.path);
+    for (const hit of relate.similar(seed, UNLINKED_PER_SEED)) {
+      const file = byPath.get(hit.path);
+      if (!file || seedSet.has(hit.path) || linked.has(hit.path) || lastVisit(file) >= awake) continue;
+      const prev = best.get(hit.path);
+      if (!prev || hit.score > prev.score) best.set(hit.path, { score: hit.score, seed });
+    }
+  }
+  return [...best]
+    .sort((a, b) => b[1].score - a[1].score)
+    .flatMap(([path, { seed }]) => {
+      const file = byPath.get(path);
+      return file ? [{ file, lead: `Close in meaning to ${noteName(seed)}, not linked` }] : [];
+    });
 }

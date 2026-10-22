@@ -1,7 +1,7 @@
 {
 	"id": "home-cards",
 	"name": "Home Cards",
-	"version": "1.32.2",
+	"version": "1.33.0",
 	"minAppVersion": "1.13.1",
 	"description": "Show a start page of note cards, in sections drawn from recent activity, properties, tags and links, styled by your active theme.",
 	"author": "Les Joseph",

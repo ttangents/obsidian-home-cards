@@ -12,6 +12,8 @@ import type { ActivityFacts } from "./activity";
 import type { ScopeTest } from "./scope";
 import { loadTypifyIcons } from "./legacy-typify";
 import { VaultSnapshot } from "./vault";
+import { relateView, runSearches, type RelateApi, type SearchOptions } from "./relate";
+import { neighbourCount, noteSections } from "./note-page";
 
 export interface ComposedSection {
   config: SectionConfig;
@@ -62,17 +64,41 @@ export interface ComposeOptions {
   scope?: ScopeTest | null;
   /** Opens and visits Home Cards observed, for the activity-based sections. */
   activity?: ActivityFacts;
+  /** Relate's API, when Relate is installed and running. */
+  relate?: RelateApi | null;
+  /** How Relate searches are waited for and kept; see relate.ts. */
+  searches?: SearchOptions;
+  /** A note's page: the note's path. Its sections come from the note, and `sections` is ignored. */
+  note?: string;
 }
 
-export async function composeSections(
+/** A composed page: its sections, the configurations they came from, and how many notes it covers. */
+export interface ComposedPage {
+  sections: ComposedSection[];
+  configs: SectionConfig[];
+  /** Notes in the page's scope, or, on a note's page, the notes it is connected to. */
+  notes: number;
+}
+
+export async function composeSections(app: App, settings: HomeCardsSettings, options: ComposeOptions = {}): Promise<ComposedSection[]> {
+  return (await composePage(app, settings, options)).sections;
+}
+
+export async function composePage(
   app: App,
   settings: HomeCardsSettings,
-  { deks, now = new Date(), opened = [], sections: pageSections = settings.sections, scope = null, activity }: ComposeOptions = {}
-): Promise<ComposedSection[]> {
+  { deks, now = new Date(), opened = [], sections: listed = settings.sections, scope = null, activity, relate = null, searches: searchOptions, note }: ComposeOptions = {}
+): Promise<ComposedPage> {
   const icons = await iconsFor(app, settings);
-  const vault = new VaultSnapshot(app, now, opened, scope, activity);
+  // Relate's search is asynchronous and ranking is not, so its searches run first.
+  const queries = note ? [] : listed.filter((cfg) => cfg.enabled && cfg.kind === "relate").map((cfg) => cfg.query);
+  const searches = relate && queries.length ? await runSearches(relate, queries, searchOptions) : new Map();
+  // One snapshot serves the whole page, a note's page included.
+  const vault = new VaultSnapshot(app, now, opened, scope, activity, relate ? relateView(relate, searches) : null);
+  const configs = note ? noteSections(note, vault.relate, vault.links()) : [...listed];
+  const notes = note ? neighbourCount(note, vault.links(), vault.relate) : vault.files.length;
+  const sections = pageOrder(configs);
   const taken = new Set<string>();
-  const sections = pageOrder(pageSections);
 
   // First pass: each section claims its visible cards, in order, so
   // section order sets precedence.
@@ -106,7 +132,7 @@ export async function composeSections(
     return more;
   });
 
-  return Promise.all(
+  const composed = await Promise.all(
     ranked.map(async ({ cfg, picked, claimed }, i) => {
       const ctx: CardContext = {
         settings,
@@ -127,4 +153,5 @@ export async function composeSections(
       return { config: cfg, cards, more, claimed };
     })
   );
+  return { sections: composed, configs, notes };
 }

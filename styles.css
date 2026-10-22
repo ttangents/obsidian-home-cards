@@ -486,13 +486,14 @@ input.hc-search {
   .hc-reload.is-spinning .svg-icon { animation: none; opacity: 0.5; }
 }
 
-/* A note's page: the title opens the note. */
+/* A note's page: the title opens the note, and under the pointer it
+   takes the theme's link hover color, as a link in a note does. */
 .hc-greeting.is-note-link {
   cursor: var(--cursor-link);
+  transition: color var(--anim-duration-fast) var(--anim-motion-smooth);
 }
 .hc-greeting.is-note-link:hover {
-  text-decoration: underline;
-  text-decoration-color: var(--text-faint);
+  color: var(--link-color-hover);
 }
 /* --- Background swatches ---------------------------------
    One grid, drawn by src/render/swatches.ts for both the

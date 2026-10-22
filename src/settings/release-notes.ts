@@ -68,6 +68,15 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.33.1",
+    date: "2026-10-22",
+    headline: "A note page's title shows it opens the note in the theme's link color.",
+    announce: false,
+    changed: [
+      "Under the pointer, the title of a note's page takes the theme's link hover color in place of an underline, which clears the last warning from Obsidian's automated review.",
+    ],
+  },
+  {
     version: "1.33.0",
     date: "2026-10-22",
     headline: "Every note now has a page of its own, and Home Cards works with Relate, now in Community plugins.",

@@ -11,6 +11,15 @@
 
 `versions.json` lists only versions that exist as GitHub releases. Obsidian reads it to offer an older release to an app too old for the newest one, and a version with no release behind it would fail to install.
 
+## For the next release
+
+Items from Obsidian's reviews and earlier releases, to pick up with the next version.
+
+- **Artifact attestations.** The review of 1.33.1 recommends GitHub artifact attestations for `main.js` and `styles.css`. An attestation proves a release file came from this repository's source, and only a GitHub Actions workflow can create one: the workflow builds the files, attests them with `actions/attest-build-provenance`, and attaches them to the release, in place of uploading them by hand. Actions minutes are free for public repositories, but the workflow changes how releases are made, so it waits for a decision to use GitHub Actions here. The review's build verification already reproduces `main.js` byte for byte from the source.
+- **README screenshots.** `docs/grid-light.webp` and `docs/rows-dark.webp` predate the visual pass in 1.33.0 and show the old pills, counts and toolbar.
+
+The review's "Vault enumeration" recommendation needs no change: Home Cards lists the vault's notes to build its sections.
+
 ## First submission
 
 The community directory at [community.obsidian.md](https://community.obsidian.md) takes submissions from the owner of a public GitHub repository.

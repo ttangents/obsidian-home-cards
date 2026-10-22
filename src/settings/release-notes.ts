@@ -70,7 +70,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
     version: "1.33.0",
     date: "2026-10-22",
-    headline: "Every note now has a page of its own.",
+    headline: "Every note now has a page of its own, and Home Cards works with Relate, now in Community plugins.",
     announce: true,
     new: [
       "Each note now has a page that shows, as cards, the notes it links to and the notes that link to it. Right-click a note and choose Open Home Cards page, or run Open page for current note. Click the page's title to open the note.",

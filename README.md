@@ -76,7 +76,7 @@ Every setting appears in Obsidian's settings search.
 
 ### Works with Relate
 
-Home Cards works well with [Relate](https://community.obsidian.md/plugins/relate), my other plugin, which links notes both ways and can search by meaning. You don't need it to use Home Cards. If you use both:
+Home Cards works well with [Relate](https://community.obsidian.md/plugins/relate), my other plugin, which links notes both ways and can search by meaning. Install it from **Settings → Community plugins → Browse**. You don't need it to use Home Cards. If you use both:
 
 - A section can list the results of a Relate search, such as `notes of Q3 Plan this week`, and each card says why it is there, down to the chain of links that connects it.
 - A note's page gives each of the note's relationships a section of its own, then lists the links no relationship covers, then the notes closest in meaning.

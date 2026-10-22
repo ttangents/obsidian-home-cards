@@ -77,7 +77,7 @@ export class WhatsNewModal extends Modal {
         const intro = release.createEl("p", { cls: "hc-release-intro" });
         intro.appendText("Home Cards works well with ");
         intro.createEl("a", { text: other.plugin, href: other.url });
-        intro.appendText(`, my other plugin, ${other.about}. You don't need it to use Home Cards. If you use both:`);
+        intro.appendText(`, my other plugin, ${other.about}. Install it from Settings → Community plugins. You don't need it to use Home Cards. If you use both:`);
         const list = release.createEl("ul");
         for (const item of other.items) list.createEl("li", { text: item });
       }

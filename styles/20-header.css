@@ -1,20 +1,26 @@
 /* --- Page frame and header ------------------------------ */
 
+/* The page's margins. On very wide panes the content stops growing
+   and centers, so rows keep a readable length and the grid does not
+   spread into a wall of columns. */
 .hc-wrap {
-  padding: var(--size-4-6) var(--size-4-6) var(--size-4-12);
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: var(--size-4-8) var(--size-4-8) var(--size-4-12);
 }
 /* Obsidian marks phones on the body; tighten the frame to match. */
 body.is-phone .hc-wrap {
   padding: var(--size-4-4) var(--size-4-4) var(--size-4-8);
 }
 
+/* The masthead and the controls share a baseline row: the page's
+   identity on the left, the means to work it on the right. */
 .hc-top {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: var(--size-4-6);
+  gap: var(--size-4-4) var(--size-4-6);
   flex-wrap: wrap;
-  padding-bottom: var(--size-4-4);
 }
 
 .hc-greeting {
@@ -32,8 +38,8 @@ body.is-phone .hc-wrap {
 
 .hc-dateline {
   font-size: var(--font-ui-small);
-  color: var(--text-faint);
-  margin-top: var(--size-2-1);
+  color: var(--text-muted);
+  margin-top: var(--size-2-2);
 }
 
 .hc-controls {
@@ -45,7 +51,7 @@ body.is-phone .hc-wrap {
   justify-content: flex-end;
   display: flex;
   align-items: center;
-  gap: var(--size-4-2);
+  gap: var(--size-4-3);
   /* On narrow panes the row folds instead of overflowing. */
   flex-wrap: wrap;
 }
@@ -56,11 +62,14 @@ input.hc-search {
   max-width: 24em;
 }
 
+/* The layout switch: one compact segmented control, Obsidian's own
+   pattern for a choice among modes. */
 .hc-seg {
+  flex: none;
   display: flex;
   gap: var(--size-2-1);
   background: var(--background-modifier-hover);
-  border-radius: var(--radius-m);
+  border-radius: var(--hc-radius-control);
   padding: var(--size-2-1);
 }
 /* Buttons sit inside the track's padding, so the whole control
@@ -70,18 +79,20 @@ input.hc-search {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--size-2-2) var(--size-4-2);
+  padding: 0 var(--size-4-2);
+  border-radius: calc(var(--hc-radius-control) - 1px);
   background: transparent;
   box-shadow: none;
-  color: var(--text-muted);
+  color: var(--text-faint);
   cursor: pointer;
 }
-.hc-seg .svg-icon {
+.hc-seg .svg-icon,
+.hc-tools .svg-icon {
   width: var(--icon-s);
   height: var(--icon-s);
   stroke-width: var(--icon-s-stroke-width);
 }
-.hc-seg button:hover { color: var(--text-normal); }
+.hc-seg button:hover { color: var(--text-muted); }
 .hc-seg button.is-active {
   background: var(--background-primary);
   color: var(--text-normal);
@@ -89,14 +100,20 @@ input.hc-search {
      card-sized --shadow-s spills a haze below a 26px button. */
   box-shadow: var(--input-shadow);
 }
-/* Hairline between the layout toggles and the page actions. */
-.hc-seg-divider {
+
+/* Page actions: icons in Obsidian's clickable-icon style, faint at
+   rest, full strength under the pointer or the keyboard. They keep
+   the theme's hit area. */
+.hc-tools {
   flex: none;
-  align-self: stretch;
-  width: var(--border-width);
-  margin: var(--size-2-2) var(--size-2-1);
-  background: var(--hc-hair);
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-1);
 }
+.hc-tools .clickable-icon { color: var(--text-faint); }
+.hc-tools .clickable-icon:hover,
+.hc-tools .clickable-icon:focus-visible,
+.hc-tools .clickable-icon.is-active { color: var(--icon-color-hover); }
 
 /* The background picker: a panel under the controls, styled from the
    theme's menu surface, holding the same swatch grid as settings. */
@@ -109,7 +126,7 @@ input.hc-search {
   padding: var(--size-4-3);
   background: var(--background-primary);
   border: var(--border-width) solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
+  border-radius: var(--hc-radius);
   box-shadow: var(--shadow-s);
 }
 .hc-picker .hc-swatches {

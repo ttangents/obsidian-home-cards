@@ -9,6 +9,7 @@
 
 .hc-create {
   flex: none;
+  align-self: center;
   height: auto;
   padding: var(--size-2-2);
   background: transparent;
@@ -30,7 +31,7 @@
 .hc-section.is-drop-target > .hc-empty {
   outline: var(--border-width) dashed var(--interactive-accent);
   outline-offset: var(--size-4-2);
-  border-radius: var(--radius-m);
+  border-radius: var(--hc-radius);
 }
 .hc-drop-hint {
   margin: calc(-1 * var(--size-4-1)) 0 var(--size-4-3);

@@ -75,6 +75,9 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     new: [
       "Each note now has a page that shows, as cards, the notes it links to and the notes that link to it. Right-click a note and choose Open Home Cards page, or run Open page for current note. Click the page's title to open the note.",
     ],
+    improved: [
+      "The page is quieter: patterns recede into texture, cards rest flat and lift slightly under the pointer, a card's type is its only shaped label, and the header groups the filter, the layout switch and the page actions.",
+    ],
     fixed: [
       "Dropping a card on a section such as \"project is Q3 Plan\" used to replace all of the note's projects. Now the note keeps its other projects and gains the new one. Moving a card between two such sections still swaps one project for the other.",
     ],

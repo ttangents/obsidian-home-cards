@@ -28,64 +28,69 @@
    visual weight whatever strength it was drawn at. Weight combines
    how dark the ink is with how much of the tile it covers, so a dense
    pattern takes a heavier veil than a sparse one of the same ink.
-   Tiles drawn fainter than the target stay as drawn. */
+   Tiles drawn fainter than the target stay as drawn.
+
+   The veils make every pattern a texture rather than a picture:
+   the eye should find it after the cards, not before them. Light
+   pages keep under half of each tile's calibrated ink, and dark pages
+   keep half. */
 .home-cards,
 .hc-swatches {
   --hc-bg-diamonds: url("@tile:diamonds-light@");
-  --hc-veil-diamonds: 70%;
+  --hc-veil-diamonds: 86%;
   --hc-bg-leaves: url("@tile:leaves-light@");
-  --hc-veil-leaves: 75%;
+  --hc-veil-leaves: 89%;
   --hc-bg-stitches: url("@tile:stitches-light@");
-  --hc-veil-stitches: 60%;
+  --hc-veil-stitches: 82%;
   --hc-bg-suns: url("@tile:suns-light@");
-  --hc-veil-suns: 60%;
+  --hc-veil-suns: 82%;
   --hc-bg-grid: url("@tile:grid-light@");
-  --hc-veil-grid: 20%;
+  --hc-veil-grid: 64%;
   --hc-bg-rain: url("@tile:rain-light@");
-  --hc-veil-rain: 0%;
+  --hc-veil-rain: 55%;
   --hc-bg-squares: url("@tile:squares-light@");
-  --hc-veil-squares: 0%;
+  --hc-veil-squares: 55%;
   --hc-bg-polka: url("@tile:polka-light@");
-  --hc-veil-polka: 50%;
+  --hc-veil-polka: 78%;
   --hc-bg-basket: url("@tile:basket-light@");
-  --hc-veil-basket: 50%;
+  --hc-veil-basket: 78%;
   --hc-bg-pebbles: url("@tile:pebbles-light@");
-  --hc-veil-pebbles: 10%;
+  --hc-veil-pebbles: 60%;
   --hc-bg-confetti: url("@tile:confetti-light@");
-  --hc-veil-confetti: 20%;
+  --hc-veil-confetti: 64%;
   --hc-bg-petals: url("@tile:petals-light@");
-  --hc-veil-petals: 65%;
+  --hc-veil-petals: 84%;
   --hc-bg-paws: url("@tile:paws-light@");
-  --hc-veil-paws: 65%;
+  --hc-veil-paws: 84%;
 }
 .theme-dark .home-cards,
 .theme-dark .hc-swatches {
   --hc-bg-diamonds: url("@tile:diamonds-dark@");
-  --hc-veil-diamonds: 70%;
+  --hc-veil-diamonds: 85%;
   --hc-bg-leaves: url("@tile:leaves-dark@");
-  --hc-veil-leaves: 75%;
+  --hc-veil-leaves: 88%;
   --hc-bg-stitches: url("@tile:stitches-dark@");
-  --hc-veil-stitches: 80%;
+  --hc-veil-stitches: 90%;
   --hc-bg-suns: url("@tile:suns-dark@");
-  --hc-veil-suns: 70%;
+  --hc-veil-suns: 85%;
   --hc-bg-grid: url("@tile:grid-dark@");
-  --hc-veil-grid: 15%;
+  --hc-veil-grid: 58%;
   --hc-bg-rain: url("@tile:rain-dark@");
-  --hc-veil-rain: 0%;
+  --hc-veil-rain: 50%;
   --hc-bg-squares: url("@tile:squares-dark@");
-  --hc-veil-squares: 0%;
+  --hc-veil-squares: 50%;
   --hc-bg-polka: url("@tile:polka-dark@");
-  --hc-veil-polka: 70%;
+  --hc-veil-polka: 85%;
   --hc-bg-basket: url("@tile:basket-dark@");
-  --hc-veil-basket: 75%;
+  --hc-veil-basket: 88%;
   --hc-bg-pebbles: url("@tile:pebbles-dark@");
-  --hc-veil-pebbles: 70%;
+  --hc-veil-pebbles: 85%;
   --hc-bg-confetti: url("@tile:confetti-dark@");
-  --hc-veil-confetti: 75%;
+  --hc-veil-confetti: 88%;
   --hc-bg-petals: url("@tile:petals-dark@");
-  --hc-veil-petals: 75%;
+  --hc-veil-petals: 88%;
   --hc-bg-paws: url("@tile:paws-dark@");
-  --hc-veil-paws: 75%;
+  --hc-veil-paws: 88%;
 }
 
 .home-cards[data-pattern="diamonds"],

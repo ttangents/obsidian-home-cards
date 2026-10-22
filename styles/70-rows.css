@@ -1,15 +1,21 @@
 /* --- Rows -------------------------------------------------
-   Each note is two lines: the title with its type label run
-   in and the date at the far end, then the opening sentence
-   beneath. A glyph, when the setting shows one, leads the
-   title and the sentence indents to match. Hover is a
-   full-width band with an accent bar on the leading edge.
+   The quieter, text-led mode. Each note is two lines: the
+   title with its type run in as plain text and the footer at
+   the far end, then the opening sentence beneath. Rows carry
+   no card material: hairlines divide them, the section is the
+   container, and hover is a faint band. A glyph, when the
+   setting shows one, leads the title and the sentence indents
+   to match.
 
    Plain grid and flex only, which every Obsidian release the
    plugin supports draws the same way.
    ---------------------------------------------------------- */
 
+/* The list reaches a row's padding past the section's edges, so the
+   text lines up with the section name and the hover band runs past
+   it on both sides. */
 .home-cards[data-view="rows"] .hc-grid {
+  margin-inline: calc(-1 * var(--size-4-2));
   /* The glyph's width, which the sentence indents by. */
   --hc-row-glyph: var(--size-4-5);
   --hc-row-gap: var(--size-4-3);
@@ -29,7 +35,7 @@
   border-bottom: var(--divider-width) solid var(--hc-hair);
   border-radius: 0;
   padding: var(--size-4-3) var(--size-4-2);
-  box-shadow: inset 2px 0 0 transparent;
+  box-shadow: none;
   /* Rows are one list on the page, not cards: no surface material. */
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -40,9 +46,14 @@
 }
 .home-cards[data-view="rows"] .hc-card:last-child { border-bottom: none; }
 .home-cards[data-view="rows"] .hc-card:hover {
-  background: var(--background-modifier-hover);
-  box-shadow: inset 2px 0 0 var(--interactive-accent);
+  background: color-mix(in srgb, var(--background-modifier-hover) 70%, transparent);
+  box-shadow: none;
   translate: none;
+}
+.home-cards[data-view="rows"] .hc-card:focus-visible {
+  border-color: var(--hc-hair);
+  border-radius: var(--hc-radius-small);
+  box-shadow: inset 0 0 0 2px var(--hc-focus);
 }
 
 /* Line one: glyph, title, type label. */
@@ -72,9 +83,9 @@
 .home-cards[data-view="rows"] .hc-pill.is-tag { display: none; }
 .home-cards[data-view="rows"] .hc-pill.is-type {
   background: transparent;
-  border-color: transparent;
   padding: 0;
-  color: var(--text-faint);
+  font-weight: inherit;
+  color: var(--hc-text-meta);
   white-space: nowrap;
 }
 .home-cards.hc-accent-rubrics[data-view="rows"] .hc-pill.is-type {
@@ -82,8 +93,7 @@
 }
 
 .home-cards[data-view="rows"] .hc-title {
-  font-family: var(--font-interface);
-  font-size: var(--font-ui-medium);
+  font-size: 1em;
   font-weight: var(--font-semibold);
   line-height: var(--line-height-tight);
   white-space: nowrap;
@@ -113,12 +123,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Over a pattern the index sits on a solid panel. */
+/* Over a pattern the rows sit on the cards' underlay, with no edge of
+   its own, so the text keeps its contrast without a box around it. */
 .home-cards[data-pattern][data-view="rows"] .hc-grid {
-  background: var(--background-primary);
-  border: var(--border-width) solid var(--hc-hair);
-  border-radius: var(--radius-m);
-  padding: 0 var(--size-4-3);
+  background: var(--hc-underlay);
+  border-radius: var(--hc-radius);
 }
 
 /* A section that shows images leads each row with a square as tall
@@ -127,9 +136,11 @@
    row of the section. The row's padding makes the column, and the
    image sits in it, centered on the row's height. */
 .home-cards[data-view="rows"] .hc-grid {
+  /* The title's line, the gap, and the summary's line, in the row's
+     own em: the card and its image both keep the page's font size. */
   --hc-row-media: calc(
-    var(--font-ui-medium) * var(--line-height-tight) + var(--size-2-1) +
-      var(--font-ui-small) * var(--line-height-normal)
+    1em * var(--line-height-tight) + var(--size-2-1) +
+      0.875em * var(--line-height-normal)
   );
 }
 .home-cards[data-view="rows"] .hc-card.has-media {
@@ -143,13 +154,13 @@
   translate: 0 -50%;
   width: var(--hc-row-media);
   height: var(--hc-row-media);
-  font-size: var(--font-ui-medium);
+  font-size: 1em;
 }
 /* A row without a sentence is one line; its image shrinks to that
    line and keeps the column's left edge. */
 .home-cards[data-view="rows"] .hc-card.no-dek .hc-thumb {
-  width: calc(var(--font-ui-medium) * var(--line-height-tight));
-  height: calc(var(--font-ui-medium) * var(--line-height-tight));
+  width: calc(1em * var(--line-height-tight));
+  height: calc(1em * var(--line-height-tight));
 }
 
 /* Phones: no glyph; the sentence runs the full width. */

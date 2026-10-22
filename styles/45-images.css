@@ -12,8 +12,10 @@
   padding-top: 0;
   overflow: hidden;
 }
+/* The cover is the card's top edge, set off from the text by a little
+   more than the card's inner gap. */
 .hc-cover {
-  margin: 0 calc(-1 * var(--size-4-4));
+  margin: 0 calc(-1 * var(--hc-card-pad)) var(--size-2-2);
   aspect-ratio: 16 / 9;
   /* Without this, a flex item grows to its image's own height. */
   overflow: hidden;
@@ -37,20 +39,27 @@
    start on one line whatever the titles' lengths. */
 .hc-thumb {
   flex: none;
-  font-size: var(--h3-size);
-  line-height: var(--h3-line-height);
+  font-size: var(--hc-title-size);
+  line-height: var(--line-height-tight);
   width: 2lh;
   height: 2lh;
-  border-radius: var(--radius-s);
+  border-radius: var(--hc-radius-small);
   object-fit: cover;
   background: var(--background-modifier-hover);
+  /* A hairline inside the edge keeps a pale image from melting into a
+     pale card. */
+  outline: var(--border-width) solid color-mix(in srgb, var(--text-normal) 8%, transparent);
+  outline-offset: calc(-1 * var(--border-width));
 }
+/* The stand-in for a missing image: the note's initial, faint on the
+   faintest fill, there to hold the column and nothing more. */
 .hc-thumb.is-tile {
   display: flex;
   align-items: center;
   justify-content: center;
+  outline: none;
   color: var(--text-faint);
-  font-family: var(--h3-font);
+  font-family: var(--h4-font);
 }
 .hc-thumb.is-tile .svg-icon {
   width: 50%;

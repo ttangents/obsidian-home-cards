@@ -1,13 +1,12 @@
-"""Content of the Home Cards demo vault.
+"""Nineteenth-century notes for Plugin Playground, the test vault.
 
-The vault belongs to a reader who keeps notes on nineteenth-century
-literature, science and art. Facts come from Wikipedia; every summary is
-written for this vault. Images are public-domain lead images from
+They give the vault's reader a second interest beside Tolkien:
+nineteenth-century literature, science and art. Facts come from Wikipedia;
+every summary is written for the vault. Images are public-domain lead images from
 Wikimedia Commons (see images.py), one per note at most.
 
-Dates are offsets in days before the day the vault is generated, so due
-dates, "this week" sections and Rediscover stay meaningful when the vault
-is rebuilt. `age` is how long ago the note was last edited.
+Dates are offsets in days before the day build.py runs, so due dates,
+"this week" sections and Rediscover stay meaningful. `age` is how long ago the note was last edited.
 """
 
 # ------------------------------------------------------------------ people

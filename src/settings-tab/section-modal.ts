@@ -28,7 +28,7 @@ import {
   type ValueType,
 } from "../settings/schema";
 import { renderConditionList } from "./condition-list";
-import { addChoices } from "./widgets";
+import { addChoices, cssClassSetting } from "./widgets";
 
 /** What a source draws on, where that is not obvious from its name. */
 const SOURCE_NOTES: Partial<Record<SectionKind, string>> = {
@@ -234,6 +234,12 @@ export class SectionModal extends Modal {
           this.plugin.touch();
         })
     );
+
+    new Setting(contentEl).setName("Advanced").setHeading();
+    cssClassSetting(contentEl, "section", cfg.cssClass, (value) => {
+      cfg.cssClass = value;
+      this.plugin.touch();
+    });
   }
 
   /** Every vault property, plus a stored key the vault no longer uses. */

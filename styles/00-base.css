@@ -9,41 +9,67 @@
    page looks. The plugin adds only what a user elects in
    settings: a background pattern, a card surface (the tokens in
    05-surfaces.css), and two custom properties the views set,
-   --hc-card-min and --hc-dek-lines.
+   --_hc-card-min and --_hc-dek-lines.
+
+   Two kinds of custom property, told apart by their names:
+
+   --hc-*   public tokens, the styling contract in docs/STYLING.md.
+            Home Cards never declares one. It reads each where it is
+            used, as var(--hc-x, var(--_hc-x)), so a value set by a
+            theme, a snippet or Style Settings, on the page, the body
+            or any element in between, wins over Home Cards' own.
+   --_hc-*  internal tokens: Home Cards' defaults and the plumbing
+            between partials. They may change in any release.
    ============================================================ */
 
 .home-cards {
-  --hc-card-min: 262px;
-  --hc-dek-lines: 3;
+  --_hc-card-min: 262px;
+  --_hc-dek-lines: 3;
+
+  /* The page frame. On very wide panes the content stops growing and
+     centers, so rows keep a readable length and the grid does not
+     spread into a wall of columns. */
+  --_hc-page-width: 1440px;
+  --_hc-page-padding: var(--size-4-8);
 
   /* Rhythm. Large spaces separate ideas, small ones group them: the
      gap between sections is three times the gap between cards. */
-  --hc-section-gap: var(--size-4-10);
-  --hc-head-gap: var(--size-4-3);
-  --hc-gap: var(--size-4-3);
-  --hc-card-pad: var(--size-4-4);
-  --hc-card-inner: var(--size-4-2);
+  --_hc-section-gap: var(--size-4-10);
+  --_hc-head-gap: var(--size-4-3);
+  --_hc-grid-gap: var(--size-4-3);
+  --_hc-card-padding: var(--size-4-4);
+  --_hc-card-inner: var(--size-4-2);
 
   /* Three line strengths and no more: a hairline at rest, a stronger
      line on hover, and the theme's accent for keyboard focus. */
-  --hc-hair: var(--background-modifier-border);
-  --hc-line-hover: var(--background-modifier-border-hover);
-  --hc-focus: var(--interactive-accent);
+  --_hc-hair: var(--background-modifier-border);
+  --_hc-line-hover: var(--background-modifier-border-hover);
+  --_hc-focus-ring: var(--interactive-accent);
 
   /* Three radii: surfaces, controls, and small labels and images. */
-  --hc-radius: var(--radius-m);
-  --hc-radius-control: var(--radius-s);
-  --hc-radius-small: var(--radius-s);
+  --_hc-card-radius: var(--radius-m);
+  --_hc-radius-control: var(--radius-s);
+  --_hc-radius-small: var(--radius-s);
 
   /* Type, in descending order of salience below the page title. The
-     theme supplies every face and color; these set only the steps. */
-  --hc-title-size: 1.0625em;
-  --hc-dek-size: 0.875em;
-  --hc-meta-size: var(--font-ui-smaller);
+     theme supplies every face and color; these set only the steps.
+     Section names take the theme's heading face and color at the third
+     heading step: clear authority over card titles, and well below the
+     page's own title. */
+  --_hc-section-title-size: var(--h3-size);
+  --_hc-section-title-color: var(--h2-color);
+  --_hc-title-size: 1.0625em;
+  --_hc-title-weight: var(--font-semibold);
+  --_hc-summary-size: 0.875em;
+  --_hc-meta-size: var(--font-ui-smaller);
   /* Metadata sits between the theme's muted and faint text: quieter
      than a summary, and still clear of the contrast floor that faint
      text alone falls under in light themes. */
-  --hc-text-meta: color-mix(in srgb, var(--text-muted) 65%, var(--text-faint));
+  --_hc-meta-color: color-mix(in srgb, var(--text-muted) 65%, var(--text-faint));
+
+  /* Images. A thumbnail is two title lines tall (see 45-images.css). */
+  --_hc-thumb-size: 2lh;
+  --_hc-cover-ratio: 16 / 9;
 
   /* Anchor to the theme's own reading size so its em-based heading
      scale lands here exactly as it does inside a note. */

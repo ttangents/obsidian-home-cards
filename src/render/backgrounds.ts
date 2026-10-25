@@ -27,7 +27,7 @@ export interface BackgroundDraft {
 }
 
 /** The custom properties a custom background sets on the page or a swatch. */
-export const BACKGROUND_PROPS = ["--hc-tile", "--hc-veil", "--hc-tile-w"] as const;
+export const BACKGROUND_PROPS = ["--_hc-tile", "--_hc-veil", "--_hc-tile-w"] as const;
 
 /** The plugin's folder for stored images. It may not exist yet. */
 export function backgroundFolder(plugin: HomeCardsPlugin): string {
@@ -61,9 +61,9 @@ export function backgroundProps(
   bg: Pick<CustomBackground, "fade" | "width">
 ): Record<string, string> {
   return {
-    "--hc-tile": `url("${url.replace(/["\\]/g, "\\$&")}")`,
-    "--hc-veil": `${bg.fade}%`,
-    "--hc-tile-w": `${bg.width}px`,
+    "--_hc-tile": `url("${url.replace(/["\\]/g, "\\$&")}")`,
+    "--_hc-veil": `${bg.fade}%`,
+    "--_hc-tile-w": `${bg.width}px`,
   };
 }
 

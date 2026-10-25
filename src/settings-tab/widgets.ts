@@ -2,8 +2,9 @@
  * Small helpers shared by the settings tab and the editors it opens.
  */
 
-import type { DropdownComponent } from "obsidian";
+import { Setting, type DropdownComponent } from "obsidian";
 import { describeCondition } from "../compose/conditions";
+import { cssClassList, MAX_CSS_CLASSES } from "../settings/css-classes";
 import { labelOf, SECTION_KINDS, sectionTitle, type SectionConfig } from "../settings/schema";
 
 interface Choice {
@@ -34,4 +35,28 @@ export function sectionSummary(cfg: SectionConfig): string {
   bits.push(cards);
   if (cfg.kind === "pinned") bits.push("always first, hidden without pins");
   return bits.join(" · ");
+}
+
+/**
+ * The CSS class field of a page or a section. It stores what is typed;
+ * the normalizer and the views keep only valid names. The description
+ * says which names it will use, so a typo shows at once.
+ */
+export function cssClassSetting(el: HTMLElement, what: "page" | "section", value: string, save: (value: string) => void): void {
+  const intro = `Up to ${MAX_CSS_CLASSES} class names for CSS snippets and themes to style this ${what} by.`;
+  const describe = (raw: string) => {
+    const names = cssClassList(raw);
+    if (!raw.trim()) return `${intro} Names starting with hc- are kept for Home Cards.`;
+    return names.length ? `${intro} Applies: ${names.join(", ")}.` : `${intro} None of these is a valid class name.`;
+  };
+  const setting = new Setting(el).setName("CSS class").setDesc(describe(value));
+  setting.addText((t) =>
+    t
+      .setPlaceholder(what === "page" ? "reading-room" : "featured")
+      .setValue(value)
+      .onChange((raw) => {
+        setting.setDesc(describe(raw));
+        save(raw);
+      })
+  );
 }

@@ -254,6 +254,8 @@ export interface SectionConfig {
   note: string;
   /** `relationship` sections: the property, named from the note's side. */
   relation: string;
+  /** Custom CSS classes for snippets and themes; see settings/css-classes.ts. */
+  cssClass: string;
 }
 
 /**
@@ -316,6 +318,8 @@ export interface NamedPage {
   scope: PageScope;
   /** The page's own sections; null shows the home page's. */
   sections: SectionConfig[] | null;
+  /** Custom CSS classes for snippets and themes; see settings/css-classes.ts. */
+  cssClass: string;
 }
 
 /**
@@ -426,6 +430,7 @@ export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions" | "fields"
   query: "",
   note: "",
   relation: "",
+  cssClass: "",
 });
 
 /**

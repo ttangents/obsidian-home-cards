@@ -86,6 +86,17 @@ Home Cards contributes layout and hierarchy; the active theme contributes faces,
 - **Modes.** Grid carries card surfaces and images. Rows carry none: hairlines divide them, the section is the container, and hover is a faint band.
 - **Background.** Patterns are texture. Their veils keep under half of each tile's ink in light themes and half in dark ones; custom backgrounds keep the fade the reader sets.
 
+### Customization
+
+Customization comes in layers, and each layer leaves the ones before it intact: the theme's variables, Home Cards' defaults, the reader's settings, then themes, CSS snippets and the Style Settings plugin through a public contract.
+
+- **Settings stay curated.** Home Cards adds an appearance setting only for a coherent visual mode, such as a card surface, never for a single CSS value. Demand that snippets and Style Settings reveal decides whether a mode such as density or page width earns a setting later.
+- **Public tokens are inputs.** The `--hc-*` custom properties in [docs/STYLING.md](docs/STYLING.md) are a stable interface. Home Cards never declares one; it reads each at the point of use as `var(--hc-x, var(--_hc-x))`, so a value set anywhere above the element, from the body down to a section, wins without specificity contests. Internal tokens use `--_hc-*` and may change in any release.
+- **Selectors are few.** The guide names a short list of classes and data attributes, including `data-page` on the root and `data-kind` on each section. Undocumented classes and the nesting of elements stay free to change.
+- **Classes, not styles.** A page and a section may each carry up to three class names of the reader's own (`settings/css-classes.ts`). The field accepts CSS identifiers only, refuses the `hc-`, `is-`, `mod-` and `theme-` prefixes, and never takes a style, selector or markup.
+- **Style Settings is optional.** `styles/95-style-settings.css` holds a declarative `@settings` block that Style Settings reads; without that plugin it is a comment. Its controls set public tokens within ranges that keep the page usable.
+- **No profiles yet.** Named appearance profiles would duplicate what page classes and snippets already do, so they wait for a need those cannot meet.
+
 ## Performance
 
 Each compose builds one snapshot. It reads the note list once, builds the link graph and link totals at most once, and shares them across sections. Card text loads lazily, only for visible cards, through a cache that invalidates on file modification. The activity log writes after opens settle, not on every open. Related-note scoring passes over neighbours with more than 50 links, which bounds its cost on large vaults. No background work runs while the vault is unchanged.

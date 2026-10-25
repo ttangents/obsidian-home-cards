@@ -242,6 +242,12 @@ export interface SectionOptions {
   dragId?: string;
   /** Accepts dropped cards, making the stated change to each. */
   drop?: { hint: string; run: (path: string, fromSection: string) => void };
+  /**
+   * Styling hooks: the source's kind as `data-kind`, and the section's
+   * custom classes. Both are part of the documented styling contract;
+   * see docs/STYLING.md.
+   */
+  style?: { kind: string; classes: readonly string[] };
 }
 
 /**
@@ -260,8 +266,12 @@ export function renderSection(
   actions: CardActions,
   options: SectionOptions = {}
 ): HTMLElement {
-  const { emptyText = "", more = [], fold, paging, menuContext = {}, create, dragId, drop } = options;
+  const { emptyText = "", more = [], fold, paging, menuContext = {}, create, dragId, drop, style } = options;
   const section = parent.createDiv({ cls: "hc-section" });
+  if (style) {
+    section.dataset.kind = style.kind;
+    section.addClasses([...style.classes]);
+  }
   section.dataset.hcVisible = String(cards.length);
 
   if (title) renderHead(section, title, cards.length, fold, create);

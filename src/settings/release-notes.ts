@@ -68,6 +68,17 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.34.0",
+    date: "2026-10-25",
+    headline: "Themes, CSS snippets and Style Settings can now restyle Home Cards through a documented interface.",
+    announce: false,
+    new: [
+      "A page or a section can carry CSS classes of your own, under Advanced in its editor, so a snippet can give it a look of its own.",
+      "Styling Home Cards, a guide in the project's docs folder, lists the custom properties, selectors and data attributes that stay stable across releases, with recipes.",
+      "With the Style Settings plugin installed, Settings → Style Settings → Home Cards adjusts page width, spacing, corners, type sizes and images.",
+    ],
+  },
+  {
     version: "1.33.1",
     date: "2026-10-22",
     headline: "A note page's title shows it opens the note in the theme's link color.",

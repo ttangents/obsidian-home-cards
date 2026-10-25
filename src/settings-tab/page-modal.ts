@@ -15,6 +15,7 @@
  * costs nothing.
  */
 
+import { cssClassSetting } from "./widgets";
 import { Modal, Notice, Setting } from "obsidian";
 import type HomeCardsPlugin from "../main";
 import { pickFolder } from "../render/folder-picker";
@@ -103,6 +104,12 @@ export class PageModal extends Modal {
     if (page.sections) {
       renderSectionList(contentEl, this.plugin, page.sections, () => this.changed(), () => this.draw());
     }
+
+    new Setting(contentEl).setName("Advanced").setHeading();
+    cssClassSetting(contentEl, "page", page.cssClass, (value) => {
+      page.cssClass = value;
+      this.changed();
+    });
 
     if (this.mode === "create") {
       new Setting(contentEl)

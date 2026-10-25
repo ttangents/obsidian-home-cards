@@ -36,128 +36,128 @@
    keep half. */
 .home-cards,
 .hc-swatches {
-  --hc-bg-diamonds: url("@tile:diamonds-light@");
-  --hc-veil-diamonds: 86%;
-  --hc-bg-leaves: url("@tile:leaves-light@");
-  --hc-veil-leaves: 89%;
-  --hc-bg-stitches: url("@tile:stitches-light@");
-  --hc-veil-stitches: 82%;
-  --hc-bg-suns: url("@tile:suns-light@");
-  --hc-veil-suns: 82%;
-  --hc-bg-grid: url("@tile:grid-light@");
-  --hc-veil-grid: 64%;
-  --hc-bg-rain: url("@tile:rain-light@");
-  --hc-veil-rain: 55%;
-  --hc-bg-squares: url("@tile:squares-light@");
-  --hc-veil-squares: 55%;
-  --hc-bg-polka: url("@tile:polka-light@");
-  --hc-veil-polka: 78%;
-  --hc-bg-basket: url("@tile:basket-light@");
-  --hc-veil-basket: 78%;
-  --hc-bg-pebbles: url("@tile:pebbles-light@");
-  --hc-veil-pebbles: 60%;
-  --hc-bg-confetti: url("@tile:confetti-light@");
-  --hc-veil-confetti: 64%;
-  --hc-bg-petals: url("@tile:petals-light@");
-  --hc-veil-petals: 84%;
-  --hc-bg-paws: url("@tile:paws-light@");
-  --hc-veil-paws: 84%;
+  --_hc-bg-diamonds: url("@tile:diamonds-light@");
+  --_hc-veil-diamonds: 86%;
+  --_hc-bg-leaves: url("@tile:leaves-light@");
+  --_hc-veil-leaves: 89%;
+  --_hc-bg-stitches: url("@tile:stitches-light@");
+  --_hc-veil-stitches: 82%;
+  --_hc-bg-suns: url("@tile:suns-light@");
+  --_hc-veil-suns: 82%;
+  --_hc-bg-grid: url("@tile:grid-light@");
+  --_hc-veil-grid: 64%;
+  --_hc-bg-rain: url("@tile:rain-light@");
+  --_hc-veil-rain: 55%;
+  --_hc-bg-squares: url("@tile:squares-light@");
+  --_hc-veil-squares: 55%;
+  --_hc-bg-polka: url("@tile:polka-light@");
+  --_hc-veil-polka: 78%;
+  --_hc-bg-basket: url("@tile:basket-light@");
+  --_hc-veil-basket: 78%;
+  --_hc-bg-pebbles: url("@tile:pebbles-light@");
+  --_hc-veil-pebbles: 60%;
+  --_hc-bg-confetti: url("@tile:confetti-light@");
+  --_hc-veil-confetti: 64%;
+  --_hc-bg-petals: url("@tile:petals-light@");
+  --_hc-veil-petals: 84%;
+  --_hc-bg-paws: url("@tile:paws-light@");
+  --_hc-veil-paws: 84%;
 }
 .theme-dark .home-cards,
 .theme-dark .hc-swatches {
-  --hc-bg-diamonds: url("@tile:diamonds-dark@");
-  --hc-veil-diamonds: 85%;
-  --hc-bg-leaves: url("@tile:leaves-dark@");
-  --hc-veil-leaves: 88%;
-  --hc-bg-stitches: url("@tile:stitches-dark@");
-  --hc-veil-stitches: 90%;
-  --hc-bg-suns: url("@tile:suns-dark@");
-  --hc-veil-suns: 85%;
-  --hc-bg-grid: url("@tile:grid-dark@");
-  --hc-veil-grid: 58%;
-  --hc-bg-rain: url("@tile:rain-dark@");
-  --hc-veil-rain: 50%;
-  --hc-bg-squares: url("@tile:squares-dark@");
-  --hc-veil-squares: 50%;
-  --hc-bg-polka: url("@tile:polka-dark@");
-  --hc-veil-polka: 85%;
-  --hc-bg-basket: url("@tile:basket-dark@");
-  --hc-veil-basket: 88%;
-  --hc-bg-pebbles: url("@tile:pebbles-dark@");
-  --hc-veil-pebbles: 85%;
-  --hc-bg-confetti: url("@tile:confetti-dark@");
-  --hc-veil-confetti: 88%;
-  --hc-bg-petals: url("@tile:petals-dark@");
-  --hc-veil-petals: 88%;
-  --hc-bg-paws: url("@tile:paws-dark@");
-  --hc-veil-paws: 88%;
+  --_hc-bg-diamonds: url("@tile:diamonds-dark@");
+  --_hc-veil-diamonds: 85%;
+  --_hc-bg-leaves: url("@tile:leaves-dark@");
+  --_hc-veil-leaves: 88%;
+  --_hc-bg-stitches: url("@tile:stitches-dark@");
+  --_hc-veil-stitches: 90%;
+  --_hc-bg-suns: url("@tile:suns-dark@");
+  --_hc-veil-suns: 85%;
+  --_hc-bg-grid: url("@tile:grid-dark@");
+  --_hc-veil-grid: 58%;
+  --_hc-bg-rain: url("@tile:rain-dark@");
+  --_hc-veil-rain: 50%;
+  --_hc-bg-squares: url("@tile:squares-dark@");
+  --_hc-veil-squares: 50%;
+  --_hc-bg-polka: url("@tile:polka-dark@");
+  --_hc-veil-polka: 85%;
+  --_hc-bg-basket: url("@tile:basket-dark@");
+  --_hc-veil-basket: 88%;
+  --_hc-bg-pebbles: url("@tile:pebbles-dark@");
+  --_hc-veil-pebbles: 85%;
+  --_hc-bg-confetti: url("@tile:confetti-dark@");
+  --_hc-veil-confetti: 88%;
+  --_hc-bg-petals: url("@tile:petals-dark@");
+  --_hc-veil-petals: 88%;
+  --_hc-bg-paws: url("@tile:paws-dark@");
+  --_hc-veil-paws: 88%;
 }
 
 .home-cards[data-pattern="diamonds"],
 .hc-swatch[data-pattern="diamonds"] {
-  --hc-tile: var(--hc-bg-diamonds);
-  --hc-veil: var(--hc-veil-diamonds);
+  --_hc-tile: var(--_hc-bg-diamonds);
+  --_hc-veil: var(--_hc-veil-diamonds);
 }
 .home-cards[data-pattern="leaves"],
 .hc-swatch[data-pattern="leaves"] {
-  --hc-tile: var(--hc-bg-leaves);
-  --hc-veil: var(--hc-veil-leaves);
+  --_hc-tile: var(--_hc-bg-leaves);
+  --_hc-veil: var(--_hc-veil-leaves);
 }
 .home-cards[data-pattern="stitches"],
 .hc-swatch[data-pattern="stitches"] {
-  --hc-tile: var(--hc-bg-stitches);
-  --hc-veil: var(--hc-veil-stitches);
+  --_hc-tile: var(--_hc-bg-stitches);
+  --_hc-veil: var(--_hc-veil-stitches);
 }
 .home-cards[data-pattern="suns"],
 .hc-swatch[data-pattern="suns"] {
-  --hc-tile: var(--hc-bg-suns);
-  --hc-veil: var(--hc-veil-suns);
+  --_hc-tile: var(--_hc-bg-suns);
+  --_hc-veil: var(--_hc-veil-suns);
 }
 .home-cards[data-pattern="grid"],
 .hc-swatch[data-pattern="grid"] {
-  --hc-tile: var(--hc-bg-grid);
-  --hc-veil: var(--hc-veil-grid);
+  --_hc-tile: var(--_hc-bg-grid);
+  --_hc-veil: var(--_hc-veil-grid);
 }
 .home-cards[data-pattern="rain"],
 .hc-swatch[data-pattern="rain"] {
-  --hc-tile: var(--hc-bg-rain);
-  --hc-veil: var(--hc-veil-rain);
+  --_hc-tile: var(--_hc-bg-rain);
+  --_hc-veil: var(--_hc-veil-rain);
 }
 .home-cards[data-pattern="squares"],
 .hc-swatch[data-pattern="squares"] {
-  --hc-tile: var(--hc-bg-squares);
-  --hc-veil: var(--hc-veil-squares);
+  --_hc-tile: var(--_hc-bg-squares);
+  --_hc-veil: var(--_hc-veil-squares);
 }
 .home-cards[data-pattern="polka"],
 .hc-swatch[data-pattern="polka"] {
-  --hc-tile: var(--hc-bg-polka);
-  --hc-veil: var(--hc-veil-polka);
+  --_hc-tile: var(--_hc-bg-polka);
+  --_hc-veil: var(--_hc-veil-polka);
 }
 .home-cards[data-pattern="basket"],
 .hc-swatch[data-pattern="basket"] {
-  --hc-tile: var(--hc-bg-basket);
-  --hc-veil: var(--hc-veil-basket);
+  --_hc-tile: var(--_hc-bg-basket);
+  --_hc-veil: var(--_hc-veil-basket);
 }
 .home-cards[data-pattern="pebbles"],
 .hc-swatch[data-pattern="pebbles"] {
-  --hc-tile: var(--hc-bg-pebbles);
-  --hc-veil: var(--hc-veil-pebbles);
+  --_hc-tile: var(--_hc-bg-pebbles);
+  --_hc-veil: var(--_hc-veil-pebbles);
 }
 .home-cards[data-pattern="confetti"],
 .hc-swatch[data-pattern="confetti"] {
-  --hc-tile: var(--hc-bg-confetti);
-  --hc-veil: var(--hc-veil-confetti);
+  --_hc-tile: var(--_hc-bg-confetti);
+  --_hc-veil: var(--_hc-veil-confetti);
 }
 
 .home-cards[data-pattern="petals"],
 .hc-swatch[data-pattern="petals"] {
-  --hc-tile: var(--hc-bg-petals);
-  --hc-veil: var(--hc-veil-petals);
+  --_hc-tile: var(--_hc-bg-petals);
+  --_hc-veil: var(--_hc-veil-petals);
 }
 .home-cards[data-pattern="paws"],
 .hc-swatch[data-pattern="paws"] {
-  --hc-tile: var(--hc-bg-paws);
-  --hc-veil: var(--hc-veil-paws);
+  --_hc-tile: var(--_hc-bg-paws);
+  --_hc-veil: var(--_hc-veil-paws);
 }
 
 /* Tiles are stored 800px wide and drawn 400px wide, so they stay
@@ -173,23 +173,23 @@
    the pattern recedes behind the header and cards in any theme. */
 .home-cards[data-pattern],
 .hc-swatch[data-pattern] {
-  --hc-veil-color: color-mix(in srgb, var(--background-primary) var(--hc-veil, 0%), transparent);
+  --_hc-veil-color: color-mix(in srgb, var(--background-primary) var(--_hc-veil, 0%), transparent);
   background-image:
-    linear-gradient(var(--hc-veil-color), var(--hc-veil-color)),
-    var(--hc-tile);
+    linear-gradient(var(--_hc-veil-color), var(--_hc-veil-color)),
+    var(--_hc-tile);
 }
 
 /* An image the user added. Its URL, veil and stored width arrive as
-   inline custom properties (--hc-tile, --hc-veil, --hc-tile-w) on the
+   inline custom properties (--_hc-tile, --_hc-veil, --_hc-tile-w) on the
    page, a swatch or the add dialog's preview, so nothing here names an
    image. A pattern repeats at half its stored width, as the built-in
    tiles do; a swatch draws it at a quarter. A picture covers the box
    once. The page scrolls inside its box, so the picture stays put. */
 .home-cards[data-pattern="custom"][data-fit="pattern"] {
-  background-size: auto, calc(var(--hc-tile-w) / 2) auto;
+  background-size: auto, calc(var(--_hc-tile-w) / 2) auto;
 }
 .hc-swatch[data-pattern="custom"][data-fit="pattern"] {
-  background-size: auto, calc(var(--hc-tile-w) / 4) auto;
+  background-size: auto, calc(var(--_hc-tile-w) / 4) auto;
 }
 .home-cards[data-pattern="custom"][data-fit="picture"],
 .hc-swatch[data-pattern="custom"][data-fit="picture"] {
@@ -200,6 +200,6 @@
 
 /* Frosted exists to show the pattern; the other surfaces cover it. */
 .home-cards[data-pattern]:not([data-surface="frosted"]) {
-  --hc-underlay: color-mix(in srgb, var(--background-primary) 85%, transparent);
+  --_hc-underlay: color-mix(in srgb, var(--background-primary) 85%, transparent);
 }
 

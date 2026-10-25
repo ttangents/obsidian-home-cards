@@ -30,7 +30,7 @@ export function applyAppearance(root: HTMLElement, plugin: HomeCardsPlugin): voi
 
   root.toggleClass("hc-accent-rubrics", s.accentRubrics);
   root.setCssProps({
-    "--hc-card-min": `${s.cardMinWidth}px`,
-    "--hc-dek-lines": String(s.dekLines),
+    "--_hc-card-min": `${s.cardMinWidth}px`,
+    "--_hc-dek-lines": String(s.dekLines),
   });
 }

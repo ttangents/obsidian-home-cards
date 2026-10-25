@@ -36,6 +36,7 @@ import type HomeCardsPlugin from "../main";
 import { compilePageScope, type ScopeTest } from "../compose/scope";
 import { notesIn } from "../compose/vault";
 import type { RelateApi } from "../compose/relate";
+import { cssClassList } from "../settings/css-classes";
 import { reparent } from "../settings/folders";
 import {
   refFromState,
@@ -110,6 +111,8 @@ export class HomeView extends ItemView implements HoverParent {
   private ref: PageRef = {};
   /** The tab title and icon last handed to Obsidian; see syncTab. */
   private tabLook = "";
+  /** The page's custom classes now on the root; see paintStyleHooks. */
+  private pageClasses: string[] = [];
   /** True while Obsidian is setting this view's state, which updates the tab itself. */
   private settingState = false;
   /** False until Obsidian first hands the view its state; see getDisplayText. */
@@ -228,6 +231,7 @@ export class HomeView extends ItemView implements HoverParent {
     this.disposeDeks = null;
     this.generation++;
     this.noticeFor = "";
+    this.pageClasses = [];
     this.shell = null;
     this.contentEl.empty();
   }
@@ -240,6 +244,7 @@ export class HomeView extends ItemView implements HoverParent {
     // Resolved once, so the header and the body agree and the vault is
     // walked once for this page's notes.
     const page = this.page();
+    this.paintStyleHooks(shell.root, page);
     const test = page && !page.note ? compilePageScope(page.scope) : null;
     // A note's page learns its count from the compose, which repaints the header.
     const count = page && !page.note ? notesIn(this.app, test).length : null;
@@ -248,6 +253,20 @@ export class HomeView extends ItemView implements HoverParent {
     this.paintNotice(shell, page);
     this.picker?.grid.paint();
     await this.recompose(shell, page, test, count);
+  }
+
+  /**
+   * The page's styling hooks on the root: `data-page` says which kind of
+   * page it is, and a named page adds its custom classes. Both are part of
+   * the documented styling contract; see docs/STYLING.md.
+   */
+  private paintStyleHooks(root: HTMLElement, page: ResolvedPage | null): void {
+    root.dataset.page = !page ? "missing" : page.isHome ? "home" : page.note ? "note" : "page";
+    const classes = cssClassList(page?.record?.cssClass ?? "");
+    if (classes.join(" ") === this.pageClasses.join(" ")) return;
+    root.removeClasses(this.pageClasses);
+    root.addClasses(classes);
+    this.pageClasses = classes;
   }
 
   /**
@@ -600,6 +619,7 @@ export class HomeView extends ItemView implements HoverParent {
           ? "Every matching note already appears in a section above."
           : (emptyFor(config, relate) ?? EMPTY_BY_KIND[config.kind] ?? "This section has no matching notes.");
         const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
+          style: { kind: config.kind, classes: cssClassList(config.cssClass) },
           menuContext: { sectionKind: config.kind, moves },
           create: own
             ? {

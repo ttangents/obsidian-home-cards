@@ -1,11 +1,14 @@
 """Build the Home Cards demo vault.
 
 Usage:
+  python3 -I demo/images.py IMAGES_DIR
   python3 -I demo/build.py OUT_DIR IMAGES_DIR PLUGIN_DIR [--today YYYY-MM-DD]
 
 OUT_DIR is created (it must not exist). IMAGES_DIR holds the output of
-images.py. PLUGIN_DIR holds main.js, manifest.json and styles.css.
-Every note's modification time is set from content.py, relative to today.
+images.py. PLUGIN_DIR holds main.js, manifest.json and styles.css, usually
+the repository root. Every note's modification time is set from content.py,
+relative to the build date, and listed in mtimes.tsv beside OUT_DIR for
+copies that drop modification times.
 """
 import json, os, random, shutil, sys
 from datetime import date, datetime, timedelta, timezone, time as dtime

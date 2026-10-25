@@ -1,84 +1,121 @@
 # Home Cards
 
-Home Cards gives your vault a start page that shows what is worth your attention now: the work you were in the middle of, what is due, notes related to what you are doing, and notes you have drifted away from. Each section is a set of note cards drawn from ordinary notes, their properties, tags and links, so a reading list, a project board or a people directory needs no special note types. Your theme sets the colors, fonts and spacing.
+Home Cards gives your Obsidian vault a start page: a dashboard of note cards that shows the work you were in the middle of, what is due, notes related to what you are doing, and notes you have drifted away from. Each section draws its cards from ordinary notes, their properties, tags and links, so a reading list, a project board or a people directory needs no special note types. A page gives a folder, a tag or a property a dashboard of its own, and any base can show its results as cards. Your theme sets the colors, fonts and spacing.
 
-![Home Cards in grid view, light mode](docs/grid-light.webp)
+![The home page in grid view, light mode: Pinned, Continue working and Due this week](docs/grid-light.webp)
 
-## Features
+## Get started
 
-- **Sections.** Each section has a source and optional filters and conditions:
-  - **Sources:** recently opened, created or modified; notes by property (with an optional value) or by tag; most and least linked; Pinned; Continue working; Related to recent work; and Rediscover.
-  - **Filters and conditions:** filters on tags, properties and folders, and typed conditions such as "due is today", "due is before today", "due is in the next 7 days", "rating is at least 4" or "modified is older than 90 days". A note must meet every condition.
-- **Continue working.** Shows the notes from your latest work session on this device, the notes you edited during it, then the session before. Opens with no gap longer than 45 minutes form one session. Each card says how it belongs, such as "Opened 43 minutes ago".
-- **Related to recent work.** Shows notes linked to what you opened most recently, or sharing links or tags with it. Each card names its strongest connection, such as "Linked from AWS notes" or "3 shared links with Vendor scorecard".
-- **Rediscover.** Six strategies, each a plain rule whose card says what chose it:
-  - Forgotten notes (untouched for months, in a new order each day)
-  - Forgotten gems (untouched but still linked to)
-  - Unfinished thoughts (short and barely linked)
-  - On this day (created or last edited in this week of an earlier year)
-  - Sleeping hubs (many links, long untouched)
-  - Old friends (opened often, not lately)
-- **Card fields and images.** Each section can show up to three properties in its cards' footers, such as "Active · Leslie · Due Friday" or "David Deutsch · Rating 5 · Reading", and can show a thumbnail or a cover. Images come from the properties named in Settings (`cover, image` by default), or else the note's first embedded image, and only from your vault. A note without an image gets a tile with its initial, so the cards of a section line up, and the rows layout shows every section's images as small squares beside the title.
-- **Pins and snooze.** Pin a note to Home from its card's menu, any note menu in Obsidian, or the command palette, and a Pinned section lists your pins. A Pinned section always comes first on its page, wherever it sits in the list, and stays hidden until you pin something. Snooze a card for a week or a month, or tell Rediscover to pass a note over. Home Cards keeps these marks in its own settings and leaves your notes unchanged.
-- **Create and move notes.** A section that states exact values offers + in its heading to create a note with them; examples are a property with a value ("type is Book"), a single tag, a single folder path, or a condition such as "status is waiting". Drag a card onto such a section, or choose **Move to** in the card's menu, to give the note those values. A project board then needs only Active, Waiting and Done sections. When the property holds a list, such as the projects a note belongs to, a card dropped from a section that states no value for it keeps its other values and gains the new one, and a card moved between two such sections swaps one value for the other. The section shows the change before you drop, and Home Cards makes it through Obsidian's own frontmatter editing. **Set a property…** in the card menu sets any property.
-- **Keyboard.** On a page:
-  - <kbd>/</kbd> filters the cards.
-  - <kbd>j</kbd> and <kbd>k</kbd> or the arrow keys move between cards.
-  - <kbd>Enter</kbd> opens a card; with <kbd>Cmd</kbd> or <kbd>Ctrl</kbd> it opens in a new tab.
-  - <kbd>Space</kbd> previews a card.
-  - <kbd>p</kbd> pins or unpins a card.
-- **One note, one section.** By default, a note appears only in the first section that claims it, so the page does not repeat itself. Section order sets which section wins.
-- **Cards.** Each card shows the note's title, its type and tags, its first sentence (or a `summary` property), and a footer. The footer says why the card is there, then shows the section's fields or the value the section sorts on.
-- **Header actions.** New note creates a note where Obsidian's settings put new notes. Rediscover opens a random note you haven't changed in months.
-- **Card actions.** Right-click a card for Obsidian's file menu and Home Cards' own actions. Hold Cmd or Ctrl over a card for a preview, through the Page Preview core plugin. A middle click opens a new tab.
-- **Fold and see more.** Click a section heading to fold it; the chevron at its end shows the state, and the page remembers it. "See more" under a section shows further matches, one section's worth at a time, up to three times; "Show fewer" puts them back.
-- **Two layouts.** A grid of cards and a compact list of rows, switched from the header.
-- **A page for each note.** Right-click a note and choose **Open Home Cards page**, or run **Open page for current note**, to see what the note links to and what links to it, as cards.
-- **Pages.** A page shows the notes of one folder, one tag or one property, or of the whole vault, under the home page's sections or sections of its own. Make one with **Create a page** or in **Settings → Home Cards → Pages**. Each page opens in its own tab, from a command named for it (give it a hotkey in Obsidian's Hotkeys settings), from **Open a page**, or from a link such as `obsidian://home-cards?page=Reading`. A folder needs no setup: right-click it and choose **Open Home Cards page**. A page about a folder follows the folder when you rename or move it. **New note** on a tag or property page starts the note with that tag or property, so it appears on the page.
-- **Background patterns.** Thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
-- **Your own backgrounds.** Add a PNG, JPEG, WebP or GIF from **Settings → Home Cards → Your backgrounds**, as a repeating pattern or a single picture, with a fade that sets how much of the theme's background covers it. Home Cards keeps a resized copy in its own plugin folder, so your vault gains no files or folders. Up to twelve images.
-- **A Bases view.** Any base can show its results as "Home cards", with one section per group. A base takes any filter Bases offers, and it is a file in your vault; a Home Cards page is not.
-- **What's new.** After an update, a line at the top of the home page names the new version and opens its release notes. Close it, or read the notes, and it goes away on every device that syncs your settings. **Settings → Home Cards → What's new** shows the notes for recent releases at any time, and **Announce updates** turns the line off.
-- **A greeting.** About 180 built-in greetings follow your local time of day, the day of the week and, optionally, fixed-date holidays, some in other languages, always in Latin script.
-
-![Rows view, dark mode](docs/rows-dark.webp)
-
-## Quick start
-
-1. Install and enable Home Cards, then click the grid icon in the ribbon, or run **Home Cards: Open** from the command palette.
-2. The first page shows four sections that work in any vault: recently opened, recently created, most linked and least linked.
+1. Search for **Home Cards** under **Settings → Community plugins → Browse**, then install and enable it.
+2. Click the grid icon in the ribbon, or run **Home Cards: Open** from the command palette. The first page shows four sections that work in any vault: recently opened, recently created, most linked and least linked.
 3. To add a section for your own notes, open **Settings → Home Cards**, press **+** next to **Sections**, and set the source to **By property** or **By tag**.
 4. For a page that follows your work, add sections with the sources **Pinned**, **Continue working** and **Related to recent work**, and give a section conditions such as "due is in the next 7 days".
 5. If your notes record their kind in a property other than `type`, set **Cards → Type property** to that property.
 6. Turn on **Open on startup** to make Home Cards your start page.
 
-## Installation
+Home Cards requires Obsidian 1.13.1 or later and works on desktop and mobile. To install a release by hand, copy `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/ttangents/obsidian-home-cards/releases/latest) into `<vault>/.obsidian/plugins/home-cards/`, then reload Obsidian and enable Home Cards.
 
-Search for **Home Cards** under **Settings → Community plugins → Browse**, then install and enable it.
+## What a page shows
 
-To install a release by hand, copy `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/ttangents/obsidian-home-cards/releases/latest) into `<vault>/.obsidian/plugins/home-cards/`, then reload Obsidian and enable Home Cards.
+A page is a list of sections, and each section is a set of cards with a source, optional filters and conditions, and a card count.
 
-Home Cards requires Obsidian 1.13.1 or later and works on desktop and mobile.
+### Sections
 
-## Settings
+- **Sources:** recently opened, created or modified; notes by property (with an optional value) or by tag; most and least linked; Pinned; Continue working; Related to recent work; and Rediscover.
+- **Filters and conditions:** filters on tags, properties and folders, and typed conditions such as "due is today", "due is before today", "due is in the next 7 days", "rating is at least 4" or "modified is older than 90 days". A note must meet every condition.
+- **One note, one section:** by default, a note appears only in the first section that claims it, so the page does not repeat itself. Section order sets which section wins.
 
-Every setting appears in Obsidian's settings search.
+**Continue working** shows the notes from your latest work session on this device, the notes you edited during it, then the session before. Opens with no gap longer than 45 minutes form one session. Each card says how it belongs, such as "Opened 43 minutes ago".
 
-- **General:** whether the home page opens at startup, the layout it opens in, whether a note may appear in more than one section, and how long a note must sit untouched before Rediscover offers it.
-- **General** also clears snoozes and passed-over notes, turns update announcements on or off, and opens the release notes.
-- **Sections:** the sections, in page order. Drag a row to reorder it, use its toggle to show or hide it, and press its pencil to edit its source, card count, filters, conditions, sort order, card fields and image.
-- **Pages:** the pages you made. Each row opens the page or edits its name, what it is about, and whether it has sections of its own. A folder you never customized still opens a page, so it has no row here.
-- **Cards:** the corner glyph, the type label and the property it reads, the image properties, tags, the opening sentence and its length, and file size.
-- **Card text:** the summary property, and the openings and title prefixes Home Cards passes over.
-- **Appearance:** minimum card width, card surface (Flat, Elevated or Frosted) and background pattern.
-- **Your backgrounds:** the images you added. Each has a name and a fade; deleting a row deletes its stored copy.
-- **Header:** the greeting and your name, holiday greetings, and the note count.
+**Related to recent work** shows notes linked to what you opened most recently, or sharing links or tags with it. Each card names its strongest connection, such as "Linked from AWS notes" or "3 shared links with Vendor scorecard".
+
+**Rediscover** has six strategies. Each is a plain rule, and each card says what chose it:
+
+- Forgotten notes: untouched for months, in a new order each day.
+- Forgotten gems: untouched but still linked to.
+- Unfinished thoughts: short and barely linked.
+- On this day: created or last edited in this week of an earlier year.
+- Sleeping hubs: many links, long untouched.
+- Old friends: opened often, not lately.
+
+### Cards
+
+Each card shows the note's title, its type and tags, its first sentence (or a `summary` property), and a footer. The footer says why the card is there, then shows up to three of the note's properties, such as "Active · Leslie · Due Friday" or "David Deutsch · Rating 5 · Reading".
+
+A section can show a thumbnail or a cover on each card. Images come from the properties named in Settings (`cover, image` by default), or else the note's first embedded image, and only from your vault. A note without an image gets a tile with its initial, so the cards of a section line up.
+
+Pages come in two layouts, a grid of cards and a compact list of rows, switched from the header. Rows show each section's images as small squares beside the title.
+
+![The home page in rows view, dark mode](docs/rows-dark.webp)
+
+## Working from a page
+
+### Create and move notes
+
+A section that states exact values offers **+** in its heading to create a note with them: a property with a value ("type is Book"), a single tag, a single folder, or a condition such as "status is waiting". Drag a card onto such a section, or choose **Move to** in the card's menu, to give the note those values. A project board then needs only Active, Waiting and Done sections.
+
+![Dragging a project from Waiting to Active sets its status](docs/move-card.gif)
+
+The section shows the change before you drop, and Home Cards makes it through Obsidian's own frontmatter editing. When the property holds a list, such as the projects a note belongs to, a card dropped from a section that states no value for it keeps its other values and gains the new one, and a card moved between two such sections swaps one value for the other. **Set a property…** in the card's menu sets any property.
+
+### Pins and snooze
+
+Pin a note to Home from its card's menu, any note menu in Obsidian, or the command palette. A Pinned section lists your pins, always comes first on its page, and stays hidden until you pin something. Snooze a card for a week or a month, or tell Rediscover to pass a note over. Home Cards keeps these marks in its own settings and leaves your notes unchanged.
+
+### Keyboard
+
+- <kbd>/</kbd> filters the cards.
+- <kbd>j</kbd> and <kbd>k</kbd> or the arrow keys move between cards.
+- <kbd>Enter</kbd> opens a card; with <kbd>Cmd</kbd> or <kbd>Ctrl</kbd> it opens in a new tab.
+- <kbd>Space</kbd> previews a card.
+- <kbd>p</kbd> pins or unpins a card.
+
+### Menus and actions
+
+- **Cards:** right-click a card for Obsidian's file menu and Home Cards' own actions. Hold Cmd or Ctrl over a card for a preview, through the Page Preview core plugin. A middle click opens a new tab.
+- **Header:** New note creates a note where Obsidian's settings put new notes. Rediscover opens a random note you haven't changed in months.
+- **Sections:** click a heading to fold its section; the chevron shows the state, and the page remembers it. "See more" under a section shows further matches, one section's worth at a time, up to three times; "Show fewer" puts them back.
+
+## Pages
+
+The home page is one page. You can make others, and every folder and every note has one.
+
+### Pages for a folder, a tag or a property
+
+A page shows the notes of one folder, one tag or one property, or of the whole vault, under the home page's sections or sections of its own. Make one with **Create a page** or in **Settings → Home Cards → Pages**. Each page opens in its own tab, from a command named for it (give it a hotkey in Obsidian's Hotkeys settings), from **Open a page**, or from a link such as `obsidian://home-cards?page=Reading`.
+
+A folder needs no setup: right-click it and choose **Open Home Cards page**. A page about a folder follows the folder when you rename or move it, and the folder opens that page from its menu. **New note** on a tag or property page starts the note with that tag or property, so it appears on the page.
+
+![A People page with Writers and Scientists sections and portrait covers](docs/people-light.webp)
+
+### A page for each note
+
+Right-click a note and choose **Open Home Cards page**, or run **Open page for current note**, to see what the note links to and what links to it, as cards. Click the page's title to open the note.
+
+![The page for the note Mary Shelley: its links, its backlinks and, with Relate, notes similar in meaning](docs/note-page.webp)
+
+### A Bases view
+
+Any base can show its results as **Home cards**, with one section per group. A base takes any filter Bases offers, and it is a file in your vault; a Home Cards page is not.
+
+![A base of books grouped by reading status, shown as Home cards](docs/bases.webp)
+
+## Appearance
+
+- **Card surfaces:** Flat, Elevated or Frosted, in **Settings → Home Cards → Appearance**.
+- **Background patterns:** thirteen tiled patterns, each with a light and a dark version that follows the theme. Pick one in settings or from the swatch button in the header, which applies it as you click.
+- **Your own backgrounds:** add a PNG, JPEG, WebP or GIF from **Settings → Home Cards → Your backgrounds**, as a repeating pattern or a single picture, with a fade that sets how much of the theme's background covers it. Home Cards keeps a resized copy in its own plugin folder, so your vault gains no files or folders. Up to twelve images.
+- **A greeting:** about 180 built-in greetings follow your local time of day, the day of the week and, optionally, fixed-date holidays, some in other languages, always in Latin script.
 
 ### Styling with CSS
 
-Home Cards has a small, documented styling interface for CSS snippets, themes and the Style Settings plugin: public `--hc-*` tokens for spacing, cards, type and images, a few stable selectors and data attributes, and an optional CSS class on any page or section, under **Advanced** in its editor. [Styling Home Cards](docs/STYLING.md) lists them, with recipes, and explains what stays stable across releases.
+Home Cards has a small, documented styling interface for CSS snippets, themes and the Style Settings plugin: public `--hc-*` tokens for spacing, cards, type and images, a few stable selectors and data attributes, and an optional CSS class on any page or section, under **Advanced** in its editor. [Styling Home Cards](docs/STYLING.md) lists them, with recipes, and explains what stays stable across releases. The People page above carries the class `portraits`, which a short snippet uses to give its covers a portrait shape.
 
-### Works with Relate
+![The same People page in dark mode](docs/people-dark.webp)
+
+## Works with other plugins
+
+### Relate
 
 Home Cards works well with [Relate](https://community.obsidian.md/plugins/relate), my other plugin, which links notes both ways and can search by meaning. Install it from **Settings → Community plugins → Browse**. You don't need it to use Home Cards. If you use both:
 
@@ -89,11 +126,28 @@ Home Cards works well with [Relate](https://community.obsidian.md/plugins/relate
 
 These options appear only while Relate is running. If you turn Relate off, a section that uses it keeps its settings and says it needs Relate, and the rest of the page works as before.
 
-### Optional: Typify icons
+### Typify
 
 If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, set **Cards → Glyph** to **Icon from Typify**. Home Cards then reads Typify's icon settings and shows the icon for each note's type. Home Cards only reads Typify's settings file, and only while this option is on. Without Typify, the option falls back to each note's initial letter.
 
-## Commands
+## Settings
+
+Every setting appears in Obsidian's settings search.
+
+- **General:** whether the home page opens at startup, the layout it opens in, whether a note may appear in more than one section, and how long a note must sit untouched before Rediscover offers it. General also clears snoozes and passed-over notes, turns update announcements on or off, and opens the release notes.
+- **Sections:** the sections, in page order. Drag a row to reorder it, use its toggle to show or hide it, and press its pencil to edit its source, card count, filters, conditions, sort order, card fields and image.
+- **Pages:** the pages you made. Each row opens the page or edits its name, what it is about, and whether it has sections of its own. A folder you never customized still opens a page, so it has no row here.
+- **Cards:** the corner glyph, the type label and the property it reads, the image properties, tags, the opening sentence and its length, and file size.
+- **Card text:** the summary property, and the openings and title prefixes Home Cards passes over.
+- **Appearance:** minimum card width, card surface and background pattern.
+- **Your backgrounds:** the images you added. Each has a name and a fade; deleting a row deletes its stored copy.
+- **Header:** the greeting and your name, holiday greetings, and the note count.
+
+After an update, a line at the top of the home page names the new version and opens its release notes. Close it, or read the notes, and it goes away on every device that syncs your settings. **Settings → Home Cards → What's new** shows the notes for recent releases at any time, and **Announce updates** turns the line off.
+
+![The Home Cards settings tab](docs/settings.webp)
+
+## Commands and links
 
 - **Home Cards: Open** shows the home page, opening it in a new tab if needed.
 - **Home Cards: Recompose** redraws every open home page and Home cards base view.
@@ -106,9 +160,7 @@ If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, se
 - **Home Cards: Pin or unpin the current note** pins the note you are reading to Home.
 - **Home Cards: Show what's new** opens the release notes.
 
-### Links
-
-`obsidian://home-cards` opens the home page. `obsidian://home-cards?page=Reading` opens the page named Reading, and `obsidian://home-cards?folder=Projects/Clients` opens a folder's page, and `obsidian://home-cards?note=Atlas` opens a note's page. A link that names nothing that exists shows a notice and does nothing else.
+`obsidian://home-cards` opens the home page. `obsidian://home-cards?page=Reading` opens the page named Reading, `obsidian://home-cards?folder=Projects/Clients` opens a folder's page, and `obsidian://home-cards?note=Atlas` opens a note's page. A link that names a page, folder or note that does not exist shows a notice and does nothing else.
 
 ## Privacy and access
 
@@ -129,11 +181,18 @@ With **Icon from Typify** on, Home Cards also reads the Typify plugin's settings
 
 When the Relate plugin is running, Home Cards asks it for searches, relationships and similar notes through the interface Relate offers to other plugins. Home Cards itself sends nothing anywhere. If you set Relate to use your own embedding server, Relate sends the text of your searches and notes to that server.
 
-## Architecture
+## Development
 
-[ARCHITECTURE.md](ARCHITECTURE.md) records the rules the code follows (public Obsidian API only, vault data canonical, Home Cards state apart from note facts), the four concepts the features are built from, what is stored where, and what is deliberately deferred.
+```sh
+npm install
+npm run build   # styles.css, type check, Obsidian's lint rules, main.js
+npm test        # type-checks the tests, then runs them
+npm run dev     # rebuilds main.js on save
+```
 
-The source divides into four layers. Each imports only from the layers above it; the views and settings tab also hold a type-only reference to the plugin class.
+`npm run lint` applies [Obsidian's review rules](https://github.com/obsidianmd/eslint-plugin), the checks the community directory runs on each release, to every file in the repository. See [RELEASING.md](RELEASING.md) for the release steps.
+
+The code calls only Obsidian's public API, treats the vault's notes as the source of truth, and keeps Home Cards' own state, such as pins and the activity log, apart from facts about notes. The source divides into four layers. Each imports only from the layers above it; the views and settings tab also hold a type-only reference to the plugin class.
 
 | Layer | Directory | Responsibility |
 | --- | --- | --- |
@@ -156,16 +215,9 @@ To add a background pattern, add `<id>-light.webp` and `<id>-dark.webp` to `asse
 
 Custom properties named `--hc-*` are the public styling contract in [docs/STYLING.md](docs/STYLING.md); Home Cards reads them and never declares them. Its own defaults and plumbing use `--_hc-*`. The tests fail if the styles read a public token the guide does not document, or declare one outside the Style Settings layer in `styles/95-style-settings.css`.
 
-## Development
+### Sample notes
 
-```sh
-npm install
-npm run build   # styles.css, type check, Obsidian's lint rules, main.js
-npm test        # type-checks the tests, then runs them
-npm run dev     # rebuilds main.js on save
-```
-
-`npm run lint` applies [Obsidian's review rules](https://github.com/obsidianmd/eslint-plugin), the checks the community directory runs on each release, to every file in the repository. See [RELEASING.md](RELEASING.md) for the release steps.
+`demo/` holds the scripts that add the nineteenth-century sample notes behind the screenshots to a test vault. `demo/images.py` downloads public-domain images from Wikimedia Commons, and `demo/build.py` writes the notes and Home Cards' pages for them.
 
 ## License
 

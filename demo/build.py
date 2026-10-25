@@ -1,31 +1,35 @@
-"""Build the Home Cards demo vault.
+"""Add the nineteenth-century notes in content.py to an existing vault.
 
 Usage:
   python3 -I demo/images.py IMAGES_DIR
-  python3 -I demo/build.py OUT_DIR IMAGES_DIR PLUGIN_DIR [--today YYYY-MM-DD]
+  python3 -I demo/build.py VAULT IMAGES_DIR [--today YYYY-MM-DD]
 
-OUT_DIR is created (it must not exist). IMAGES_DIR holds the output of
-images.py. PLUGIN_DIR holds main.js, manifest.json and styles.css, usually
-the repository root. Every note's modification time is set from content.py,
-relative to the build date, and listed in mtimes.tsv beside OUT_DIR for
-copies that drop modification times.
+VAULT is Plugin Playground, the test vault for all of Les's plugins. The
+script only adds: it refuses to replace a note, appends to a daily note
+or to Welcome and Image credits where they exist, adds pages and sections
+to Home Cards' settings without changing the ones there, and enables a
+CSS snippet. Modification times come from content.py, relative to the
+build date; appended notes keep their own.
 """
-import json, os, random, shutil, sys
-from datetime import date, datetime, timedelta, timezone, time as dtime
+import json, os, re, shutil, sys
+import random
+from datetime import date, datetime, timedelta, time as dtime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import content as C  # noqa: E402
 
 random.seed(1816)
-args = [a for a in sys.argv[1:] if not a.startswith("--")]
-OUT, IMAGES, PLUGIN = args
+args = [a for a in sys.argv[1:] if not a.startswith("--") and not re.match(r"^\d{4}-\d{2}-\d{2}$", a)]
+VAULT, IMAGES = args
 TODAY = date.today()
 if "--today" in sys.argv:
     TODAY = date.fromisoformat(sys.argv[sys.argv.index("--today") + 1])
+assert os.path.isdir(os.path.join(VAULT, ".obsidian")), f"{VAULT} is not a vault"
 
 notes = {}   # path -> (frontmatter dict, body, mtime datetime)
-titles = {}  # basename -> path
+titles = {}  # basename -> path, for the notes this script adds
+existing = {os.path.splitext(f)[0] for _r, _d, fs in os.walk(VAULT) for f in fs if f.endswith(".md")}
 
 
 def day(offset_days_ago):
@@ -43,7 +47,7 @@ def stamp(days_ago, hour=None):
 
 
 def add(folder, title, fm, body, mtime):
-    path = f"{folder}/{title}.md" if folder else f"{title}.md"
+    path = f"{folder}/{title}.md"
     assert title not in titles, f"duplicate note name {title}"
     titles[title] = path
     notes[path] = (fm, body, mtime)
@@ -76,7 +80,7 @@ for (name, _w, field, born, died, nat, known, age, body) in C.PEOPLE:
     }, body, stamp(age))
 
 for (title, _w, author, year, genres, status, rating, age, cr, body) in C.BOOKS:
-    add("Library", title, {
+    add("Reading", title, {
         "type": "Book", "author": link(author), "year": year, "status": status, "rating": rating,
         "cover": img(S(title) + "-cover"), "tags": [f"book/{g}" for g in genres], "created": created(age, cr),
     }, body, stamp(age))
@@ -137,61 +141,24 @@ for (ago, body) in C.JOURNAL:
     d = day(ago)
     add("Journal", d.isoformat(), {"type": "Journal", "created": d.isoformat()}, body, stamp(ago, 21 if ago else 9))
 
-# ------------------------------------------------------------- welcome
-WELCOME = f"""This vault shows what [Home Cards](https://github.com/ttangents/obsidian-home-cards) does with a vault that has some years in it. It belongs to an imaginary reader who keeps notes on nineteenth-century books, science and art, and runs a few projects alongside: essays, talks, a reading circle and two trips.
-
-## Try this
-1. Open three or four notes, then go back to the Home page. **Continue working** and **Related notes** fill in from what you opened.
-2. Switch between **Grid** and **Rows** in the page header.
-3. Open the pages in the page menu: Projects, Library, People, Places, Gallery and Research. Each is a set of sections over one part of the vault.
-4. On the **Projects** page, drag a card from Active to Done. Home Cards writes `status: done` into the note.
-5. Right-click a card to pin it, snooze it or keep it out of Rediscover.
-6. Open [[Library.base]]: the same notes in a Bases view, as cards and as a table.
-7. Open Settings → Home Cards to change the sections, the card surface and the background.
-
-## What is here
-- **Library:** 25 novels and books with first-edition covers, a reading status and ratings.
-- **People:** 28 writers, scientists and artists with portraits.
-- **Places and Gallery:** 15 places and 14 paintings.
-- **Projects:** 13 projects with status, area, due dates, progress and banners.
-- **Research:** five hub notes, sources, research notes and a few unfinished stubs.
-- **Meetings, Journal and Ideas:** dated notes for the sections that work with time.
-
-The **People** and **Gallery** pages each carry a CSS class (`portraits` and `gallery-wall`) that the snippet `home-cards-demo.css` uses to give their covers a different shape. See [STYLING.md](https://github.com/ttangents/obsidian-home-cards/blob/main/docs/STYLING.md).
-
-Every summary in this vault was written for it, from facts on Wikipedia. Every image is a public-domain work from Wikimedia Commons; [[Image credits]] lists them. Due dates and "this week" sections are relative to {TODAY.isoformat()}, the day the vault was built.
-"""
-add("", "Welcome", {"type": "Note", "created": day(30).isoformat()}, WELCOME, stamp(30, 8))
-
-credits = json.load(open(os.path.join(IMAGES, "credits.json")))
-lines = ["Every image in this vault is a lead image of an English Wikipedia article, hosted on Wikimedia Commons and marked public domain or CC0 there. Each was resized for this vault.", ""]
-lines += ["| Image | Wikipedia article | Licence on Commons |", "| --- | --- | --- |"]
-used = set()
-for (fm, _b, _m) in notes.values():
-    for k in ("portrait", "cover", "banner"):
-        v = fm.get(k)
-        if v:
-            used.add(v[2:-2][:-4])
-for key in sorted(used):
-    c = credits[key]
-    lines.append(f"| `{key}.jpg` | [{c['title']}](https://en.wikipedia.org/wiki/{c['title'].replace(' ', '_')}) | [{c['licence']}]({c['page']}) |")
-add("", "Image credits", {"type": "Note", "created": day(30).isoformat()}, "\n".join(lines), stamp(30, 8))
-
-# ----------------------------------------------------------- link check
+# ------------------------------------------------- links and conflicts
 for path, (fm, _b, _m) in notes.items():
     if fm.get("known for"):
         fm["known for"] = [link(k) if k in titles else k for k in fm["known for"]]
     if fm.get("artist") and fm["artist"][2:-2] not in titles:
         fm["artist"] = fm["artist"][2:-2]
-import re  # noqa: E402
+
 missing = {}
 for path, (fm, body, _m) in notes.items():
-    text = body + json.dumps(fm, ensure_ascii=False)
-    for target in re.findall(r"\[\[([^\]|#]+)", text):
-        if target.endswith((".jpg", ".base")):
-            continue
-        if target not in titles:
+    for target in re.findall(r"\[\[([^\]|#]+)", body + json.dumps(fm, ensure_ascii=False)):
+        if not target.endswith(".jpg") and target not in titles and target not in existing:
             missing.setdefault(target, []).append(path)
+assert not missing, f"unresolved links: {missing}"
+
+# A daily note that already exists gets the entry appended; any other clash stops the run.
+appends = {p: v for p, v in notes.items() if p.startswith("Journal/") and os.path.exists(os.path.join(VAULT, p))}
+clash = [p for p in notes if p not in appends and os.path.splitext(os.path.basename(p))[0] in existing]
+assert not clash, f"notes already in the vault: {clash}"
 
 # ----------------------------------------------------------------- write
 def yaml_value(v):
@@ -221,51 +188,77 @@ def frontmatter(fm):
     return "\n".join(out)
 
 
-os.makedirs(OUT)
-stamps = []
+def append_keeping_mtime(path, text):
+    st = os.stat(path)
+    with open(path, "a") as f:
+        f.write(text)
+    os.utime(path, (st.st_atime, st.st_mtime))
+
+
 for path, (fm, body, mtime) in notes.items():
-    full = os.path.join(OUT, path)
+    full = os.path.join(VAULT, path)
+    if path in appends:
+        append_keeping_mtime(full, "\n" + body.strip() + "\n")
+        continue
     os.makedirs(os.path.dirname(full), exist_ok=True)
-    with open(full, "w") as f:
+    with open(full, "x") as f:
         f.write(frontmatter(fm) + "\n" + body.strip() + "\n")
     ts = mtime.timestamp()
     os.utime(full, (ts, ts))
-    stamps.append(f"{path}\t{datetime.fromtimestamp(ts, timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}")
 
-att = os.path.join(OUT, "Attachments")
-os.makedirs(att)
-for key in sorted(used):
-    shutil.copy2(os.path.join(IMAGES, key + ".jpg"), att)
+used = sorted({fm[k][2:-6] for fm, _b, _m in notes.values() for k in ("portrait", "cover", "banner") if fm.get(k)})
+att = os.path.join(VAULT, "Attachments")
+for key in used:
+    if not os.path.exists(os.path.join(att, key + ".jpg")):
+        shutil.copy2(os.path.join(IMAGES, key + ".jpg"), att)
 
-# Bases
-open(os.path.join(OUT, "Library.base"), "w").write("""filters:
-  and:
-    - file.inFolder("Library")
-views:
-  - type: home-cards
-    name: Library as cards
-    groupBy:
-      property: status
-      direction: ASC
-  - type: table
-    name: Library table
-    order:
-      - file.name
-      - author
-      - year
-      - status
-      - rating
-""")
-open(os.path.join(OUT, "Gallery.base"), "w").write("""filters:
+# ------------------------------------------------- welcome and credits
+SHELF = """## The nineteenth-century shelf
+The same reader keeps a second interest: nineteenth-century books, science and art, with a reading circle, a newsletter, talks and two trips. Facts come from Wikipedia; the summaries were written for this vault.
+- **People:** 28 writers, scientists and artists with portraits, from [[Mary Shelley]] to [[Marie Curie]].
+- **Reading:** 25 more books with first-edition covers, beside the Tolkien shelf.
+- **Places and Gallery:** 15 places, from [[London]] to [[Mount Fuji]], and 14 paintings with whether the reader has seen them.
+- **Projects:** 13 more projects with status, area, due dates and banners, among them [[Gothic reading circle]] and [[Trip - Amsterdam and Delft]].
+- **Research:** five hubs, such as [[History of computing]] and [[Gothic fiction]], with sources, notes and stubs.
+- **Meetings, Journal and Ideas:** more dated notes, including some edited in this week of earlier years.
+- [[Gallery.base]]: the paintings in a Bases view.
+
+The Home Cards pages People and Gallery each carry a CSS class, `portraits` and `gallery-wall`, which the snippet `home-cards-pages.css` uses to give their covers a different shape.
+
+"""
+welcome = os.path.join(VAULT, "Welcome.md")
+w = open(welcome).read()
+if "## The nineteenth-century shelf" not in w:
+    st = os.stat(welcome)
+    w = w.replace("## Plugins under test", SHELF + "## Plugins under test", 1) if "## Plugins under test" in w else w + "\n" + SHELF
+    open(welcome, "w").write(w)
+    os.utime(welcome, (st.st_atime, st.st_mtime))
+
+credits = json.load(open(os.path.join(IMAGES, "credits.json")))
+by_image = {}
+for path, (fm, _b, _m) in notes.items():
+    for k in ("portrait", "cover", "banner"):
+        if fm.get(k):
+            by_image[fm[k][2:-6]] = os.path.splitext(os.path.basename(path))[0]
+rows = []
+for key in used:
+    c = credits[key]
+    artist = re.sub(r"<[^>]+>", "", c.get("artist") or "").strip() or "unknown"
+    lic = "Public domain" if c["licence"].startswith(("public", "pd")) else c["licence"].upper()
+    rows.append(f"- `{key}.jpg`, used for {by_image[key]}: {c['file'].replace('_', ' ').rsplit('.', 1)[0]}. Artist: {artist}. {lic}. [Source]({c['page']})")
+cred = os.path.join(att, "Image credits.md")
+if os.path.exists(cred) and "## The nineteenth-century shelf" not in open(cred).read():
+    append_keeping_mtime(cred, "\n## The nineteenth-century shelf\nEach is the lead image of an English Wikipedia article, marked public domain or CC0 on Wikimedia Commons.\n\n" + "\n".join(rows) + "\n")
+
+# --------------------------------------------------------------- bases
+base = os.path.join(VAULT, "Gallery.base")
+if not os.path.exists(base):
+    open(base, "w").write("""filters:
   and:
     - file.inFolder("Gallery")
 views:
   - type: home-cards
-    name: By movement
-    order:
-      - artist
-      - year
-      - museum
+    name: Paintings as cards
   - type: table
     name: Paintings
     order:
@@ -277,18 +270,10 @@ views:
       - rating
 """)
 
-# ------------------------------------------------------------ settings
-obs = os.path.join(OUT, ".obsidian")
-os.makedirs(os.path.join(obs, "snippets"))
-json.dump({"alwaysUpdateLinks": True, "attachmentFolderPath": "Attachments"}, open(os.path.join(obs, "app.json"), "w"), indent=2)
-json.dump({"enabledCssSnippets": ["home-cards-demo"]}, open(os.path.join(obs, "appearance.json"), "w"), indent=2)
-json.dump(["home-cards"], open(os.path.join(obs, "community-plugins.json"), "w"), indent=2)
-json.dump({k: True for k in ["file-explorer", "global-search", "switcher", "graph", "backlink", "outgoing-link", "tag-pane",
-                             "page-preview", "properties", "bases", "command-palette", "outline", "bookmarks", "daily-notes",
-                             "templates", "file-recovery", "word-count"]},
-          open(os.path.join(obs, "core-plugins.json"), "w"), indent=2)
-json.dump({"folder": "Journal", "format": "YYYY-MM-DD"}, open(os.path.join(obs, "daily-notes.json"), "w"), indent=2)
-open(os.path.join(obs, "snippets", "home-cards-demo.css"), "w").write("""/* Home Cards demo: shapes for two pages, by the CSS class each page carries.
+# ------------------------------------------------------------- snippet
+obs = os.path.join(VAULT, ".obsidian")
+os.makedirs(os.path.join(obs, "snippets"), exist_ok=True)
+open(os.path.join(obs, "snippets", "home-cards-pages.css"), "w").write("""/* Home Cards: shapes for two pages, by the CSS class each page carries.
    Set a page's class in its editor under Advanced → CSS class. */
 
 /* People: portrait covers in narrower cards. */
@@ -302,98 +287,62 @@ open(os.path.join(obs, "snippets", "home-cards-demo.css"), "w").write("""/* Home
   --hc-cover-ratio: 4 / 3;
 }
 """)
+ap = os.path.join(obs, "appearance.json")
+appearance = json.load(open(ap)) if os.path.exists(ap) else {}
+snips = appearance.setdefault("enabledCssSnippets", [])
+if "home-cards-pages" not in snips:
+    snips.append("home-cards-pages")
+json.dump(appearance, open(ap, "w"), indent=2)
 
-plugdir = os.path.join(obs, "plugins", "home-cards")
-os.makedirs(plugdir)
-for f in ("main.js", "manifest.json", "styles.css"):
-    shutil.copy2(os.path.join(PLUGIN, f), plugdir)
-version = json.load(open(os.path.join(PLUGIN, "manifest.json")))["version"]
+# ------------------------------------------------------ Home Cards pages
+dp = os.path.join(obs, "plugins", "home-cards", "data.json")
+data = json.load(open(dp))
 _n = [0]
 
 
-def sec(kind, title="", count=8, image="none", conditions=(), fields=(), strategy="forgotten", css="", **kw):
+def sec(kind, title="", count=8, image="none", conditions=(), fields=(), strategy="forgotten", **kw):
     _n[0] += 1
-    s = {"id": kw.pop("id", f"demo{_n[0]}"), "title": title, "kind": kind, "count": count, "enabled": True,
+    s = {"id": f"c19-{_n[0]}", "title": title, "kind": kind, "count": count, "enabled": True,
          "propertyKey": "", "propertyValue": "", "sortKey": "", "sortDir": "desc", "tag": "", "strategy": strategy,
          "filterTags": [], "filterProps": [], "filterFolders": [],
          "conditions": [{"property": p, "op": o, "value": v} for (p, o, v) in conditions],
-         "fields": list(fields), "image": image, "query": "", "note": "", "relation": "", "cssClass": css}
+         "fields": list(fields), "image": image, "query": "", "note": "", "relation": "", "cssClass": ""}
     s.update(kw)
     return s
 
 
-def page(pid, name, scope, sections, css=""):
-    sc = {"kind": "all", "folder": "", "tag": "", "propertyKey": "", "propertyValue": ""}
-    sc.update(scope)
-    return {"id": pid, "name": name, "scope": sc, "sections": sections, "cssClass": css}
+def page(pid, name, folder, sections, css):
+    return {"id": pid, "name": name, "scope": {"kind": "folder", "folder": folder, "tag": "", "propertyKey": "", "propertyValue": ""},
+            "sections": sections, "cssClass": css}
 
 
-open_ = ("status", "is-not", "done")
-home = [
-    sec("pinned", count=4, id="pinned"),
-    sec("continue", count=6, id="continue"),
-    sec("recent-modified", "Due this week", 6, "thumbnail", [("due", "next-days", "7"), open_], ["status", "due"], id="due"),
-    sec("recent-modified", "Overdue", 6, "thumbnail", [("due", "before-today", ""), open_], ["status", "due"], id="overdue"),
-    sec("property", "Reading now", 4, "cover", [("status", "is", "reading")], ["author", "year"], propertyKey="type", propertyValue="Book", id="reading"),
-    sec("related", count=6, id="related"),
-    sec("recent-modified", "Captured this week", 6, "none", [("created", "last-days", "7"), ("type", "is-not", "Journal")], ["type", "created"], id="captured"),
-    sec("rediscover", count=3, strategy="gems", id="gems"),
-    sec("rediscover", count=3, strategy="on-this-day", id="onthisday"),
-]
-pages = [
-    page("page-projects", "Projects", {"kind": "property", "propertyKey": "type", "propertyValue": "Project"}, [
-        sec("recent-modified", "Active", 8, "cover", [("status", "is", "active")], ["area", "due"]),
-        sec("recent-modified", "Waiting", 8, "cover", [("status", "is", "waiting")], ["area", "due"]),
-        sec("recent-modified", "Someday", 8, "cover", [("status", "is", "someday")], ["area"]),
-        sec("recent-modified", "Done", 8, "thumbnail", [("status", "is", "done")], ["area", "due"]),
-    ]),
-    page("page-library", "Library", {"kind": "folder", "folder": "Library"}, [
-        sec("recent-modified", "Reading", 8, "cover", [("status", "is", "reading")], ["author", "year"]),
-        sec("recent-modified", "Up next", 8, "cover", [("status", "is", "unread")], ["author", "year"]),
-        sec("recent-modified", "Loved", 8, "cover", [("rating", "gte", "5")], ["author", "rating"]),
-        sec("recent-modified", "Finished", 12, "thumbnail", [("status", "is", "finished")], ["author", "rating"]),
-        sec("recent-modified", "Abandoned", 4, "thumbnail", [("status", "is", "abandoned")], ["author"]),
-    ]),
-    page("page-people", "People", {"kind": "folder", "folder": "People"}, [
+pages = {p["id"]: p for p in data["pages"]}
+new_pages = [
+    page("page-c19-people", "People", "People", [
         sec("most-linked", "Writers", 8, "cover", [("field", "is", "Literature")], ["born", "died"]),
         sec("most-linked", "Scientists", 8, "cover", [("field", "is", "Science")], ["born", "died"]),
         sec("most-linked", "Artists", 8, "cover", [("field", "is", "Art")], ["born", "died"]),
-    ], css="portraits"),
-    page("page-places", "Places", {"kind": "folder", "folder": "Places"}, [
-        sec("recent-modified", "Been there", 8, "cover", [("visited", "is", "true")], ["country", "kind"]),
-        sec("recent-modified", "On the list", 8, "cover", [("visited", "is", "false")], ["country", "kind"]),
-    ]),
-    page("page-gallery", "Gallery", {"kind": "folder", "folder": "Gallery"}, [
+    ], "portraits"),
+    page("page-c19-gallery", "Gallery", "Gallery", [
         sec("recent-modified", "Seen in person", 8, "cover", [("seen", "is", "true")], ["artist", "museum"]),
         sec("recent-modified", "Still to see", 8, "cover", [("seen", "is", "false")], ["artist", "museum"]),
-    ], css="gallery-wall"),
-    page("page-research", "Research", {"kind": "folder", "folder": "Research"}, [
-        sec("rediscover", "", 6, strategy="hubs"),
-        sec("most-linked", "Most linked", 6, "none", [], ["type"]),
-        sec("property", "Unread sources", 8, "none", [("status", "is", "unread")], ["year", "topic"], propertyKey="type", propertyValue="Source"),
-        sec("property", "Sources without a summary", 8, "none", [("summary", "missing", "")], ["year"], propertyKey="type", propertyValue="Source"),
-        sec("rediscover", "", 6, strategy="unfinished"),
-    ]),
+    ], "gallery-wall"),
 ]
-data = {
-    "version": 2, "sections": home, "pages": pages, "dedupe": True, "rediscoverMonths": 6,
-    "greetingEnabled": True, "greetingOccasions": True, "greetingName": "", "showNoteCount": True,
-    "openOnStartup": True, "showReleaseNotes": True, "lastShownVersion": version, "defaultView": "grid",
-    "cardMinWidth": 262, "cardSurface": "flat", "background": "plain", "accentRubrics": True, "typeProperty": "type",
-    "showGlyph": True, "typifyIcons": False, "showRubric": True, "showTags": True, "maxTags": 3, "showDeks": True,
-    "dekLines": 3, "showFileSize": False, "imageProperties": "cover, portrait, banner", "summaryProperty": "summary",
-    "boilerplateOpeners": "this note, this document, this page", "titlePrefixes": "", "stripTrailingDates": True,
-    "customBackgrounds": [], "marks": {"pinned": C.PINNED, "snoozed": {}, "quiet": []},
-}
-json.dump(data, open(os.path.join(plugdir, "data.json"), "w"), indent=2)
+for p in new_pages:
+    if p["id"] not in pages:
+        data["pages"].append(p)
 
-for p in C.PINNED:
-    assert p in notes, p
-# Some copies and syncs drop modification times; this list restores them:
-#   while IFS=$'\t' read -r p t; do touch -d "$t" "$p"; done < ../mtimes.tsv
-open(os.path.join(os.path.dirname(OUT.rstrip("/")), "mtimes.tsv"), "w").write("\n".join(stamps) + "\n")
-print(f"{len(notes)} notes, {len(used)} images, built for {TODAY}")
-if missing:
-    print("Unresolved links:")
-    for t, where in sorted(missing.items()):
-        print(f"  {t}  <- {', '.join(where[:3])}")
+
+def ensure_section(page_id, title, section, before=None):
+    p = pages.get(page_id)
+    if p is None or title in [s["title"] for s in p["sections"]]:
+        return
+    at = next((i for i, s in enumerate(p["sections"]) if s["title"] == before), len(p["sections"]))
+    p["sections"].insert(at, section)
+
+
+ensure_section("page-projects", "Someday", sec("recent-modified", "Someday", 8, "cover", [("status", "is", "someday")], ["area"]), before="Done")
+ensure_section("page-library", "Abandoned", sec("recent-modified", "Abandoned", 4, "thumbnail", [("status", "is", "abandoned")], ["author"]))
+json.dump(data, open(dp, "w"), indent=2)
+
+print(f"added {len(notes) - len(appends)} notes, appended to {len(appends)} daily notes, {len(used)} images, built for {TODAY}")

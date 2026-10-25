@@ -1,4 +1,4 @@
-"""Fetch public-domain lead images for the demo vault from Wikipedia/Commons.
+"""Fetch public-domain lead images for content.py from Wikipedia and Commons.
 
 Usage: python3 -I images.py OUT_DIR  (reads IMAGE_TITLES below)
 Writes OUT_DIR/<slug>.jpg and OUT_DIR/credits.json. Skips anything whose

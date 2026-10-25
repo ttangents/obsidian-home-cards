@@ -485,7 +485,7 @@ export default class HomeCardsPlugin extends Plugin {
       new Notice(`Home Cards: a vault can have up to ${LIMITS.pages.max} pages.`);
       return;
     }
-    const draft: NamedPage = { id: newPageId(), name: "", scope: blankScope(), sections: null };
+    const draft: NamedPage = { id: newPageId(), name: "", scope: blankScope(), sections: null, cssClass: "" };
     new PageModal(this, draft, "create", (page) => {
       void this.commit().then(async () => {
         onCreated?.(page);
@@ -515,6 +515,7 @@ export default class HomeCardsPlugin extends Plugin {
         name: uniquePageName(this.settings.pages, suggestPageName(resolved.scope)),
         scope: { ...resolved.scope },
         sections: null,
+        cssClass: "",
       };
       this.settings.pages.push(page);
       untouched = JSON.stringify(page);

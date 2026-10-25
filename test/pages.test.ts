@@ -34,6 +34,7 @@ const page = (over: Partial<NamedPage>): NamedPage => ({
   id: "page-a",
   name: "A",
   scope: blankScope(),
+  cssClass: "",
   sections: null,
   ...over,
 });

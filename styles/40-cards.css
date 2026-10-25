@@ -4,9 +4,9 @@
   display: grid;
   grid-template-columns: repeat(
     auto-fill,
-    minmax(min(var(--hc-card-min), 100%), 1fr)
+    minmax(min(var(--hc-card-min, var(--_hc-card-min)), 100%), 1fr)
   );
-  gap: var(--hc-gap);
+  gap: var(--hc-grid-gap, var(--hc-gap, var(--_hc-grid-gap)));
 }
 
 /* The card reads its materials from the surface tokens in
@@ -14,21 +14,21 @@
    shadow, so it animates), the surface fill, and the underlay that
    keeps a pattern from showing through translucent theme surfaces. */
 .hc-card {
-  --hc-card-tint: transparent;
+  --_hc-card-tint: transparent;
   background:
-    linear-gradient(var(--hc-surface), var(--hc-surface)),
-    linear-gradient(var(--hc-underlay), var(--hc-underlay));
-  border: var(--border-width) solid var(--hc-card-border);
-  border-radius: var(--hc-radius);
-  box-shadow: inset 0 0 0 100vmax var(--hc-card-tint), var(--hc-card-shadow);
-  -webkit-backdrop-filter: var(--hc-card-blur);
-  backdrop-filter: var(--hc-card-blur);
-  padding: var(--hc-card-pad);
+    linear-gradient(var(--hc-card-background, var(--hc-surface, var(--_hc-card-background))), var(--hc-card-background, var(--hc-surface, var(--_hc-card-background)))),
+    linear-gradient(var(--_hc-underlay), var(--_hc-underlay));
+  border: var(--border-width) solid var(--hc-card-border, var(--_hc-card-border));
+  border-radius: var(--hc-card-radius, var(--_hc-card-radius));
+  box-shadow: inset 0 0 0 100vmax var(--_hc-card-tint), var(--hc-card-shadow, var(--_hc-card-shadow));
+  -webkit-backdrop-filter: var(--_hc-card-blur);
+  backdrop-filter: var(--_hc-card-blur);
+  padding: var(--hc-card-padding, var(--_hc-card-padding));
   display: flex;
   flex-direction: column;
   /* One rhythm inside the card: title, label line and summary sit
      closer together than cards sit to each other. */
-  gap: var(--hc-card-inner);
+  gap: var(--_hc-card-inner);
   cursor: pointer;
   outline: none;
   transition:
@@ -41,21 +41,21 @@
    paint, so its neighbours never shift. */
 @media (hover: hover) {
   .hc-card:hover {
-    --hc-card-tint: var(--hc-card-tint-hover);
-    border-color: var(--hc-card-border-hover);
-    box-shadow: inset 0 0 0 100vmax var(--hc-card-tint), var(--hc-card-shadow-hover);
-    translate: var(--hc-card-lift);
+    --_hc-card-tint: var(--hc-card-hover-background, var(--_hc-card-hover-background));
+    border-color: var(--hc-card-border-hover, var(--_hc-card-border-hover));
+    box-shadow: inset 0 0 0 100vmax var(--_hc-card-tint), var(--hc-card-shadow-hover, var(--_hc-card-shadow-hover));
+    translate: var(--hc-card-lift, var(--_hc-card-lift));
   }
 }
 /* Focus is a ring in the theme's focus color, outside the card's
    edge, so it reads apart from hover, which changes only the fill,
    the edge and the shadow. */
 .hc-card:focus-visible {
-  border-color: var(--hc-focus);
+  border-color: var(--hc-focus-ring, var(--_hc-focus-ring));
   box-shadow:
-    inset 0 0 0 100vmax var(--hc-card-tint),
-    0 0 0 2px var(--hc-focus),
-    var(--hc-card-shadow);
+    inset 0 0 0 100vmax var(--_hc-card-tint),
+    0 0 0 2px var(--hc-focus-ring, var(--_hc-focus-ring)),
+    var(--hc-card-shadow, var(--_hc-card-shadow));
 }
 
 .hc-card-head {
@@ -73,11 +73,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--hc-radius-small);
+  border-radius: var(--_hc-radius-small);
   background: var(--background-modifier-hover);
   color: var(--text-faint);
   font-family: var(--h4-font);
-  font-size: calc(var(--hc-title-size) * 0.8);
+  font-size: calc(var(--hc-title-size, var(--_hc-title-size)) * 0.8);
 }
 .hc-glyph.has-icon { color: var(--icon-color); }
 .hc-glyph .svg-icon {
@@ -94,7 +94,7 @@
 .home-cards[data-view="grid"] .hc-card-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--hc-card-inner) var(--size-4-3);
+  gap: var(--_hc-card-inner) var(--size-4-3);
 }
 .home-cards[data-view="grid"] .hc-card:is(.has-glyph, .has-thumb) .hc-card-head {
   grid-template-columns: auto minmax(0, 1fr);
@@ -106,8 +106,8 @@
    the weight of a heading, and below the section names. */
 .hc-title {
   font-family: var(--h4-font);
-  font-size: var(--hc-title-size);
-  font-weight: var(--font-semibold);
+  font-size: var(--hc-title-size, var(--_hc-title-size));
+  font-weight: var(--hc-title-weight, var(--_hc-title-weight));
   line-height: var(--line-height-tight);
   color: var(--text-normal);
   margin: 0;

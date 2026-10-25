@@ -12,13 +12,13 @@
   margin-top: var(--size-4-2);
   padding: var(--size-4-2) var(--size-4-2) var(--size-4-2) var(--size-4-4);
   background:
-    linear-gradient(var(--hc-surface), var(--hc-surface)),
-    linear-gradient(var(--hc-underlay), var(--hc-underlay));
-  border: var(--border-width) solid var(--hc-card-border);
-  border-radius: var(--hc-radius);
-  box-shadow: var(--hc-card-shadow);
-  -webkit-backdrop-filter: var(--hc-card-blur);
-  backdrop-filter: var(--hc-card-blur);
+    linear-gradient(var(--hc-card-background, var(--hc-surface, var(--_hc-card-background))), var(--hc-card-background, var(--hc-surface, var(--_hc-card-background)))),
+    linear-gradient(var(--_hc-underlay), var(--_hc-underlay));
+  border: var(--border-width) solid var(--hc-card-border, var(--_hc-card-border));
+  border-radius: var(--hc-card-radius, var(--_hc-card-radius));
+  box-shadow: var(--hc-card-shadow, var(--_hc-card-shadow));
+  -webkit-backdrop-filter: var(--_hc-card-blur);
+  backdrop-filter: var(--_hc-card-blur);
 }
 
 .hc-update-icon {

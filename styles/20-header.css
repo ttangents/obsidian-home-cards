@@ -1,16 +1,17 @@
 /* --- Page frame and header ------------------------------ */
 
-/* The page's margins. On very wide panes the content stops growing
-   and centers, so rows keep a readable length and the grid does not
-   spread into a wall of columns. */
+/* The page's margins; see the page frame tokens in 00-base.css. */
 .hc-wrap {
-  max-width: 1440px;
+  max-width: var(--hc-page-width, var(--_hc-page-width));
   margin-inline: auto;
-  padding: var(--size-4-8) var(--size-4-8) var(--size-4-12);
+  padding: var(--hc-page-padding, var(--_hc-page-padding)) var(--hc-page-padding, var(--_hc-page-padding)) var(--size-4-12);
 }
 /* Obsidian marks phones on the body; tighten the frame to match. */
+body.is-phone .home-cards {
+  --_hc-page-padding: var(--size-4-4);
+}
 body.is-phone .hc-wrap {
-  padding: var(--size-4-4) var(--size-4-4) var(--size-4-8);
+  padding-bottom: var(--size-4-8);
 }
 
 /* The masthead and the controls share a baseline row: the page's
@@ -69,7 +70,7 @@ input.hc-search {
   display: flex;
   gap: var(--size-2-1);
   background: var(--background-modifier-hover);
-  border-radius: var(--hc-radius-control);
+  border-radius: var(--_hc-radius-control);
   padding: var(--size-2-1);
 }
 /* Buttons sit inside the track's padding, so the whole control
@@ -80,7 +81,7 @@ input.hc-search {
   align-items: center;
   justify-content: center;
   padding: 0 var(--size-4-2);
-  border-radius: calc(var(--hc-radius-control) - 1px);
+  border-radius: calc(var(--_hc-radius-control) - 1px);
   background: transparent;
   box-shadow: none;
   color: var(--text-faint);
@@ -126,7 +127,7 @@ input.hc-search {
   padding: var(--size-4-3);
   background: var(--background-primary);
   border: var(--border-width) solid var(--background-modifier-border);
-  border-radius: var(--hc-radius);
+  border-radius: var(--hc-card-radius, var(--_hc-card-radius));
   box-shadow: var(--shadow-s);
 }
 .hc-picker .hc-swatches {

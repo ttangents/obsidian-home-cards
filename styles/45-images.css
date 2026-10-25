@@ -15,8 +15,8 @@
 /* The cover is the card's top edge, set off from the text by a little
    more than the card's inner gap. */
 .hc-cover {
-  margin: 0 calc(-1 * var(--hc-card-pad)) var(--size-2-2);
-  aspect-ratio: 16 / 9;
+  margin: 0 calc(-1 * var(--hc-card-padding, var(--_hc-card-padding))) var(--size-2-2);
+  aspect-ratio: var(--hc-cover-ratio, var(--_hc-cover-ratio));
   /* Without this, a flex item grows to its image's own height. */
   overflow: hidden;
   min-height: 0;
@@ -39,11 +39,11 @@
    start on one line whatever the titles' lengths. */
 .hc-thumb {
   flex: none;
-  font-size: var(--hc-title-size);
+  font-size: var(--hc-title-size, var(--_hc-title-size));
   line-height: var(--line-height-tight);
-  width: 2lh;
-  height: 2lh;
-  border-radius: var(--hc-radius-small);
+  width: var(--hc-thumb-size, var(--_hc-thumb-size));
+  height: var(--hc-thumb-size, var(--_hc-thumb-size));
+  border-radius: var(--_hc-radius-small);
   object-fit: cover;
   background: var(--background-modifier-hover);
   /* A hairline inside the edge keeps a pale image from melting into a

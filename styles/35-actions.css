@@ -31,7 +31,7 @@
 .hc-section.is-drop-target > .hc-empty {
   outline: var(--border-width) dashed var(--interactive-accent);
   outline-offset: var(--size-4-2);
-  border-radius: var(--hc-radius);
+  border-radius: var(--hc-card-radius, var(--_hc-card-radius));
 }
 .hc-drop-hint {
   margin: calc(-1 * var(--size-4-1)) 0 var(--size-4-3);

@@ -16,6 +16,7 @@
  */
 
 import { CUSTOM_BACKGROUNDS, isCustomId, isStoredFileName } from "./custom-background";
+import { normalizeCssClass } from "./css-classes";
 import { normalizeFolderPath } from "./folders";
 import { legacyFolderPageId, suggestPageName, uniquePageName } from "./pages";
 import { laterVersion } from "./release-notes";
@@ -173,6 +174,7 @@ function normalizeSection(e: Raw, index: number): SectionConfig[] {
     query: str(e.query, ""),
     note: str(e.note, ""),
     relation: str(e.relation, ""),
+    cssClass: normalizeCssClass(e.cssClass),
   };
   if (!legacyUnresolved) return [cfg];
   return [cfg, blankSection({ id: `${cfg.id}-least`, kind: "least-linked" })];
@@ -256,7 +258,7 @@ export function normalizePages(raw: unknown): NamedPage[] {
     const sections =
       Array.isArray(entry.sections) && entry.sections.length ? normalizeSections(entry.sections) : null;
     const name = uniquePageName(out, str(entry.name, "").trim() || suggestPageName(scope));
-    out.push({ id, name, scope, sections });
+    out.push({ id, name, scope, sections, cssClass: normalizeCssClass(entry.cssClass) });
   }
   return out;
 }

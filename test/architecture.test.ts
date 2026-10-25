@@ -10,6 +10,7 @@ import { test } from "./harness";
 import { BACKGROUNDS, SECTION_KINDS, SURFACES, VIEW_MODES } from "../src/settings/schema";
 
 const read = (p: string) => readFileSync(p, "utf8");
+const cssPartials = () => readdirSync("styles").filter((f) => f.endsWith(".css")).map((f) => ({ file: join("styles", f), text: read(join("styles", f)) }));
 const sources = (dir: string) =>
   readdirSync(dir).filter((f) => f.endsWith(".ts")).map((f) => ({ file: join(dir, f), text: read(join(dir, f)) }));
 
@@ -96,10 +97,10 @@ test("every pattern has both tiles, a variable pair and a selector", () => {
   for (const { id } of BACKGROUNDS.filter((b) => b.id !== "plain")) {
     for (const mode of ["light", "dark"]) {
       assert.ok(existsSync(`assets/tiles/${id}-${mode}.webp`), `${id}-${mode}.webp`);
-      assert.ok(css.includes(`--hc-bg-${id}: url("@tile:${id}-${mode}@")`), `${id} ${mode} variable`);
+      assert.ok(css.includes(`--_hc-bg-${id}: url("@tile:${id}-${mode}@")`), `${id} ${mode} variable`);
     }
     for (const block of css.split(/\n\}/).filter((b) => b.includes(`url("@tile:`))) {
-      assert.match(block, new RegExp(`--hc-veil-${id}: \\d+%;`), `${id} veil in every mode`);
+      assert.match(block, new RegExp(`--_hc-veil-${id}: \\d+%;`), `${id} veil in every mode`);
     }
     assert.ok(css.includes(`.home-cards[data-pattern="${id}"]`), `${id} selector`);
   }
@@ -135,7 +136,7 @@ test("the built stylesheet is current, balanced and carries its load-bearing rul
   ]) {
     assert.ok(built.includes(selector), selector);
   }
-  assert.ok(!/^body(\.theme-dark)? \{[^}]*--hc-bg-/m.test(built), "tile variables must not sit on body");
+  assert.ok(!/^body(\.theme-dark)? \{[^}]*--_hc-bg-/m.test(built), "tile variables must not sit on body");
   // Hidden cards stay hidden in every layout: the rule must follow the
   // rows layout, which gives each card a display of its own.
   const hidden = built.indexOf(".home-cards .hc-card.is-hidden { display: none; }");
@@ -176,3 +177,53 @@ test("every tile file belongs to a registered pattern and draws sharp at 400px",
     assert.equal(buf.readUInt16LE(26) & 0x3fff, 800, `${file}: expected 800px wide`);
   }
 });
+
+// ------------------------------------------------------- styling contract
+
+/** The public tokens docs/STYLING.md lists, from its table. */
+function documentedTokens(): Set<string> {
+  return new Set([...read("docs/STYLING.md").matchAll(/^\| `(--hc-[a-z-]+)` \|/gm)].map((m) => m[1]));
+}
+/** Tokens from before the contract, still read as fallbacks. */
+const LEGACY_TOKENS = new Set(["--hc-gap", "--hc-surface"]);
+
+test("the styles read exactly the public tokens the guide documents", () => {
+  const used = new Set<string>();
+  for (const { text } of cssPartials()) {
+    for (const m of code(text).matchAll(/var\((--hc-[a-z-]+)/g)) if (!LEGACY_TOKENS.has(m[1])) used.add(m[1]);
+  }
+  assert.deepEqual([...used].sort(), [...documentedTokens()].sort());
+});
+
+test("Home Cards reads every public token with its own default behind it", () => {
+  for (const { file, text } of cssPartials()) {
+    for (const m of code(text).matchAll(/var\(--hc-([a-z-]+),\s*([^;]*)/g)) {
+      if (LEGACY_TOKENS.has(`--hc-${m[1]}`)) continue;
+      const fallback = m[2].replace(/^var\(--hc-(gap|surface),\s*/, "");
+      assert.ok(fallback.startsWith(`var(--_hc-${m[1]})`), `${file}: --hc-${m[1]} falls back to --_hc-${m[1]}`);
+    }
+  }
+});
+
+test("Home Cards declares public tokens only in its Style Settings layer", () => {
+  for (const { file, text } of cssPartials()) {
+    if (file.endsWith("95-style-settings.css")) continue;
+    assert.ok(!/(^|[\s;{])--hc-[a-z-]+\s*:/.test(code(text)), `${file} declares a public token`);
+  }
+  for (const { file, text } of allSources()) {
+    assert.ok(!/["'`]--hc-/.test(code(text)), `${file} sets a public token; use an --_hc- one`);
+  }
+});
+
+test("Style Settings controls set public tokens with bounded ranges", () => {
+  const block = read("styles/95-style-settings.css");
+  assert.match(block, /\/\* @settings\s+name: Home Cards\s+id: home-cards/);
+  const documented = documentedTokens();
+  const controls = [...block.matchAll(/id: (hc-[a-z-]+)\n\s+title: [^\n]+\n(?:\s+description: [^\n]+\n)?\s+type: (variable-[a-z-]+)/g)];
+  assert.ok(controls.length >= 5);
+  for (const [, id, type] of controls) {
+    assert.ok(documented.has(`--${id}`), `--${id} is a documented token`);
+    if (type === "variable-number-slider") assert.match(block, new RegExp(`id: ${id}\\n[\\s\\S]*?min: [\\d.]+\\n\\s+max: [\\d.]+`), `${id} has bounds`);
+  }
+});
+

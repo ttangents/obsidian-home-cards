@@ -5,7 +5,7 @@
    them.
    ---------------------------------------------------------- */
 
-.hc-section { margin-top: var(--hc-section-gap); }
+.hc-section { margin-top: var(--hc-section-gap, var(--_hc-section-gap)); }
 /* The first section sits closer to the masthead than to its
    neighbours, so the header reads as the page's own top. */
 .hc-body > .hc-section:first-child { margin-top: var(--size-4-8); }
@@ -15,19 +15,16 @@
   display: flex;
   align-items: baseline;
   gap: var(--size-4-2);
-  margin-bottom: var(--hc-head-gap);
+  margin-bottom: var(--_hc-head-gap);
 }
-/* Section names take the theme's heading face and color at the
-   third heading step: clear authority over card titles, and well
-   below the page's own title. */
 .hc-section-head h2 {
   font-family: var(--h2-font);
-  font-size: var(--h3-size);
+  font-size: var(--hc-section-title-size, var(--_hc-section-title-size));
   font-weight: var(--h2-weight);
   font-style: var(--h2-style);
   font-variant: var(--h2-variant);
   line-height: var(--line-height-tight);
-  color: var(--h2-color);
+  color: var(--hc-section-title-color, var(--_hc-section-title-color));
   margin: 0;
   min-width: 0;
 }
@@ -35,7 +32,7 @@
   flex: none;
   font-size: var(--font-ui-small);
   font-variant-numeric: tabular-nums;
-  color: var(--hc-text-meta);
+  color: var(--hc-meta-color, var(--_hc-meta-color));
 }
 
 /* Folding. The whole heading row is the control; the chevron at the
@@ -104,8 +101,8 @@
   height: var(--input-height);
   padding: 0 var(--size-4-3) 0 var(--size-4-2);
   border: none;
-  border-radius: var(--hc-radius-control);
-  background: var(--hc-underlay);
+  border-radius: var(--_hc-radius-control);
+  background: var(--_hc-underlay);
   box-shadow: none;
   color: var(--text-muted);
   font-size: var(--font-ui-small);
@@ -123,5 +120,5 @@
   color: var(--text-normal);
   background:
     linear-gradient(var(--background-modifier-hover), var(--background-modifier-hover)),
-    linear-gradient(var(--hc-underlay), var(--hc-underlay));
+    linear-gradient(var(--_hc-underlay), var(--_hc-underlay));
 }

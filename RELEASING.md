@@ -4,19 +4,15 @@
 
 1. Update `version` in `manifest.json` and `package.json` to the same value, and add it to `versions.json` with the release's `minAppVersion`. The test suite fails if the three disagree.
 2. Add the release's notes at the top of `RELEASE_NOTES` in `src/settings/release-notes.ts`: the version, the date, a one-sentence headline for the home page's notice, and the items under New, Improved, Changed and Fixed. Set `announce: false` for a release of small fixes, which then shows its notes in the What's new window without a notice. The test suite fails if the newest notes do not match the manifest, or if a version in `versions.json` has none.
-3. Run `npm run build` and `npm test`. The build runs Obsidian's review rules over the whole repository and must finish with no errors and no warnings.
-4. Commit, then tag the commit with the bare version, with no `v` prefix: `git tag 1.29.0`.
-5. Push the commit and the tag, and create a GitHub release for the tag. Attach `main.js`, `manifest.json` and `styles.css` as release assets.
-6. The community directory scans each new release within minutes. A release that fails the scan drops out of search until a fixed release replaces it.
+3. Run `npm run build` and `npm test`. The build runs Obsidian's review rules over the whole repository and must finish with no errors and no warnings. Commit `styles.css` with the change: the release workflow fails if its own build of the stylesheet differs. `main.js` stays out of the repository; the workflow builds it.
+4. Commit, then tag the commit with the bare version, with no `v` prefix: `git tag -a 1.34.1 -m 1.34.1`.
+5. Push the commit and the tag. The workflow in `.github/workflows/release.yml` checks that the tag names the manifest's version, builds and tests the plugin, attests `main.js`, `manifest.json` and `styles.css` with GitHub artifact attestations, and drafts a GitHub release with those three files and the release's notes from `release-notes.ts` (`scripts/release-notes.mjs` turns them into Markdown).
+6. Open the draft under Releases, read it, and publish it. Leave the attached files as they are: an attestation matches only the exact file the workflow built.
+7. The community directory scans each new release within minutes. A release that fails the scan drops out of search until a fixed release replaces it.
 
 `versions.json` lists only versions that exist as GitHub releases. Obsidian reads it to offer an older release to an app too old for the newest one, and a version with no release behind it would fail to install.
 
-## For the next release
-
-Items from Obsidian's reviews and earlier releases, to pick up with the next version.
-
-- **Artifact attestations.** The review of 1.33.1 recommends GitHub artifact attestations for `main.js` and `styles.css`. An attestation proves a release file came from this repository's source, and only a GitHub Actions workflow can create one: the workflow builds the files, attests them with `actions/attest-build-provenance`, and attaches them to the release, in place of uploading them by hand. Actions minutes are free for public repositories, but the workflow changes how releases are made, so it waits for a decision to use GitHub Actions here. The review's build verification already reproduces `main.js` byte for byte from the source.
-- **README screenshots.** `docs/grid-light.webp` and `docs/rows-dark.webp` predate the visual pass in 1.33.0 and show the old pills, counts and toolbar.
+## Review notes
 
 The review's "Vault enumeration" recommendation needs no change: Home Cards lists the vault's notes to build its sections.
 

@@ -68,6 +68,15 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.34.1",
+    date: "2026-10-25",
+    headline: "Each release's files now carry a GitHub attestation of the source they were built from.",
+    announce: false,
+    changed: [
+      "A GitHub workflow now builds each release from its tagged source and attests main.js, manifest.json and styles.css, so anyone can verify that the files they install came from this repository.",
+    ],
+  },
+  {
     version: "1.34.0",
     date: "2026-10-25",
     headline: "Themes, CSS snippets and Style Settings can now restyle Home Cards through a documented interface.",

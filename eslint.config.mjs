@@ -11,7 +11,7 @@ const BRANDS = [
 ];
 
 export default defineConfig([
-  globalIgnores(["main.js", "styles.css", "src/render/tiles.generated.ts", "node_modules/", "package-lock.json", "versions.json"]),
+  globalIgnores(["main.js", "styles.css", "src/render/tiles.generated.ts", "src/render/tiles.generated.d.ts", "node_modules/", "package-lock.json", "versions.json"]),
   {
     languageOptions: {
       globals: { ...globals.browser },

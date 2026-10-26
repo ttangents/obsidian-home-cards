@@ -35,7 +35,8 @@ import { greetingFor, withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
 import { compilePageScope, type ScopeTest } from "../compose/scope";
 import { notesIn } from "../compose/vault";
-import { RELATE_INCOMPATIBLE, relateView, type RelateApi, type RelateStatus } from "../compose/relate";
+import { pageGone, planPage, type PagePlan } from "../compose/plan";
+import { relateView } from "../compose/relate";
 import { cssClassList } from "../settings/css-classes";
 import { reparent } from "../settings/folders";
 import {
@@ -47,19 +48,11 @@ import {
   type PageRef,
   type ResolvedPage,
 } from "../settings/pages";
-import { sectionTitle, VIEW_MODES, type SectionConfig, type ViewMode } from "../settings/schema";
+import { VIEW_MODES, type ViewMode } from "../settings/schema";
 import { applyAppearance } from "./appearance";
 import { applyTemplate, createNote, cardActions, rediscoverNote } from "./actions";
 import { paneFor, renderSection, settleDek, type CardActions, type SectionMove } from "./card";
-import {
-  acceptsMoves,
-  describeTemplate,
-  hasFacts,
-  mergeTemplates,
-  sectionWrite,
-  templateForScope,
-  type NoteTemplate,
-} from "../compose/templates";
+import { templateForScope, type NoteTemplate } from "../compose/templates";
 import { registerCardKeys } from "./keyboard";
 import { observeDeks } from "./lazy-deks";
 import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
@@ -516,18 +509,12 @@ export class HomeView extends ItemView implements HoverParent {
 
     // A deleted page, or a folder that was deleted or moved away, leaves
     // its tab behind with a line saying so.
-    const gone = !page
-      ? "This page no longer exists."
-      : page.note && !app.vault.getFileByPath(page.note)
-        ? "This note no longer exists."
-        : page.scope.kind === "folder" && page.scope.folder && !app.vault.getFolderByPath(page.scope.folder)
-          ? "This folder no longer exists."
-          : null;
+    const gone = pageGone(page, {
+      noteExists: (path) => !!app.vault.getFileByPath(path),
+      folderExists: (path) => !!app.vault.getFolderByPath(path),
+    });
     if (!page || gone) {
-      this.disposeDeks?.();
-      this.disposeDeks = null;
-      shell.body.replaceChildren();
-      shell.body.createDiv({ cls: "hc-empty", text: gone ?? "This page no longer exists." });
+      this.showLine(shell, gone ?? "This page no longer exists.");
       return;
     }
 
@@ -546,123 +533,25 @@ export class HomeView extends ItemView implements HoverParent {
       });
     } catch (err) {
       console.error("Home Cards: compose failed", err);
-      if (token === this.generation) {
-        shell.body.empty();
-        shell.body.createDiv({
-          cls: "hc-empty",
-          text: "Could not compose the page. See the console for details.",
-        });
-      }
+      if (token === this.generation) this.showLine(shell, "Could not compose the page. See the console for details.");
       return;
     }
     // A newer compose, or a close, happened while files were being read.
     if (token !== this.generation) return;
-    // A note's page makes its sections from the note each time it is drawn.
-    const pageSections = composed.configs;
-    let sections = composed.sections;
-    const count = scopeCount ?? composed.notes;
-    if (page.note) this.paintHeader(shell, page, count);
+    // A note's page learns its count from the compose.
+    if (page.note) this.paintHeader(shell, page, scopeCount ?? composed.notes);
 
-    // A scope narrows every section, so many come up empty there; the page
-    // shows the ones that have cards. The home page keeps its empty ones,
-    // which tell the reader why a section is bare.
-    // What each section implies for a note given to it: the basis for its
-    // + button, for dropping cards on it, and for Move to in card menus.
-    const writes = new Map(pageSections.map((cfg) => [cfg.id, sectionWrite(cfg, new Date())]));
-    const takesMoves = (id: string) => {
-      const w = writes.get(id);
-      return w !== undefined && acceptsMoves(w);
-    };
-    // An empty section that takes moves stays, as a place to move cards to.
-    if (!page.isHome) sections = sections.filter((s) => s.cards.length > 0 || takesMoves(s.config.id));
-    // A Pinned section shows only while it has pins to show, on every page.
-    sections = sections.filter((s) => s.config.kind !== "pinned" || s.cards.length > 0);
-
+    const plan = planPage(page, composed, {
+      noteExists: (path) => !!app.vault.getFileByPath(path),
+      folderExists: (path) => !!app.vault.getFolderByPath(path),
+      relate: relate ? relateView(relate, new Map()) : null,
+      relateStatus: plugin.relateStatus,
+      now: new Date(),
+    });
     // Built detached, then swapped in whole: no intermediate empty state.
     const next = createDiv();
-    const empty = (text: string) => next.createDiv({ cls: "hc-empty", text });
-    if (page.note && !sections.length) {
-      // Similar notes can fill a note's page that has no links, so the
-      // page is empty only when every section is.
-      empty(relate ? "This note has no links, backlinks or relationships yet." : "This note has no links or backlinks yet.");
-    } else if (!page.isHome && !page.note && count === 0) {
-      empty(emptyPageText(page));
-    } else if (!sections.length) {
-      empty(
-        pageSections.some((cfg) => cfg.enabled)
-            ? "No notes on this page match its sections."
-          : page.isHome
-            ? "Turn on a section in Settings → Home Cards to fill this page."
-            : "Turn on a section in this page's settings to fill it."
-      );
-    } else if (count === 0 && !page.note) {
-      // A new vault: one line beats a column of empty sections.
-      empty("Cards appear here as you write notes.");
-    } else {
-      const collapsed = new Set(this.collapsedIds());
-      const pageTemplate = templateForScope(page.scope);
-      const targets = sections.filter((s) => takesMoves(s.config.id));
-      const moveTo = (cfg: SectionConfig, from: SectionConfig): SectionMove | null => {
-        const write = writes.get(cfg.id);
-        if (!write) return null;
-        return {
-          title: sectionTitle(cfg),
-          change: describeTemplate(write.template),
-          run: (file) => void this.applyChange(file, write.template, writes.get(from.id)?.template),
-        };
-      };
-      for (const { config, cards, more, claimed } of sections) {
-        const write = writes.get(config.id);
-        const own = write?.complete && hasFacts(write.template) ? mergeTemplates(pageTemplate, write.template) : null;
-        const moves = targets.filter((t) => t.config.id !== config.id).flatMap((t) => moveTo(t.config, config) ?? []);
-        const emptyText = claimed
-          ? "Every matching note already appears in a section above."
-          : (emptyFor(config, relate, plugin.relateStatus) ?? EMPTY_BY_KIND[config.kind] ?? "This section has no matching notes.");
-        const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
-          style: { kind: config.kind, classes: cssClassList(config.cssClass) },
-          menuContext: { sectionKind: config.kind, moves },
-          create: own
-            ? {
-                tooltip: `New note here: ${lowerFirst(describeTemplate(own))}`,
-                run: (evt) => void createNote(app, paneFor(evt), own),
-              }
-            : undefined,
-          dragId: targets.length ? config.id : undefined,
-          drop:
-            write && takesMoves(config.id)
-              ? {
-                  hint: `Drop to ${lowerFirst(describeTemplate(write.template))}`,
-                  run: (path, fromSection) => {
-                    const file = app.vault.getFileByPath(path);
-                    if (file) void this.applyChange(file, write.template, writes.get(fromSection)?.template);
-                  },
-                }
-              : undefined,
-          emptyText,
-          more,
-          fold: {
-            collapsed: collapsed.has(this.foldKey(config.id, page)),
-            onToggle: (now) => this.rememberCollapsed(this.foldKey(config.id, page), now),
-          },
-          paging: {
-            more: () => {
-              const shown = this.revealed.get(config.id) ?? cards.length;
-              this.revealed.set(config.id, shown + config.count);
-              this.applyFilter();
-            },
-            fewer: () => {
-              this.revealed.delete(config.id);
-              this.applyFilter();
-              // The page just got shorter: keep the buttons in view rather
-              // than leaving the reader somewhere further down the page.
-              el.find(".hc-more-row")?.scrollIntoView({ block: "nearest" });
-            },
-          },
-        });
-        el.dataset.hcSection = config.id;
-        el.dataset.hcBase = String(cards.length);
-      }
-    }
+    if (plan.kind === "empty") next.createDiv({ cls: "hc-empty", text: plan.text });
+    else this.drawSections(next, page, plan);
     this.disposeDeks?.();
     shell.body.replaceChildren(...Array.from(next.childNodes));
     this.applyFilter();
@@ -672,6 +561,68 @@ export class HomeView extends ItemView implements HoverParent {
       if (!file) return;
       void plugin.dekCache.get(app, file, plugin.settings).then((dek) => settleDek(el, dek));
     });
+  }
+
+  /** Replace the body with one line, such as why the page cannot show. */
+  private showLine(shell: Shell, text: string): void {
+    this.disposeDeks?.();
+    this.disposeDeks = null;
+    shell.body.replaceChildren();
+    shell.body.createDiv({ cls: "hc-empty", text });
+  }
+
+  /** Draw the plan's sections into `parent`. */
+  private drawSections(parent: HTMLElement, page: ResolvedPage, plan: Extract<PagePlan, { kind: "sections" }>): void {
+    const { app } = this;
+    const settings = this.plugin.settings;
+    const collapsed = new Set(this.collapsedIds());
+    for (const planned of plan.sections) {
+      const { config, cards, more } = planned.section;
+      const from = plan.templateOf(config.id);
+      const moves: SectionMove[] = planned.moves.map((move) => ({
+        title: move.title,
+        change: move.change,
+        run: (file) => void this.applyChange(file, move.template, from),
+      }));
+      const { create, drop } = planned;
+      const el = renderSection(parent, planned.title, cards, settings, this.actions, {
+        style: { kind: config.kind, classes: cssClassList(config.cssClass) },
+        menuContext: { sectionKind: config.kind, moves },
+        create: create ? { tooltip: create.tooltip, run: (evt) => void createNote(app, paneFor(evt), create.template) } : undefined,
+        dragId: planned.draggable ? config.id : undefined,
+        drop: drop
+          ? {
+              hint: drop.hint,
+              run: (path, fromSection) => {
+                const file = app.vault.getFileByPath(path);
+                if (file) void this.applyChange(file, drop.template, plan.templateOf(fromSection));
+              },
+            }
+          : undefined,
+        emptyText: planned.emptyText,
+        more,
+        fold: {
+          collapsed: collapsed.has(this.foldKey(config.id, page)),
+          onToggle: (now) => this.rememberCollapsed(this.foldKey(config.id, page), now),
+        },
+        paging: {
+          more: () => {
+            const shown = this.revealed.get(config.id) ?? cards.length;
+            this.revealed.set(config.id, shown + config.count);
+            this.applyFilter();
+          },
+          fewer: () => {
+            this.revealed.delete(config.id);
+            this.applyFilter();
+            // The page just got shorter: keep the buttons in view rather
+            // than leaving the reader somewhere further down the page.
+            el.find(".hc-more-row")?.scrollIntoView({ block: "nearest" });
+          },
+        },
+      });
+      el.dataset.hcSection = config.id;
+      el.dataset.hcBase = String(cards.length);
+    }
   }
 
   /** Make a section's stated change to a note, through Obsidian, and say what changed. */
@@ -745,31 +696,6 @@ export class HomeView extends ItemView implements HoverParent {
   }
 }
 
-/** What an empty section says when its source explains the emptiness better than "no matches". */
-const EMPTY_BY_KIND: Partial<Record<SectionConfig["kind"], string>> = {
-  continue: "Notes you open on this device appear here, grouped by work session.",
-  related: "Notes linked to what you open appear here.",
-};
-
-/** What an empty section that needs Relate says, when Relate explains the emptiness. */
-function emptyFor(cfg: SectionConfig, relate: RelateApi | null, status: RelateStatus): string | undefined {
-  const needs = cfg.kind === "relate" || (cfg.kind === "rediscover" && cfg.strategy === "unlinked");
-  if (needs && status === "incompatible") return RELATE_INCOMPATIBLE;
-  if (cfg.kind === "relate") {
-    if (!relate) return "This section shows a search from the Relate plugin, which is not running.";
-    if (!cfg.query.trim()) return "Add a search in this section's settings.";
-    return "Relate found no notes for this search.";
-  }
-  if (cfg.kind === "rediscover" && cfg.strategy === "unlinked") {
-    if (!relate) return "This strategy uses search by meaning from the Relate plugin, which is not running.";
-    if (!relateView(relate, new Map()).meaningReady()) return "Turn on search by meaning in Relate's settings to fill this section.";
-  }
-  return undefined;
-}
-
-/** "Set status" → "set status", leaving values as they are. */
-const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
-
 /** What a page's dateline says about its scope; empty when it has none to say. */
 function datelineScope(page: ResolvedPage): string {
   const { scope } = page;
@@ -782,19 +708,5 @@ function datelineScope(page: ResolvedPage): string {
       return "";
     default:
       return scopeSummary(scope).replace(/^[^:]+: /, "");
-  }
-}
-
-/** The line for a page with no notes in scope. */
-function emptyPageText(page: ResolvedPage): string {
-  switch (page.scope.kind) {
-    case "folder":
-      return "This folder has no notes yet. Cards appear here as you add them.";
-    case "tag":
-      return "No notes have this tag yet. Cards appear here as you tag them.";
-    case "property":
-      return "No notes have this property yet. Cards appear here as you add it.";
-    default:
-      return "Cards appear here as you write notes.";
   }
 }

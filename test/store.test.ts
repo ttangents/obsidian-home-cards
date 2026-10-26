@@ -4,6 +4,7 @@
  */
 
 import assert from "node:assert/strict";
+import { setImmediate as settled } from "node:timers/promises";
 import { test } from "./harness";
 import { pruneSnoozes } from "../src/compose/marks";
 import { SettingsStore, type Debounced } from "../src/settings/store";
@@ -123,4 +124,39 @@ test("a failed save keeps the edit pending for the next attempt", async () => {
 test("a new install has no stored settings", async () => {
   const h = harness(null);
   assert.equal(await h.store.load(), false);
+});
+
+test("a reload waits while an editor holds the settings, then replaces them", async () => {
+  const h = harness({ pages: [{ id: "page-a", name: "Reading", scope: { kind: "all" } }] });
+  await h.store.load();
+  const page = h.store.settings.pages[0];
+  const release = h.store.hold();
+  const inner = h.store.hold();
+  h.disk.data = { pages: [{ id: "page-b", name: "Work", scope: { kind: "all" } }] };
+  assert.equal(await h.store.reload(), false);
+  assert.equal(h.store.settings.pages[0], page, "the editor's record is still in the settings");
+  inner();
+  inner();
+  assert.equal(h.reloads.length, 0, "another editor is still open");
+  release();
+  await settled();
+  assert.deepEqual(h.store.settings.pages.map((p) => p.name), ["Work"]);
+  assert.equal(h.reloads.length, 1);
+});
+
+test("an editor that closes with an edit pending keeps its edit over a waiting reload", async () => {
+  const h = harness({});
+  await h.store.load();
+  const release = h.store.hold();
+  h.disk.data = { greetingName: "Other device" };
+  await h.store.reload();
+  h.store.settings.greetingName = "Les";
+  h.store.touch();
+  release();
+  await settled();
+  assert.equal(h.store.settings.greetingName, "Les");
+  assert.equal(h.reloads.length, 0);
+  h.fire();
+  await Promise.resolve();
+  assert.equal(h.saves[h.saves.length - 1]?.greetingName, "Les");
 });

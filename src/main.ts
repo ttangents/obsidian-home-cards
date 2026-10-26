@@ -43,7 +43,7 @@ import { PageModal } from "./settings-tab/page-modal";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
 
 const REFRESH = "refresh";
-/** The list of named pages, or one page's name, changed. */
+/** The list of named pages or a page's name changed, or settings arrived from another device. */
 const PAGES = "pages";
 /** Quiet period after the last keystroke before an edit is written. */
 const SAVE_DELAY_MS = 400;
@@ -301,7 +301,9 @@ export default class HomeCardsPlugin extends Plugin {
     if (this.releaseNotes.length && compareVersions(this.seenVersion(), this.manifest.version) >= 0) {
       this.releaseNotes = [];
     }
-    if (this.syncPageCommands()) this.events.trigger(PAGES);
+    this.syncPageCommands();
+    // The settings tab, if open, redraws from the new objects.
+    this.events.trigger(PAGES);
     this.refreshViews();
   }
 
@@ -480,40 +482,33 @@ export default class HomeCardsPlugin extends Plugin {
   }
 
   /**
-   * Open the editor for a page. A folder page that has no record is saved
-   * as a named page for the editor to change; if the editor closes with it
-   * untouched, the record is dropped again and the folder follows the home
+   * Open the editor for a page. A folder page that has no record gets one
+   * for the editor to change, which joins the settings at the first
+   * change; if the editor closes untouched, the folder follows the home
    * page as before.
    */
   editPage(ref: PageRef): void {
     const resolved = resolvePage(this.settings, ref);
     if (!resolved || resolved.isHome) return;
-    let page = resolved.record;
-    let untouched: string | null = null;
-    if (!page) {
-      if (this.settings.pages.length >= LIMITS.pages.max) {
-        new Notice(`Home Cards: a vault can have up to ${LIMITS.pages.max} pages.`);
-        return;
-      }
-      page = {
-        id: newPageId(),
-        name: uniquePageName(this.settings.pages, suggestPageName(resolved.scope)),
-        scope: { ...resolved.scope },
-        sections: null,
-        cssClass: "",
-      };
-      this.settings.pages.push(page);
-      untouched = JSON.stringify(page);
+    if (resolved.record) {
+      new PageModal(this, resolved.record, "edit", () => void this.flush()).open();
+      return;
     }
-    const saved = page;
-    new PageModal(this, saved, "edit", () => {
-      if (untouched !== null && JSON.stringify(saved) === untouched) {
-        const pages = this.settings.pages;
-        pages.splice(pages.indexOf(saved), 1);
-        this.touch();
-      }
-      void this.flush();
-    }).open();
+    if (this.settings.pages.length >= LIMITS.pages.max) {
+      new Notice(`Home Cards: a vault can have up to ${LIMITS.pages.max} pages.`);
+      return;
+    }
+    const page: NamedPage = {
+      id: newPageId(),
+      name: uniquePageName(this.settings.pages, suggestPageName(resolved.scope)),
+      scope: { ...resolved.scope },
+      sections: null,
+      cssClass: "",
+    };
+    const join = () => {
+      if (!this.settings.pages.some((p) => p.id === page.id)) this.settings.pages.push(page);
+    };
+    new PageModal(this, page, "edit", () => void this.flush(), join).open();
   }
 
   // ------------------------------------------------------------------ Relate
@@ -579,7 +574,7 @@ export default class HomeCardsPlugin extends Plugin {
     bus.trigger(PAGEWISE_EVENTS.request);
   }
 
-  /** Subscribe to changes in the list of pages; pass the result to `registerEvent`. */
+  /** Subscribe to changes in the list of pages and to reloads; pass the result to `registerEvent`. */
   onPagesChanged(callback: () => void): EventRef {
     return this.events.on(PAGES, callback);
   }

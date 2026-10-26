@@ -109,7 +109,7 @@ const isStep = (v: unknown): v is RelateStep =>
  * Search results as Home Cards reads them: each hit needs a path; reasons
  * and chains of links that are missing or malformed read as none.
  */
-export function validHits(value: unknown): RelateHit[] {
+function validHits(value: unknown): RelateHit[] {
   const isHit = (v: unknown): v is Record<string, unknown> & { path: string } => isRecord(v) && typeof v.path === "string";
   return listOf(value, isHit).map((hit) => ({
     path: hit.path,

@@ -38,6 +38,7 @@ import { blankScope, defaultSettings, LIMITS, newPageId, type HomeCardsSettings,
 import { checkForUpdate, compareVersions, laterVersion, recentNotes, type ReleaseNote } from "./settings/release-notes";
 import { WhatsNewModal } from "./render/whats-new";
 import { asRelateApi, RELATE_EVENTS, type RelateApi, type SearchOptions } from "./compose/relate";
+import { asPagewiseApi, notePageButton, PAGEWISE_EVENTS } from "./compose/pagewise";
 import { PageModal } from "./settings-tab/page-modal";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
 
@@ -205,6 +206,7 @@ export default class HomeCardsPlugin extends Plugin {
       },
     });
     this.connectRelate();
+    this.connectPagewise();
 
     // "resolved" fires after every batch of metadata changes; one redraw
     // per burst is plenty.
@@ -556,6 +558,42 @@ export default class HomeCardsPlugin extends Plugin {
       })
     );
     bus.trigger(RELATE_EVENTS.request);
+  }
+
+  // ---------------------------------------------------------------- Pagewise
+
+  /**
+   * Offer a toolbar button to the Pagewise plugin, which is optional. Pagewise
+   * announces its toolbar API with a public workspace event when it is ready
+   * and answers a request from a plugin that loaded after it, so either load
+   * order works; it announces null when it unloads. Home Cards never reads
+   * Pagewise's plugin instance, and a Pagewise whose contract it does not know
+   * counts as absent.
+   */
+  private connectPagewise(): void {
+    const bus: Events = this.app.workspace;
+    let remove: (() => void) | null = null;
+    const detach = () => {
+      try {
+        remove?.();
+      } catch {
+        // A failing Pagewise only loses the button.
+      }
+      remove = null;
+    };
+    const attach = (value: unknown) => {
+      detach();
+      const api = asPagewiseApi(value);
+      if (!api) return;
+      try {
+        remove = api.registerToolbarItem(notePageButton((path) => void this.activateView({ note: path })));
+      } catch {
+        remove = null;
+      }
+    };
+    this.registerEvent(bus.on(PAGEWISE_EVENTS.api, attach));
+    this.register(detach);
+    bus.trigger(PAGEWISE_EVENTS.request);
   }
 
   /** Subscribe to changes in the list of pages; pass the result to `registerEvent`. */

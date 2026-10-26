@@ -8,7 +8,7 @@ import { Menu, normalizePath, Notice, type App, type Component, type HoverParent
 import { forgottenNotes } from "../compose/rediscover";
 import type { ScopeTest } from "../compose/scope";
 import { notesIn, untitledPath } from "../compose/vault";
-import { describeChanges, EMPTY_TEMPLATE, mergeValue, type NoteTemplate, type TemplateValue, type ValueChange } from "../compose/templates";
+import { applyToFrontmatter, EMPTY_TEMPLATE, hasFacts, type NoteTemplate } from "../compose/templates";
 import type { HomeCardsSettings } from "../settings/schema";
 import type { CardActions, CardMenuContext, HoverTracker } from "./card";
 import { pickProperty } from "./property-picker";
@@ -220,34 +220,16 @@ export async function createNote(
 /**
  * Write a template's tags and properties into a note's frontmatter through
  * Obsidian, which keeps the YAML valid and the note's other properties as
- * they were. Tags join the note's existing tags, and a list property gains
- * the value rather than losing its other members (see `mergeValue`).
- * `from` is the template of the section the card left, when it moved: a
- * value that section stated is replaced rather than kept beside the new one.
- * Resolves to what changed, in words, or "" when the note already had it.
+ * they were; see `applyToFrontmatter` for what changes. Resolves to what
+ * changed, in words, or "" when the note already had it.
  */
 export async function applyTemplate(app: App, file: TFile, template: NoteTemplate, from?: NoteTemplate): Promise<string> {
-  const keys = Object.keys(template.properties);
-  const changes: { key: string; value: TemplateValue; change: ValueChange; from?: TemplateValue }[] = [];
-  let added: string[] = [];
-  if (!keys.length && !template.tags.length) return describeChanges(changes, added);
+  if (!hasFacts(template)) return "";
+  let done = "";
   await app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-    for (const key of keys) {
-      const value = template.properties[key];
-      const old = from?.properties[key];
-      const replacing = old !== undefined && old !== value ? old : undefined;
-      const { next, change } = mergeValue(fm[key], value, replacing);
-      if (change !== "unchanged") fm[key] = next;
-      changes.push({ key, value, change, from: replacing });
-    }
-    if (template.tags.length) {
-      const current: unknown[] = Array.isArray(fm.tags) ? fm.tags : fm.tags != null ? [fm.tags] : [];
-      const names = current.filter((t): t is string => typeof t === "string");
-      added = template.tags.filter((t) => !names.includes(t));
-      fm.tags = [...new Set([...names, ...template.tags])];
-    }
+    done = applyToFrontmatter(fm, template, from);
   });
-  return describeChanges(changes, added);
+  return done;
 }
 
 /** Open a random note from the Rediscover pool, limited to a page's notes. */

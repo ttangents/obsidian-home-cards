@@ -245,3 +245,64 @@ export function describeChanges(
   const text = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+/** A tag as a note names it, compared without its `#` and without regard to case. */
+const tagKey = (tag: string) => tag.trim().replace(/^#/, "").toLowerCase();
+
+/**
+ * A note's `tags` value as a list, the way Obsidian reads it: a list keeps
+ * its entries, numbers among them, and a single value of text holds tags
+ * separated by commas or spaces. Empty entries drop out; anything else
+ * stays as it was.
+ */
+function tagEntries(value: unknown): unknown[] {
+  if (value === null || value === undefined) return [];
+  if (typeof value === "string") return value.split(/[\s,]+/).filter(Boolean);
+  const list: unknown[] = Array.isArray(value) ? value : [value];
+  return list
+    .filter((t) => t !== null && t !== undefined && t !== "")
+    .map((t) => (typeof t === "number" || typeof t === "boolean" ? String(t) : t));
+}
+
+/**
+ * The note's tags once `wanted` are added, or null when it already has
+ * them all, so the caller leaves the property exactly as it is. Every
+ * existing tag stays, numbers written as text; `added` names the tags
+ * that were missing.
+ */
+export function addTags(existing: unknown, wanted: readonly string[]): { next: unknown[]; added: string[] } | null {
+  const entries = tagEntries(existing);
+  const have = new Set(entries.filter((t): t is string => typeof t === "string").map(tagKey));
+  const added: string[] = [];
+  for (const tag of wanted) {
+    const key = tagKey(tag);
+    if (!key || have.has(key)) continue;
+    have.add(key);
+    added.push(tag);
+  }
+  return added.length ? { next: [...entries, ...added], added } : null;
+}
+
+/**
+ * Give a note's frontmatter a template's tags and properties, in place:
+ * the body of the callback Obsidian's `processFrontMatter` runs, so the
+ * YAML stays Obsidian's to write. Tags join the note's existing tags, and
+ * a list property gains the value rather than losing its other members
+ * (see `mergeValue`). `from` is the template of the section the card
+ * left, when it moved: a value that section stated is replaced rather
+ * than kept beside the new one. Returns what changed, in words, or ""
+ * when the note already had it.
+ */
+export function applyToFrontmatter(fm: Record<string, unknown>, template: NoteTemplate, from?: NoteTemplate): string {
+  const changes: { key: string; value: TemplateValue; change: ValueChange; from?: TemplateValue }[] = [];
+  for (const [key, value] of Object.entries(template.properties)) {
+    const old = from?.properties[key];
+    const replacing = old !== undefined && old !== value ? old : undefined;
+    const { next, change } = mergeValue(fm[key], value, replacing);
+    if (change !== "unchanged") fm[key] = next;
+    changes.push({ key, value, change, from: replacing });
+  }
+  const tags = template.tags.length ? addTags(fm.tags, template.tags) : null;
+  if (tags) fm.tags = tags.next;
+  return describeChanges(changes, tags?.added ?? []);
+}

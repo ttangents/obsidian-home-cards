@@ -1,6 +1,6 @@
 # Builds a release from its tag, attests the files, and drafts the GitHub
 # release with them. Push a commit and its version tag (1.34.1, no "v"),
-# then review the draft and publish it. See RELEASING.md.
+# then review the draft and publish it.
 name: Release
 
 on:

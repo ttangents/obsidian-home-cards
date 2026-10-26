@@ -10,12 +10,28 @@
  * save carries it. While an editor holds settings objects open, a reload
  * waits until it closes (see `hold`).
  *
+ * Settings written by a newer Home Cards may hold keys this build does
+ * not know, and the normalizer drops what it does not know. Saving them
+ * back would erase the newer build's work on every synced device, so such
+ * settings load read-only: edits apply in memory and are never written.
+ *
  * Pure apart from the injected storage and timer, so the tests drive it
  * directly. main.ts builds the one instance.
  */
 
 import { normalizeSettings } from "./normalize";
-import { defaultSettings, type HomeCardsSettings } from "./schema";
+import { defaultSettings, SETTINGS_VERSION, type HomeCardsSettings } from "./schema";
+
+/** What the plugin tells the reader when the stored settings come from a newer Home Cards. */
+export const NEWER_SETTINGS_NOTICE =
+  "Home Cards: your settings come from a newer version of Home Cards. Update Home Cards in Settings → Community plugins. Until then, changes made here are not saved.";
+
+/** The `version` that stored settings carry, or 0 when they carry none. */
+export function storedVersion(stored: unknown): number {
+  if (typeof stored !== "object" || stored === null) return 0;
+  const version = (stored as { version?: unknown }).version;
+  return typeof version === "number" && Number.isFinite(version) ? version : 0;
+}
 
 /** Where the settings live: the plugin's data.json, through Obsidian. */
 export interface SettingsStorage {
@@ -39,6 +55,8 @@ export interface SettingsStoreOptions {
   afterWrite?: (wrote: boolean) => void;
   /** After settings from disk replaced the ones in memory because another device changed them. */
   afterReload?: () => void;
+  /** When a load finds settings from a newer Home Cards, which then load read-only. */
+  onNewer?: () => void;
   /** Reports a failure to read or write; the store carries on. */
   onError?: (message: string, err: unknown) => void;
 }
@@ -69,6 +87,7 @@ export class SettingsStore implements SettingsAccess {
   private holds = 0;
   /** A reload arrived while an editor was open. */
   private reloadWaiting = false;
+  private newer = false;
 
   constructor(private readonly options: SettingsStoreOptions) {
     this.writeSoon = options.debounce(() => void this.flush());
@@ -79,6 +98,11 @@ export class SettingsStore implements SettingsAccess {
     return this.dirty;
   }
 
+  /** True when the stored settings come from a newer Home Cards; nothing is written then. */
+  get readOnly(): boolean {
+    return this.newer;
+  }
+
   /** Read data.json. Resolves false when there was none: a new install. */
   async load(): Promise<boolean> {
     let stored: unknown = null;
@@ -87,6 +111,9 @@ export class SettingsStore implements SettingsAccess {
     } catch (err) {
       this.options.onError?.("Home Cards: settings unreadable, using defaults", err);
     }
+    const newer = storedVersion(stored) > SETTINGS_VERSION;
+    if (newer && !this.newer) this.options.onNewer?.();
+    this.newer = newer;
     this.settings = normalizeSettings(stored);
     this.options.tidy?.(this.settings);
     return stored !== null && stored !== undefined;
@@ -112,6 +139,8 @@ export class SettingsStore implements SettingsAccess {
     this.writeSoon.cancel();
     if (!this.dirty) return false;
     this.dirty = false;
+    // An edit to settings from a newer build stays in memory.
+    if (this.newer) return true;
     try {
       await this.options.storage.save(this.settings);
     } catch (err) {
@@ -127,7 +156,8 @@ export class SettingsStore implements SettingsAccess {
    * Resolves true when the stored settings replaced the ones in memory.
    */
   async reload(): Promise<boolean> {
-    if (this.dirty) return false;
+    // Read-only settings are never saved, so an edit here cannot win.
+    if (this.dirty && !this.newer) return false;
     if (this.holds > 0) {
       this.reloadWaiting = true;
       return false;

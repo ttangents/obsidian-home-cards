@@ -345,6 +345,9 @@ export function emptyMarks(): NoteMarks {
  * The shape of data.json this build writes. normalize.ts reads every older
  * shape; the number lets a future migration tell shapes apart without
  * guessing from keys. 1 is every release before the number was stored.
+ * Raise it with every new stored key or meaning: a build that finds a
+ * higher number loads the settings read-only rather than drop what it
+ * does not know (see store.ts).
  */
 export const SETTINGS_VERSION = 2;
 

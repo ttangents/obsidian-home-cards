@@ -23,7 +23,7 @@ import { pickFolder } from "./render/folder-picker";
 import { HomeView, VIEW_TYPE_HOME } from "./render/home-view";
 import { pickPage } from "./render/page-picker";
 import { normalizeFolderPath } from "./settings/folders";
-import { SettingsStore } from "./settings/store";
+import { NEWER_SETTINGS_NOTICE, SettingsStore } from "./settings/store";
 import {
   findPageByName,
   refFromState,
@@ -66,6 +66,7 @@ export default class HomeCardsPlugin extends Plugin {
       if (wrote) this.refreshViews();
     },
     afterReload: () => this.settingsReloaded(),
+    onNewer: () => new Notice(NEWER_SETTINGS_NOTICE, 0),
     onError: (message, err) => console.error(message, err),
   });
 

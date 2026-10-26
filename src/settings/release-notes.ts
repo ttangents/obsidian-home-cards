@@ -68,6 +68,25 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.34.2",
+    date: "2026-10-26",
+    headline: "Fixes for synced settings and for tags, and a much smaller stylesheet.",
+    announce: false,
+    fixed: [
+      "A card dropped on a tag section, or moved there, keeps the note's other tags, including numbers such as 2024 and tags written on one line with commas.",
+      "Settings that sync brings from another device stay as they arrive: this device no longer writes its older copy over them after a snooze ends or while a page or section editor is open.",
+      "A device still on an older Home Cards opens settings saved by a newer one read-only, with a notice, and leaves them unchanged.",
+      "Closing a folder page's settings without changing anything no longer adds the folder to Settings → Pages.",
+      "If Relate fails, only the section that asked it is empty; the rest of the page still shows.",
+    ],
+    improved: [
+      "A Home tab in the background waits until you show it before it redraws, so typing in a note stays quick with several Home tabs open.",
+    ],
+    changed: [
+      "The stylesheet shrinks from 1.8 MB to 49 KB. The background patterns now load with the plugin's code, so Obsidian no longer reads them in every window at startup.",
+    ],
+  },
+  {
     version: "1.34.1",
     date: "2026-10-25",
     headline: "Each release's files now carry a GitHub attestation of the source they were built from.",

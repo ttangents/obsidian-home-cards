@@ -34,7 +34,6 @@ import { composePage, type ComposedPage } from "../compose/compose";
 import { greetingFor, withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
 import { compilePageScope, type ScopeTest } from "../compose/scope";
-import { notesIn } from "../compose/vault";
 import { pageGone, planPage, type PagePlan } from "../compose/plan";
 import { relateView } from "../compose/relate";
 import { cssClassList } from "../settings/css-classes";
@@ -112,6 +111,8 @@ export class HomeView extends ItemView implements HoverParent {
   private stateApplied = false;
   /** The releases the notice shows now, by version; redrawn only when they change. */
   private noticeFor = "";
+  /** The note count the last compose of a page found, for the header. */
+  private counted: { key: string; notes: number } | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -224,6 +225,7 @@ export class HomeView extends ItemView implements HoverParent {
     this.disposeDeks = null;
     this.generation++;
     this.noticeFor = "";
+    this.counted = null;
     this.pageClasses = [];
     this.shell = null;
     this.contentEl.empty();
@@ -234,18 +236,17 @@ export class HomeView extends ItemView implements HoverParent {
     const shell = this.shell;
     if (!shell) return;
     applyAppearance(shell.root, this.plugin);
-    // Resolved once, so the header and the body agree and the vault is
-    // walked once for this page's notes.
+    // Resolved once, so the header and the body agree.
     const page = this.page();
     this.paintStyleHooks(shell.root, page);
     const test = page && !page.note ? compilePageScope(page.scope) : null;
-    // A note's page learns its count from the compose, which repaints the header.
-    const count = page && !page.note ? notesIn(this.app, test).length : null;
     this.syncTab(page);
-    this.paintHeader(shell, page, count);
+    // The compose counts the page's notes in its one walk of the vault;
+    // until it does, the header keeps the count it showed for this page.
+    this.paintHeader(shell, page, page && this.counted?.key === page.key ? this.counted.notes : null);
     this.paintNotice(shell, page);
     this.picker?.grid.paint();
-    await this.recompose(shell, page, test, count);
+    await this.recompose(shell, page, test);
   }
 
   /**
@@ -497,12 +498,7 @@ export class HomeView extends ItemView implements HoverParent {
 
   // --------------------------------------------------------------- body
 
-  private async recompose(
-    shell: Shell,
-    page: ResolvedPage | null,
-    test: ScopeTest | null,
-    scopeCount: number | null
-  ): Promise<void> {
+  private async recompose(shell: Shell, page: ResolvedPage | null, test: ScopeTest | null): Promise<void> {
     const token = ++this.generation;
     const { app, plugin } = this;
     const settings = plugin.settings;
@@ -514,6 +510,8 @@ export class HomeView extends ItemView implements HoverParent {
       folderExists: (path) => !!app.vault.getFolderByPath(path),
     });
     if (!page || gone) {
+      this.counted = null;
+      this.paintHeader(shell, page, null);
       this.showLine(shell, gone ?? "This page no longer exists.");
       return;
     }
@@ -538,8 +536,10 @@ export class HomeView extends ItemView implements HoverParent {
     }
     // A newer compose, or a close, happened while files were being read.
     if (token !== this.generation) return;
-    // A note's page learns its count from the compose.
-    if (page.note) this.paintHeader(shell, page, scopeCount ?? composed.notes);
+    if (this.counted?.key !== page.key || this.counted.notes !== composed.notes) {
+      this.counted = { key: page.key, notes: composed.notes };
+      this.paintHeader(shell, page, composed.notes);
+    }
 
     const plan = planPage(page, composed, {
       noteExists: (path) => !!app.vault.getFileByPath(path),

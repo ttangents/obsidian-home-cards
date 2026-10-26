@@ -23,6 +23,7 @@ import { asRelateApi, RELATE_EVENTS, type RelateApi, type RelateStatus, type Sea
 import type { MarkActions } from "./render/actions";
 import { BackgroundStore } from "./render/backgrounds";
 import { BASES_VIEW_ID, registerBasesView } from "./render/bases-view";
+import { TypifyIcons } from "./render/legacy-typify";
 import { pickFolder } from "./render/folder-picker";
 import { HomeView, VIEW_TYPE_HOME, type HomeServices } from "./render/home-view";
 import { pickPage } from "./render/page-picker";
@@ -53,7 +54,9 @@ export default class HomeCardsPlugin extends Plugin {
     tidy: (settings) => void pruneSnoozes(settings.marks, new Date()),
     afterWrite: (wrote) => {
       if (this.syncPageCommands()) this.events.trigger(PAGES);
-      if (wrote) this.refreshViews();
+      if (!wrote) return;
+      this.icons.clear();
+      this.refreshViews();
     },
     afterReload: () => this.settingsReloaded(),
     onNewer: () => new Notice(NEWER_SETTINGS_NOTICE, 0),
@@ -62,6 +65,9 @@ export default class HomeCardsPlugin extends Plugin {
 
   /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
   private readonly dekCache = new DekCache();
+
+  /** Typify's icons, read once and kept until settings change or a recompose. */
+  private readonly icons = new TypifyIcons(this.app);
 
   /** Opened notes beyond the ten Obsidian remembers, for "Recently opened". */
   private readonly openHistory = new OpenHistory(this.app);
@@ -127,6 +133,7 @@ export default class HomeCardsPlugin extends Plugin {
     marks: this.marks,
     backgrounds: this.backgrounds,
     dekCache: this.dekCache,
+    icons: this.icons,
     openHistory: this.openHistory,
     activity: this.activity,
     relate: this.relate,
@@ -172,7 +179,14 @@ export default class HomeCardsPlugin extends Plugin {
 
     this.addRibbonIcon("layout-grid", "Open home page", () => void this.pages.open());
     this.addCommand({ id: "open", name: "Open", callback: () => void this.pages.open() });
-    this.addCommand({ id: "recompose", name: "Recompose", callback: () => this.refreshViews() });
+    this.addCommand({
+      id: "recompose",
+      name: "Recompose",
+      callback: () => {
+        this.icons.clear();
+        this.refreshViews();
+      },
+    });
     this.addCommand({ id: "whats-new", name: "Show what's new", callback: () => this.releases.show() });
 
     // Pages. A page opens from a command, a list, a folder's context menu
@@ -312,6 +326,7 @@ export default class HomeCardsPlugin extends Plugin {
   /** Settings from another device replaced the ones in memory. */
   private settingsReloaded(): void {
     this.releases.reconcile();
+    this.icons.clear();
     this.syncPageCommands();
     // The settings tab, if open, redraws from the new objects.
     this.events.trigger(PAGES);

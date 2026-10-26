@@ -9,12 +9,12 @@
 
 import { BasesView, type App, type EventRef, type HoverParent, type Plugin, type QueryController } from "obsidian";
 import { buildCard, type CardContext } from "../compose/card";
-import { iconsFor } from "../compose/compose";
 import type { DekCache } from "../compose/dek-cache";
 import type { SettingsAccess } from "../settings/store";
 import { applyAppearance } from "./appearance";
 import { cardActions, type MarkActions } from "./actions";
 import type { BackgroundStore } from "./backgrounds";
+import type { TypifyIcons } from "./legacy-typify";
 import { renderSection, settleDek, type CardActions } from "./card";
 import { observeDeks } from "./lazy-deks";
 
@@ -26,6 +26,7 @@ export interface BasesServices {
   marks: MarkActions;
   backgrounds: BackgroundStore;
   dekCache: DekCache;
+  icons: TypifyIcons;
   /** Subscribe to redraw requests; the view passes the result to `registerEvent`. */
   onRefresh(callback: () => void): EventRef;
 }
@@ -107,7 +108,7 @@ class HomeCardsBasesView extends BasesView {
       metaKey: "date",
       fields: [],
       image: "none",
-      icons: await iconsFor(app, settings),
+      icons: await services.icons.for(settings),
     };
     const sections = await Promise.all(
       groups.map(async (group) => ({

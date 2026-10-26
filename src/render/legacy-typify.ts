@@ -8,9 +8,14 @@
  * reader stays because it is opt-in, read-only, and fails to nothing; it
  * stays here, alone, so that it never becomes a precedent. The
  * architecture tests refuse a read of another plugin's files anywhere else.
+ *
+ * The file is read once and kept: composes and Bases renders take the
+ * kept map, and the plugin drops it when settings change or the reader
+ * asks to recompose, so an edit in Typify shows after either.
  */
 
 import type { App } from "obsidian";
+import type { HomeCardsSettings } from "../settings/schema";
 
 interface TypifyStyle {
   name?: string;
@@ -24,7 +29,7 @@ interface TypifyStyle {
  * absent, malformed or reshaped data yields an empty map, and cards fall
  * back to their initial letter.
  */
-export async function loadTypifyIcons(app: App, typeKey: string): Promise<Map<string, string>> {
+async function loadTypifyIcons(app: App, typeKey: string): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const path = `${app.vault.configDir}/plugins/typify/data.json`;
   try {
@@ -43,4 +48,26 @@ export async function loadTypifyIcons(app: App, typeKey: string): Promise<Map<st
     return new Map();
   }
   return out;
+}
+
+const NONE: ReadonlyMap<string, string> = new Map();
+
+/** Typify's icons, read at most once until `clear`. */
+export class TypifyIcons {
+  private kept: { typeKey: string; icons: Promise<ReadonlyMap<string, string>> } | null = null;
+
+  constructor(private readonly app: App) {}
+
+  /** The icons when the glyph setting asks for Typify's, else none. */
+  for(settings: Pick<HomeCardsSettings, "showGlyph" | "typifyIcons" | "typeProperty">): Promise<ReadonlyMap<string, string>> {
+    if (!settings.showGlyph || !settings.typifyIcons) return Promise.resolve(NONE);
+    const typeKey = settings.typeProperty;
+    if (this.kept?.typeKey !== typeKey) this.kept = { typeKey, icons: loadTypifyIcons(this.app, typeKey) };
+    return this.kept.icons;
+  }
+
+  /** Read the file again next time. */
+  clear(): void {
+    this.kept = null;
+  }
 }

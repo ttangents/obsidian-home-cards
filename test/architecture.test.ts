@@ -78,7 +78,7 @@ test("only the marked legacy module reads another plugin's files", () => {
     // The backgrounds store falls back to its own plugin folder by configDir.
     assert.ok(/legacy-typify\.ts$|backgrounds\.ts$/.test(file), `${file} reads the configuration folder`);
   }
-  assert.match(read("src/compose/legacy-typify.ts"), /LEGACY COMPATIBILITY/);
+  assert.match(read("src/render/legacy-typify.ts"), /LEGACY COMPATIBILITY/);
 });
 
 test("frontmatter is written only through Obsidian's frontmatter API", () => {

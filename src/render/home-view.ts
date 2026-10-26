@@ -54,6 +54,7 @@ import type { SettingsAccess } from "../settings/store";
 import { applyAppearance } from "./appearance";
 import { applyTemplate, createNote, cardActions, rediscoverNote, type MarkActions } from "./actions";
 import type { BackgroundStore } from "./backgrounds";
+import type { TypifyIcons } from "./legacy-typify";
 import type { PageActions } from "./page-actions";
 import type { ReleaseNotices } from "./release-notices";
 import { paneFor, renderSection, settleDek, type CardActions, type SectionMove } from "./card";
@@ -72,6 +73,7 @@ export interface HomeServices {
   marks: MarkActions;
   backgrounds: BackgroundStore;
   dekCache: DekCache;
+  icons: TypifyIcons;
   /** The plugin's longer memory of opened notes; see compose/open-history.ts. */
   openHistory: { list(): readonly string[] };
   activity: ActivityFacts;
@@ -492,6 +494,7 @@ export class HomeView extends ItemView implements HoverParent {
     button.addClass("is-spinning");
     const minimum = new Promise((resolve) => window.setTimeout(resolve, RECOMPOSE_SPIN_MS));
     this.greeting = this.pickGreeting();
+    this.services.icons.clear();
     try {
       await Promise.all([this.refresh(), minimum]);
     } finally {
@@ -551,6 +554,7 @@ export class HomeView extends ItemView implements HoverParent {
         relate,
         searches: services.relate.searches,
         note: page.note,
+        icons: await services.icons.for(settings),
       });
     } catch (err) {
       console.error("Home Cards: compose failed", err);

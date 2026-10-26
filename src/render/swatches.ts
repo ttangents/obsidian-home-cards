@@ -4,15 +4,15 @@
  * page's header picker, so the two offer the same choices and write the
  * same setting.
  *
- * Each swatch paints with the custom property the page itself uses, so a
- * preview cannot drift from the real background, and the theme's mode
+ * Each swatch paints with the custom properties the page itself uses, so
+ * a preview cannot drift from the real background, and the theme's mode
  * selects the light or dark tile for the swatch exactly as it does for
  * the page.
  */
 
 import type HomeCardsPlugin from "../main";
 import { BACKGROUNDS } from "../settings/schema";
-import { backgroundProps, backgroundUrl } from "./backgrounds";
+import { backgroundProps, backgroundUrl, patternProps } from "./backgrounds";
 
 export interface BackgroundPicker {
   /** Move the selection mark to the stored background. */
@@ -47,6 +47,7 @@ export function renderBackgroundPicker(
       face.setCssProps(backgroundProps(backgroundUrl(plugin, bg.custom), bg.custom));
     } else if (bg.id !== "plain") {
       face.dataset.pattern = bg.id;
+      face.setCssProps(patternProps(bg.id));
     }
     item.createDiv({ cls: "hc-swatch-label", text: bg.label });
     item.addEventListener("click", () => {

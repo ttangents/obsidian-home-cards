@@ -1,15 +1,17 @@
 /* --- Backgrounds ------------------------------------------
    The CSS half of BACKGROUNDS in src/settings/schema.ts. Each
-   pattern is a pair of seamless tiles carried on one
-   custom property per pattern id, declared only on the page
-   and on swatch grids, the two roots that paint them: the light tile by
-   default, the dark tile under .theme-dark. The page and every
-   swatch (settings and the header picker) resolve the same
-   property, so a preview always shows exactly what the page will
-   paint. Plain sets no attribute
-   and no rule here fires. Cards sit on an 85% underlay of the
-   theme's primary background so patterns stay behind the
-   content even when a theme's surfaces are translucent.
+   pattern is a pair of seamless tiles. The tiles themselves stay
+   out of this stylesheet: the code sets the chosen pattern's two
+   tiles as --_hc-tile-light and --_hc-tile-dark on the element
+   that paints it (the page or one swatch; see
+   src/render/backgrounds.ts), and the rules below pick the light
+   tile by default and the dark tile under .theme-dark. The page
+   and every swatch (settings and the header picker) paint through
+   the same rules, so a preview always shows exactly what the page
+   will paint. Plain sets no attribute and no rule here fires.
+   Cards sit on an 85% underlay of the theme's primary background
+   so patterns stay behind the content even when a theme's
+   surfaces are translucent.
    ---------------------------------------------------------- */
 
 /* Some themes (Minimal among them) pad .view-content, which
@@ -20,10 +22,7 @@
   padding: 0;
 }
 
-/* Scoped to the two roots that paint tiles, so some 1.4 MB of inline
-   images never enters the cascade of every other element.
-
-   Each tile carries its own veil: the share of the theme background
+/* Each tile carries its own veil: the share of the theme background
    laid over it, set per tile so every pattern carries about the same
    visual weight whatever strength it was drawn at. Weight combines
    how dark the ink is with how much of the tile it covers, so a dense
@@ -36,128 +35,100 @@
    keep half. */
 .home-cards,
 .hc-swatches {
-  --_hc-bg-diamonds: url("@tile:diamonds-light@");
   --_hc-veil-diamonds: 86%;
-  --_hc-bg-leaves: url("@tile:leaves-light@");
   --_hc-veil-leaves: 89%;
-  --_hc-bg-stitches: url("@tile:stitches-light@");
   --_hc-veil-stitches: 82%;
-  --_hc-bg-suns: url("@tile:suns-light@");
   --_hc-veil-suns: 82%;
-  --_hc-bg-grid: url("@tile:grid-light@");
   --_hc-veil-grid: 64%;
-  --_hc-bg-rain: url("@tile:rain-light@");
   --_hc-veil-rain: 55%;
-  --_hc-bg-squares: url("@tile:squares-light@");
   --_hc-veil-squares: 55%;
-  --_hc-bg-polka: url("@tile:polka-light@");
   --_hc-veil-polka: 78%;
-  --_hc-bg-basket: url("@tile:basket-light@");
   --_hc-veil-basket: 78%;
-  --_hc-bg-pebbles: url("@tile:pebbles-light@");
   --_hc-veil-pebbles: 60%;
-  --_hc-bg-confetti: url("@tile:confetti-light@");
   --_hc-veil-confetti: 64%;
-  --_hc-bg-petals: url("@tile:petals-light@");
   --_hc-veil-petals: 84%;
-  --_hc-bg-paws: url("@tile:paws-light@");
   --_hc-veil-paws: 84%;
 }
 .theme-dark .home-cards,
 .theme-dark .hc-swatches {
-  --_hc-bg-diamonds: url("@tile:diamonds-dark@");
   --_hc-veil-diamonds: 85%;
-  --_hc-bg-leaves: url("@tile:leaves-dark@");
   --_hc-veil-leaves: 88%;
-  --_hc-bg-stitches: url("@tile:stitches-dark@");
   --_hc-veil-stitches: 90%;
-  --_hc-bg-suns: url("@tile:suns-dark@");
   --_hc-veil-suns: 85%;
-  --_hc-bg-grid: url("@tile:grid-dark@");
   --_hc-veil-grid: 58%;
-  --_hc-bg-rain: url("@tile:rain-dark@");
   --_hc-veil-rain: 50%;
-  --_hc-bg-squares: url("@tile:squares-dark@");
   --_hc-veil-squares: 50%;
-  --_hc-bg-polka: url("@tile:polka-dark@");
   --_hc-veil-polka: 85%;
-  --_hc-bg-basket: url("@tile:basket-dark@");
   --_hc-veil-basket: 88%;
-  --_hc-bg-pebbles: url("@tile:pebbles-dark@");
   --_hc-veil-pebbles: 85%;
-  --_hc-bg-confetti: url("@tile:confetti-dark@");
   --_hc-veil-confetti: 88%;
-  --_hc-bg-petals: url("@tile:petals-dark@");
   --_hc-veil-petals: 88%;
-  --_hc-bg-paws: url("@tile:paws-dark@");
   --_hc-veil-paws: 88%;
 }
 
 .home-cards[data-pattern="diamonds"],
 .hc-swatch[data-pattern="diamonds"] {
-  --_hc-tile: var(--_hc-bg-diamonds);
   --_hc-veil: var(--_hc-veil-diamonds);
 }
 .home-cards[data-pattern="leaves"],
 .hc-swatch[data-pattern="leaves"] {
-  --_hc-tile: var(--_hc-bg-leaves);
   --_hc-veil: var(--_hc-veil-leaves);
 }
 .home-cards[data-pattern="stitches"],
 .hc-swatch[data-pattern="stitches"] {
-  --_hc-tile: var(--_hc-bg-stitches);
   --_hc-veil: var(--_hc-veil-stitches);
 }
 .home-cards[data-pattern="suns"],
 .hc-swatch[data-pattern="suns"] {
-  --_hc-tile: var(--_hc-bg-suns);
   --_hc-veil: var(--_hc-veil-suns);
 }
 .home-cards[data-pattern="grid"],
 .hc-swatch[data-pattern="grid"] {
-  --_hc-tile: var(--_hc-bg-grid);
   --_hc-veil: var(--_hc-veil-grid);
 }
 .home-cards[data-pattern="rain"],
 .hc-swatch[data-pattern="rain"] {
-  --_hc-tile: var(--_hc-bg-rain);
   --_hc-veil: var(--_hc-veil-rain);
 }
 .home-cards[data-pattern="squares"],
 .hc-swatch[data-pattern="squares"] {
-  --_hc-tile: var(--_hc-bg-squares);
   --_hc-veil: var(--_hc-veil-squares);
 }
 .home-cards[data-pattern="polka"],
 .hc-swatch[data-pattern="polka"] {
-  --_hc-tile: var(--_hc-bg-polka);
   --_hc-veil: var(--_hc-veil-polka);
 }
 .home-cards[data-pattern="basket"],
 .hc-swatch[data-pattern="basket"] {
-  --_hc-tile: var(--_hc-bg-basket);
   --_hc-veil: var(--_hc-veil-basket);
 }
 .home-cards[data-pattern="pebbles"],
 .hc-swatch[data-pattern="pebbles"] {
-  --_hc-tile: var(--_hc-bg-pebbles);
   --_hc-veil: var(--_hc-veil-pebbles);
 }
 .home-cards[data-pattern="confetti"],
 .hc-swatch[data-pattern="confetti"] {
-  --_hc-tile: var(--_hc-bg-confetti);
   --_hc-veil: var(--_hc-veil-confetti);
 }
 
 .home-cards[data-pattern="petals"],
 .hc-swatch[data-pattern="petals"] {
-  --_hc-tile: var(--_hc-bg-petals);
   --_hc-veil: var(--_hc-veil-petals);
 }
 .home-cards[data-pattern="paws"],
 .hc-swatch[data-pattern="paws"] {
-  --_hc-tile: var(--_hc-bg-paws);
   --_hc-veil: var(--_hc-veil-paws);
+}
+
+/* The chosen pattern's tile for the theme's mode. A custom image
+   sets --_hc-tile inline, which wins over these. */
+.home-cards[data-pattern],
+.hc-swatch[data-pattern] {
+  --_hc-tile: var(--_hc-tile-light);
+}
+.theme-dark .home-cards[data-pattern],
+.theme-dark .hc-swatch[data-pattern] {
+  --_hc-tile: var(--_hc-tile-dark);
 }
 
 /* Tiles are stored 800px wide and drawn 400px wide, so they stay

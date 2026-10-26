@@ -43,7 +43,8 @@ function allSources(dir = "src"): { file: string; text: string }[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) return allSources(path);
-    return entry.name.endsWith(".ts") ? [{ file: path, text: read(path) }] : [];
+    // The tile module is data the build writes, not code anyone edits.
+    return entry.name.endsWith(".ts") && !entry.name.endsWith(".generated.ts") ? [{ file: path, text: read(path) }] : [];
   });
 }
 
@@ -94,18 +95,24 @@ test("registries have unique ids", () => {
   }
 });
 
-test("every pattern has both tiles, a variable pair and a selector", () => {
+test("every pattern has both tiles, bundled in main.js, a veil in each mode and a selector", async () => {
   const css = read("styles/10-backgrounds.css");
+  const { TILES } = await import("../src/render/tiles.generated");
+  const veilBlocks = css.split(/\n\}/).filter((b) => /--_hc-veil-[a-z]+: \d+%;/.test(b));
+  assert.equal(veilBlocks.length, 2, "one block of veils for light themes and one for dark");
   for (const { id } of BACKGROUNDS.filter((b) => b.id !== "plain")) {
-    for (const mode of ["light", "dark"]) {
+    for (const mode of ["light", "dark"] as const) {
       assert.ok(existsSync(`assets/tiles/${id}-${mode}.webp`), `${id}-${mode}.webp`);
-      assert.ok(css.includes(`--_hc-bg-${id}: url("@tile:${id}-${mode}@")`), `${id} ${mode} variable`);
+      assert.match(TILES[id]?.[mode] ?? "", /^data:image\/webp;base64,/, `${id} ${mode} tile in the bundle`);
     }
-    for (const block of css.split(/\n\}/).filter((b) => b.includes(`url("@tile:`))) {
-      assert.match(block, new RegExp(`--_hc-veil-${id}: \\d+%;`), `${id} veil in every mode`);
-    }
+    for (const block of veilBlocks) assert.match(block, new RegExp(`--_hc-veil-${id}: \\d+%;`), `${id} veil in every mode`);
     assert.ok(css.includes(`.home-cards[data-pattern="${id}"]`), `${id} selector`);
   }
+});
+
+test("the tile module is current", async () => {
+  const { assembleTiles, TILES_MODULE } = await import("../scripts/build-css.mjs");
+  assert.equal(read(TILES_MODULE), assembleTiles(), "tiles.generated.ts is stale: run npm run css");
 });
 
 test("custom backgrounds have a rule for each kind, on the page and on swatches", () => {
@@ -125,10 +132,14 @@ test("every surface has a rule, or is the default", () => {
   }
 });
 
-test("the built stylesheet is current, balanced and carries its load-bearing rules", async () => {
+/** The stylesheet budget in STANDARDS.md: Obsidian parses styles.css in every window at load. */
+const STYLESHEET_BUDGET_BYTES = 150 * 1024;
+
+test("the built stylesheet is current, within budget, balanced and carries its load-bearing rules", async () => {
   const { assembleCss } = await import("../scripts/build-css.mjs");
   const built = read("styles.css");
   assert.equal(built, assembleCss(), "styles.css is stale: run npm run css");
+  assert.ok(Buffer.byteLength(built) <= STYLESHEET_BUDGET_BYTES, `styles.css is ${Buffer.byteLength(built)} bytes, over the 150 KB budget`);
   const bare = built.replace(/\/\*[\s\S]*?\*\//g, "");
   assert.equal((bare.match(/{/g) ?? []).length, (bare.match(/}/g) ?? []).length);
   for (const selector of [
@@ -138,7 +149,7 @@ test("the built stylesheet is current, balanced and carries its load-bearing rul
   ]) {
     assert.ok(built.includes(selector), selector);
   }
-  assert.ok(!/^body(\.theme-dark)? \{[^}]*--_hc-bg-/m.test(built), "tile variables must not sit on body");
+  assert.ok(!/url\(\s*["']?data:/.test(built), "images stay out of the stylesheet; they ship in main.js");
   // Hidden cards stay hidden in every layout: the rule must follow the
   // rows layout, which gives each card a display of its own.
   const hidden = built.indexOf(".home-cards .hc-card.is-hidden { display: none; }");

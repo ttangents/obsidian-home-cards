@@ -1,5 +1,7 @@
 node_modules/
 main.js
+styles.css
+src/render/tiles.generated.ts
 *.log
 .DS_Store
 __pycache__/

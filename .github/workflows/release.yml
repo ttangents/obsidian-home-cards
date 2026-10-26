@@ -33,9 +33,6 @@ jobs:
 
       - run: npm test
 
-      - name: Check that the committed stylesheet matches the build
-        run: git diff --exit-code -- styles.css
-
       - uses: actions/attest-build-provenance@v2
         with:
           subject-path: |

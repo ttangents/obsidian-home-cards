@@ -130,3 +130,32 @@ test("a card moved between sections swaps the value the first section stated", a
   assert.equal(plainValue(4), "4");
   assert.equal(describeChanges([{ key: "status", value: "active", change: "replaced", from: "waiting" }], []), "Changed status from waiting to active");
 });
+
+test("adding a tag keeps every tag the note has, numbers included", async () => {
+  const { addTags } = await import("../src/compose/templates");
+  assert.deepEqual(addTags([2024, "project"], ["reading"]), { next: ["2024", "project", "reading"], added: ["reading"] });
+  assert.deepEqual(addTags("a, b", ["c"]), { next: ["a", "b", "c"], added: ["c"] });
+  assert.deepEqual(addTags("a b", ["c"]), { next: ["a", "b", "c"], added: ["c"] });
+  assert.deepEqual(addTags(7, ["c"]), { next: ["7", "c"], added: ["c"] });
+  assert.deepEqual(addTags(undefined, ["c"]), { next: ["c"], added: ["c"] });
+  assert.deepEqual(addTags(["a", null, ""], ["c", "c"]), { next: ["a", "c"], added: ["c"] });
+  assert.equal(addTags(["#Reading"], ["reading"]), null, "tags compare without # and case");
+  assert.equal(addTags("reading, x", ["reading"]), null);
+});
+
+test("a frontmatter write leaves tags alone when the note has them", async () => {
+  const { applyToFrontmatter } = await import("../src/compose/templates");
+  const fm: Record<string, unknown> = { tags: "a, reading", status: "waiting" };
+  const done = applyToFrontmatter(fm, { folder: "", tags: ["reading"], properties: { status: "active" } });
+  assert.equal(fm.tags, "a, reading", "the legacy string stays as written");
+  assert.equal(fm.status, "active");
+  assert.equal(done, "Set status to active");
+
+  const numeric: Record<string, unknown> = { tags: [2024, "project"] };
+  assert.equal(applyToFrontmatter(numeric, { folder: "", tags: ["reading"], properties: {} }), "Added #reading");
+  assert.deepEqual(numeric.tags, ["2024", "project", "reading"]);
+
+  const moved: Record<string, unknown> = { project: ["[[A]]", "[[B]]"] };
+  applyToFrontmatter(moved, { folder: "", tags: [], properties: { project: "[[C]]" } }, { folder: "", tags: [], properties: { project: "[[A]]" } });
+  assert.deepEqual(moved.project, ["[[B]]", "[[C]]"]);
+});

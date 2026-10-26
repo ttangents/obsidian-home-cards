@@ -10,7 +10,6 @@ import { buildCard, type CardContext, type CardItem, type DekSource } from "./ca
 import { rankSection, type Ranked } from "./rank";
 import type { ActivityFacts } from "./activity";
 import type { ScopeTest } from "./scope";
-import { loadTypifyIcons } from "./legacy-typify";
 import { VaultSnapshot } from "./vault";
 import { relateView, runSearches, type RelateApi, type SearchOptions } from "./relate";
 import { neighbourCount, noteSections } from "./note-page";
@@ -41,16 +40,6 @@ export function pageOrder(sections: readonly SectionConfig[]): SectionConfig[] {
   return [...enabled.filter((cfg) => cfg.kind === "pinned"), ...enabled.filter((cfg) => cfg.kind !== "pinned")];
 }
 
-/** Typify icons when the glyph setting asks for them, else none. */
-export async function iconsFor(
-  app: App,
-  settings: HomeCardsSettings
-): Promise<ReadonlyMap<string, string>> {
-  return settings.showGlyph && settings.typifyIcons
-    ? loadTypifyIcons(app, settings.typeProperty)
-    : new Map();
-}
-
 export interface ComposeOptions {
   /** Fills deks of the visible cards; without one they load lazily. */
   deks?: DekSource;
@@ -70,6 +59,8 @@ export interface ComposeOptions {
   searches?: SearchOptions;
   /** A note's page: the note's path. Its sections come from the note, and `sections` is ignored. */
   note?: string;
+  /** Typify icons by lowercase type, when the glyph setting asks for them; see render/legacy-typify.ts. */
+  icons?: ReadonlyMap<string, string>;
 }
 
 /** A composed page: its sections, the configurations they came from, and how many notes it covers. */
@@ -97,9 +88,8 @@ function rankSafely(vault: VaultSnapshot, cfg: SectionConfig, settings: HomeCard
 export async function composePage(
   app: App,
   settings: HomeCardsSettings,
-  { deks, now = new Date(), opened = [], sections: listed = settings.sections, scope = null, activity, relate = null, searches: searchOptions, note }: ComposeOptions = {}
+  { deks, now = new Date(), opened = [], sections: listed = settings.sections, scope = null, activity, relate = null, searches: searchOptions, note, icons = new Map() }: ComposeOptions = {}
 ): Promise<ComposedPage> {
-  const icons = await iconsFor(app, settings);
   // Relate's search is asynchronous and ranking is not, so its searches run first.
   const queries = note ? [] : listed.filter((cfg) => cfg.enabled && cfg.kind === "relate").map((cfg) => cfg.query);
   const searches = relate && queries.length ? await runSearches(relate, queries, searchOptions) : new Map();

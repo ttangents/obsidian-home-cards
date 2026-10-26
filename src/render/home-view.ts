@@ -34,6 +34,7 @@ import {
 import type { ActivityFacts } from "../compose/activity";
 import { composePage, type ComposedPage } from "../compose/compose";
 import type { DekCache } from "../compose/dek-cache";
+import { foldKey, pruneFolds } from "../compose/folds";
 import { greetingFor, withName } from "../compose/greeting";
 import { compilePageScope, type ScopeTest } from "../compose/scope";
 import { pageGone, planPage, type PagePlan } from "../compose/plan";
@@ -651,8 +652,8 @@ export class HomeView extends ItemView implements HoverParent {
         emptyText: planned.emptyText,
         more,
         fold: {
-          collapsed: collapsed.has(this.foldKey(config.id, page)),
-          onToggle: (now) => this.rememberCollapsed(this.foldKey(config.id, page), now),
+          collapsed: collapsed.has(foldKey(config.id, page)),
+          onToggle: (now) => this.rememberCollapsed(foldKey(config.id, page), now),
         },
         paging: {
           more: () => {
@@ -687,27 +688,28 @@ export class HomeView extends ItemView implements HoverParent {
 
   // ------------------------------------------------------- section state
 
-  /**
-   * The key a section's folded state is stored under. Every other page
-   * keys on its own identity as well, so folding "Recently modified" on
-   * one page does not fold it on the rest; the home page keeps its
-   * original keys.
-   */
-  private foldKey(sectionId: string, page: ResolvedPage): string {
-    return page.isHome ? sectionId : `${sectionId}@${page.key}`;
-  }
-
   /** Folded sections, by key. Kept per device, in Obsidian's local storage. */
   private collapsedIds(): string[] {
     const stored: unknown = this.app.loadLocalStorage(COLLAPSED_KEY);
     return Array.isArray(stored) ? stored.filter((v): v is string => typeof v === "string") : [];
   }
 
+  /** Store a section's folded state, dropping the keys of pages and notes that are gone. */
   private rememberCollapsed(id: string, collapsed: boolean): void {
     const ids = new Set(this.collapsedIds());
+    ids.delete(id);
     if (collapsed) ids.add(id);
-    else ids.delete(id);
-    this.app.saveLocalStorage(COLLAPSED_KEY, [...ids]);
+    const { vault } = this.app;
+    const pages = this.services.store.settings.pages;
+    const exists = (pageKey: string) => {
+      const [kind, ...rest] = pageKey.split(":");
+      const ref = rest.join(":");
+      if (kind === "page") return pages.some((p) => p.id === ref);
+      if (kind === "note") return !!vault.getFileByPath(ref);
+      if (kind === "folder") return !!vault.getFolderByPath(ref);
+      return true;
+    };
+    this.app.saveLocalStorage(COLLAPSED_KEY, pruneFolds([...ids], exists));
   }
 
   /**

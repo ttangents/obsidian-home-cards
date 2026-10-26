@@ -223,10 +223,6 @@ To add a background pattern, add `<id>-light.webp` and `<id>-dark.webp` to `asse
 
 Custom properties named `--hc-*` are the public styling contract in [docs/STYLING.md](docs/STYLING.md); Home Cards reads them and never declares them. Its own defaults and plumbing use `--_hc-*`. The tests fail if the styles read a public token the guide does not document, or declare one outside the Style Settings layer in `styles/95-style-settings.css`.
 
-### Sample notes
-
-`demo/` holds the scripts that add the nineteenth-century sample notes behind the screenshots to a test vault. `demo/images.py` downloads public-domain images from Wikimedia Commons, and `demo/build.py` writes the notes and Home Cards' pages for them.
-
 ## License
 
 [MIT](LICENSE)

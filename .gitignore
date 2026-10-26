@@ -4,6 +4,5 @@ styles.css
 src/render/tiles.generated.ts
 *.log
 .DS_Store
-__pycache__/
 CLAUDE.md
 AGENTS.md

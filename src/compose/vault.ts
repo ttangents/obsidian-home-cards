@@ -13,12 +13,6 @@ import type { ActivityFacts } from "./activity";
 import type { ScopeTest } from "./scope";
 import type { RelateView } from "./relate";
 
-/**
- * One compose's view of the vault, shared by every section: the note
- * list is fetched once and the link totals are summed at most once, so
- * a page of seven sections costs one walk of the vault, not seven.
- * Discard it after the compose; it does not track later changes.
- */
 /** Which notes link to which: distinct links between notes, no self-links. */
 export interface LinkGraph {
   out: ReadonlyMap<string, ReadonlySet<string>>;
@@ -27,6 +21,12 @@ export interface LinkGraph {
 
 const NO_ACTIVITY: ActivityFacts = { events: () => [], visits: () => new Map() };
 
+/**
+ * One compose's view of the vault, shared by every section: the note
+ * list is fetched once and the link totals are summed at most once, so
+ * a page of seven sections costs one walk of the vault, not seven.
+ * Discard it after the compose; it does not track later changes.
+ */
 export class VaultSnapshot {
   readonly files: readonly TFile[];
   private inbound: ReadonlyMap<string, number> | null = null;

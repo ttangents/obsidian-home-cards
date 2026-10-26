@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { setImmediate as settled } from "node:timers/promises";
 import { test } from "vitest";
-import { composeSections } from "../src/compose/compose";
+import { composePage } from "../src/compose/compose";
 import { neighbourCount, noteSections } from "../src/compose/note-page";
 import { rankSection } from "../src/compose/rank";
 import { relatedToRecent } from "../src/compose/related";
@@ -17,6 +17,9 @@ import { normalizeSettings } from "../src/settings/normalize";
 import { refFromState, resolvePage, stateFromRef } from "../src/settings/pages";
 import { blankSection, defaultSettings, isGenerated, needsRelate, REDISCOVER_STRATEGIES, SECTION_KINDS, type SectionConfig } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";
+
+/** The sections of a composed page. */
+const sectionsOf = async (...args: Parameters<typeof composePage>) => (await composePage(...args)).sections;
 
 const NOW = new Date(2026, 9, 21, 10);
 const T = NOW.getTime();
@@ -93,7 +96,7 @@ test("sources that need Relate are marked, and note-page sources are never offer
 });
 
 test("a Relate search section keeps Relate's order and explains each card", async () => {
-  const [composed] = await composeSections(v.app, settings, {
+  const [composed] = await sectionsOf(v.app, settings, {
     sections: [section({ kind: "relate", query: "notes of all parts of Q3 Plan" })],
     relate: fakeRelate(),
     now: NOW,
@@ -109,7 +112,7 @@ test("a Relate search section keeps Relate's order and explains each card", asyn
 });
 
 test("without Relate, a Relate section is empty and the page still composes", async () => {
-  const out = await composeSections(v.app, settings, {
+  const out = await sectionsOf(v.app, settings, {
     sections: [section({ id: "a", kind: "relate", query: "notes of Q3 Plan" }), section({ id: "b", kind: "recent-modified" })],
     now: NOW,
   });
@@ -164,7 +167,7 @@ test("a note's page shows links and backlinks alone, and relationships first wit
   const path = "Projects/Q3 Plan.md";
   const alone = noteSections(path, null, new VaultSnapshot(v.app).links());
   assert.deepEqual(alone.map((s) => [s.kind, s.title]), [["links-out", ""], ["links-in", ""]]);
-  const composed = await composeSections(v.app, settings, { sections: alone, now: NOW });
+  const composed = await sectionsOf(v.app, settings, { sections: alone, now: NOW });
   assert.deepEqual(composed[0].cards.map((c) => c.file.path), ["Notes/Pricing.md", "Notes/Churn.md", "Notes/Loose.md"]);
   assert.deepEqual(composed[1].cards.map((c) => c.file.path), ["Index.md"], "backlinks not already shown above");
 
@@ -173,7 +176,7 @@ test("a note's page shows links and backlinks alone, and relationships first wit
   const withRelate = noteSections(path, view, new VaultSnapshot(v.app).links());
   assert.deepEqual(withRelate.map((s) => s.kind === "relationship" ? s.relation : s.kind), ["notes", "owner", "links-out", "links-in", "similar"]);
   assert.equal(withRelate[2].title, "Other links in this note");
-  const full = await composeSections(v.app, settings, { sections: withRelate, now: NOW, relate });
+  const full = await sectionsOf(v.app, settings, { sections: withRelate, now: NOW, relate });
   const cards = (i: number) => full[i].cards.map((c) => c.file.path);
   assert.deepEqual(cards(0), ["Notes/Pricing.md", "Notes/Churn.md"]);
   assert.deepEqual(cards(1), ["People/Ana.md"]);
@@ -219,7 +222,6 @@ test("a slow search shows empty for now, and its results wait in the cache", asy
 });
 
 test("a note's page composes from one snapshot and counts the notes it covers", async () => {
-  const { composePage } = await import("../src/compose/compose");
   const page = await composePage(v.app, settings, { note: "Projects/Q3 Plan.md", relate: fakeRelate(), now: NOW });
   assert.deepEqual(page.configs.map((c) => c.kind), ["relationship", "relationship", "links-out", "links-in", "similar"]);
   assert.equal(page.notes, 5);
@@ -256,7 +258,7 @@ test("a Relate search that throws at once comes back empty", async () => {
   });
   const results = await runSearches(throwing, ["notes of Q3 Plan"]);
   assert.deepEqual(results.get("notes of Q3 Plan"), []);
-  const [composed] = await composeSections(v.app, settings, {
+  const [composed] = await sectionsOf(v.app, settings, {
     sections: [section({ kind: "relate", query: "notes of Q3 Plan" })],
     relate: throwing,
     now: NOW,
@@ -271,7 +273,7 @@ test("a section that fails empties itself and leaves the rest of the page", asyn
       throw new Error("index not ready");
     },
   });
-  const [linked, modified] = await composeSections(broken.app, settings, {
+  const [linked, modified] = await sectionsOf(broken.app, settings, {
     sections: [section({ kind: "most-linked" }), section({ id: "m", kind: "recent-modified" })],
     now: NOW,
   });

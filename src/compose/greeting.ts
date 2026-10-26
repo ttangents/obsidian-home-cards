@@ -232,17 +232,16 @@ export function greetingFor(now: Date, options: Partial<GreetingOptions> = {}): 
   return pick(pool, rng);
 }
 
-/** Every template the list could ever produce, for the tests. */
+/**
+ * Every template the built-in lists hold, read from the lists themselves
+ * and from the first day of each month, so a line added anywhere is in it.
+ */
 export function allListGreetings(): string[] {
-  const months = MONTHS.map((m) => `${m} already, {name}?`);
   return [
     ...OCCASIONS.flatMap((o) => o.texts),
     ...Object.values(BY_PART).flat(),
     ...BY_WEEKDAY.flat(),
-    ...months,
-    "New year, same great vault",
-    "Halfway through the year, {name}",
-    "Last month of the year, {name}",
+    ...MONTHS.flatMap((_, month) => monthStart(new Date(2026, month, 1))),
     ...SALUTATIONS,
     ...ANYTIME,
   ];

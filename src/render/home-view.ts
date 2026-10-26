@@ -137,6 +137,8 @@ export class HomeView extends ItemView implements HoverParent {
   private noticeFor = "";
   /** The note count the last compose of a page found, for the header. */
   private counted: { key: string; notes: number } | null = null;
+  /** True when a redraw was asked for while the view was hidden; it runs once the view shows. */
+  private stale = false;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -196,7 +198,10 @@ export class HomeView extends ItemView implements HoverParent {
   async onOpen(): Promise<void> {
     this.greeting = this.pickGreeting();
     this.shell = this.buildShell(this.contentEl);
-    this.registerEvent(this.services.onRefresh(() => void this.refresh()));
+    // A tab in the background waits: it redraws once, when it shows again.
+    this.registerEvent(this.services.onRefresh(() => this.refreshWhenShown()));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", () => this.catchUp()));
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.catchUp()));
     // A folder page follows its folder, and a note's page its note.
     // Setting the state renames the tab.
     this.registerEvent(
@@ -255,10 +260,27 @@ export class HomeView extends ItemView implements HoverParent {
     this.contentEl.empty();
   }
 
+  /** Obsidian calls this when the view's size changes, which includes coming into view. */
+  onResize(): void {
+    this.catchUp();
+  }
+
+  /** Redraw now if the view shows, else once it does. */
+  private refreshWhenShown(): void {
+    if (this.containerEl.isShown()) void this.refresh();
+    else this.stale = true;
+  }
+
+  /** Run a redraw that waited while the view was hidden, once it shows. */
+  private catchUp(): void {
+    if (this.stale && this.containerEl.isShown()) void this.refresh();
+  }
+
   /** Re-read settings and recompose. Safe to call at any time. */
   async refresh(): Promise<void> {
     const shell = this.shell;
     if (!shell) return;
+    this.stale = false;
     applyAppearance(shell.root, this.services.store.settings, this.services.backgrounds);
     // Resolved once, so the header and the body agree.
     const page = this.page();

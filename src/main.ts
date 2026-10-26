@@ -23,7 +23,7 @@ import { pickFolder } from "./render/folder-picker";
 import { HomeView, VIEW_TYPE_HOME } from "./render/home-view";
 import { pickPage } from "./render/page-picker";
 import { normalizeFolderPath } from "./settings/folders";
-import { normalizeSettings } from "./settings/normalize";
+import { SettingsStore } from "./settings/store";
 import {
   findPageByName,
   refFromState,
@@ -34,7 +34,7 @@ import {
   uniquePageName,
   type PageRef,
 } from "./settings/pages";
-import { blankScope, defaultSettings, LIMITS, newPageId, type HomeCardsSettings, type NamedPage } from "./settings/schema";
+import { blankScope, LIMITS, newPageId, type HomeCardsSettings, type NamedPage } from "./settings/schema";
 import { checkForUpdate, compareVersions, laterVersion, recentNotes, type ReleaseNote } from "./settings/release-notes";
 import { WhatsNewModal } from "./render/whats-new";
 import { asRelateApi, RELATE_EVENTS, type RelateApi, type SearchOptions } from "./compose/relate";
@@ -55,7 +55,22 @@ const RESOLVE_DELAY_MS = 1500;
 const RELEASE_KEY = "home-cards-release-seen";
 
 export default class HomeCardsPlugin extends Plugin {
-  settings: HomeCardsSettings = defaultSettings();
+  /** The settings in memory and on disk; see settings/store.ts. */
+  readonly store = new SettingsStore({
+    storage: { load: () => this.loadData(), save: (settings) => this.saveData(settings) },
+    debounce: (run) => debounce(run, SAVE_DELAY_MS, true),
+    // Ended snoozes need no record; the next save drops them.
+    tidy: (settings) => void pruneSnoozes(settings.marks, new Date()),
+    afterWrite: (wrote) => {
+      if (this.syncPageCommands()) this.events.trigger(PAGES);
+      if (wrote) this.refreshViews();
+    },
+    afterReload: () => this.settingsReloaded(),
+    onError: (message, err) => console.error(message, err),
+  });
+
+  /** The current settings, the store's object; each load replaces it. */
+  settings: HomeCardsSettings = this.store.settings;
 
   /** Shared by every view. Bounded, and self-invalidating on mtime and settings. */
   readonly dekCache = new DekCache();
@@ -73,10 +88,6 @@ export default class HomeCardsPlugin extends Plugin {
    * releases its subscription when the view closes.
    */
   private readonly events = new Events();
-
-  /** True while an edit sits in memory that data.json does not have. */
-  private dirty = false;
-  private readonly flushSoon = debounce(() => void this.flush(), SAVE_DELAY_MS, true);
 
   /**
    * Pins, snoozes and quiet notes, as cards and menus change them. Each
@@ -134,7 +145,8 @@ export default class HomeCardsPlugin extends Plugin {
   private readonly pageCommands = new Map<string, string>();
 
   async onload(): Promise<void> {
-    const firstRun = !(await this.loadSettings());
+    const firstRun = !(await this.store.load());
+    this.settings = this.store.settings;
     this.reviewRelease(firstRun);
 
     this.registerView(VIEW_TYPE_HOME, (leaf) => new HomeView(leaf, this));
@@ -279,8 +291,12 @@ export default class HomeCardsPlugin extends Plugin {
    * next save writes this device's edit over them, as it would anyway.
    */
   async onExternalSettingsChange(): Promise<void> {
-    if (this.dirty) return;
-    await this.loadSettings();
+    await this.store.reload();
+  }
+
+  /** Settings from another device replaced the ones in memory. */
+  private settingsReloaded(): void {
+    this.settings = this.store.settings;
     // Another device read or dismissed the notice.
     if (this.releaseNotes.length && compareVersions(this.seenVersion(), this.manifest.version) >= 0) {
       this.releaseNotes = [];
@@ -292,7 +308,7 @@ export default class HomeCardsPlugin extends Plugin {
   onunload(): void {
     this.settle.cancel();
     // Views are closing; write the pending edit without redrawing them.
-    void this.write();
+    void this.store.write();
     this.saveActivity.cancel();
     this.activity.flush();
   }
@@ -301,50 +317,17 @@ export default class HomeCardsPlugin extends Plugin {
 
   /** Record an edit; write once the edits stop. For keystrokes and sliders. */
   touch(): void {
-    this.dirty = true;
-    this.flushSoon();
+    this.store.touch();
   }
 
   /** Record an edit and write it now. For structural changes. */
   async commit(): Promise<void> {
-    this.dirty = true;
-    await this.flush();
+    await this.store.commit();
   }
 
   /** Write a pending edit, if any, and redraw the views that show it. */
   async flush(): Promise<void> {
-    const wrote = await this.write();
-    if (this.syncPageCommands()) this.events.trigger(PAGES);
-    if (wrote) this.refreshViews();
-  }
-
-  /** Write a pending edit. Resolves true when there was one. */
-  private async write(): Promise<boolean> {
-    this.flushSoon.cancel();
-    if (!this.dirty) return false;
-    this.dirty = false;
-    try {
-      await this.saveData(this.settings);
-    } catch (err) {
-      // Keep the edit pending, so the next touch, commit or close retries.
-      this.dirty = true;
-      console.error("Home Cards: could not save settings", err);
-    }
-    return true;
-  }
-
-  /** Read data.json. Resolves false when there was none: a new install. */
-  private async loadSettings(): Promise<boolean> {
-    let stored: unknown = null;
-    try {
-      stored = await this.loadData();
-    } catch (err) {
-      console.error("Home Cards: settings unreadable, using defaults", err);
-    }
-    this.settings = normalizeSettings(stored);
-    // Ended snoozes need no record; drop them with the next save.
-    if (pruneSnoozes(this.settings.marks, new Date())) this.dirty = true;
-    return stored !== null && stored !== undefined;
+    await this.store.flush();
   }
 
   // -------------------------------------------------------------- releases

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { compileScope, tagsOf } from "../src/compose/scope";
 import { fakeVault } from "./fake-vault";
 

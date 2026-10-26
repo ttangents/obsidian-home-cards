@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { buildCard, type CardContext } from "../src/compose/card";
 import { imageLink, imageLinkFor } from "../src/compose/images";
 import { displayText, formatField, projectFields, relativeDay } from "../src/compose/projection";

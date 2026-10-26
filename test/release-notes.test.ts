@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "./harness";
+import { test } from "vitest";
 import { normalizeSettings } from "../src/settings/normalize";
 import {
   announcementTitle,

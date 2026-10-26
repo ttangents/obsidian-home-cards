@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "./harness";
+import { test } from "vitest";
 import { BACKGROUNDS, SECTION_KINDS, SURFACES, VIEW_MODES } from "../src/settings/schema";
 
 const read = (p: string) => readFileSync(p, "utf8");

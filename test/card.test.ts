@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { buildCard, type CardContext } from "../src/compose/card";
 import { defaultSettings } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";

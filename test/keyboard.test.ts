@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { nextCard } from "../src/render/keyboard";
 
 /** A card at a grid position: 3 columns of 100px, rows 80px apart. */

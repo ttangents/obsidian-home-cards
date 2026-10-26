@@ -114,3 +114,12 @@ test("Pinned lists pins in pin order; a snoozed note leaves every other section"
   assert.deepEqual(ids("rediscover"), [], "Rediscover passes over a quiet note");
   assert.deepEqual(ids("recent-modified"), ["a.md", "old.md"], "and only Rediscover does");
 });
+
+test("path rules match a note or folder exactly, never a sibling that shares its prefix", async () => {
+  const { isWithin, reparent } = await import("../src/settings/folders");
+  assert.ok(isWithin("Work/a.md", "Work"));
+  assert.ok(isWithin("Work", "Work"));
+  assert.ok(!isWithin("Workshop.md", "Work"));
+  assert.equal(reparent("Workshop/a.md", "Work", "Jobs"), "Workshop/a.md");
+  assert.equal(reparent("Work/a.md", "Work", "Jobs"), "Jobs/a.md");
+});

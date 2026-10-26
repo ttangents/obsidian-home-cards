@@ -11,6 +11,7 @@
  * and report whether anything changed, so the caller knows to save.
  */
 
+import { isWithin, reparent } from "../settings/folders";
 import { LIMITS, type NoteMarks } from "../settings/schema";
 
 /** A local date as YYYY-MM-DD. */
@@ -87,18 +88,12 @@ export function pruneSnoozes(marks: NoteMarks, now: Date): boolean {
   return changed;
 }
 
-/** `path` after a rename of `from` to `to`: the item itself or anything under it. */
-function moved(path: string, from: string, to: string): string {
-  if (path === from) return to;
-  return path.startsWith(`${from}/`) ? to + path.slice(from.length) : path;
-}
-
 /** Follow a rename of a note or a folder. */
 export function renameMarks(marks: NoteMarks, from: string, to: string): boolean {
   let changed = false;
   const list = (paths: string[]) => {
     for (let i = 0; i < paths.length; i++) {
-      const next = moved(paths[i], from, to);
+      const next = reparent(paths[i], from, to);
       if (next !== paths[i]) {
         paths[i] = next;
         changed = true;
@@ -108,7 +103,7 @@ export function renameMarks(marks: NoteMarks, from: string, to: string): boolean
   list(marks.pinned);
   list(marks.quiet);
   for (const [path, until] of Object.entries(marks.snoozed)) {
-    const next = moved(path, from, to);
+    const next = reparent(path, from, to);
     if (next === path) continue;
     delete marks.snoozed[path];
     marks.snoozed[next] = until;
@@ -119,7 +114,7 @@ export function renameMarks(marks: NoteMarks, from: string, to: string): boolean
 
 /** Forget a deleted note, or every note under a deleted folder. */
 export function forgetMarks(marks: NoteMarks, path: string): boolean {
-  const gone = (p: string) => p === path || p.startsWith(`${path}/`);
+  const gone = (p: string) => isWithin(p, path);
   let changed = false;
   for (const paths of [marks.pinned, marks.quiet]) {
     for (let i = paths.length - 1; i >= 0; i--) {

@@ -186,7 +186,7 @@ When the Relate plugin is running, Home Cards asks it for searches, relationship
 ```sh
 npm install
 npm run build   # styles.css, type check, Obsidian's lint rules, main.js
-npm test        # type-checks the tests, then runs them
+npm test        # type-checks the tests, then runs them with Vitest
 npm run dev     # rebuilds main.js on save
 ```
 
@@ -205,7 +205,7 @@ The code calls only Obsidian's public API, treats the vault's notes as the sourc
 
 Each compose takes one snapshot of the vault: one file listing and at most one pass over the link table, shared by every section.
 
-The test suite enforces the layering: it bundles the tested code with `obsidian` marked external, and the `obsidian` package ships no runtime code, so a runtime import in `settings/` or `compose/` fails to load. A separate test checks each layer's imports.
+The test suite enforces the layering: Vitest loads the tested code in Node, and the `obsidian` package ships no runtime code, so a runtime import in `settings/` or `compose/` fails to load. A separate test checks each layer's imports.
 
 ### Styles
 

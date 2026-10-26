@@ -5,7 +5,7 @@
 
 import assert from "node:assert/strict";
 import { setImmediate as settled } from "node:timers/promises";
-import { test } from "./harness";
+import { test } from "vitest";
 import { pruneSnoozes } from "../src/compose/marks";
 import { SettingsStore, type Debounced } from "../src/settings/store";
 import type { HomeCardsSettings } from "../src/settings/schema";

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { rediscover, dailyShuffle, HUB_DEGREE } from "../src/compose/rediscover";
 import { VaultSnapshot } from "../src/compose/vault";
 import { blankSection, defaultSettings, type RediscoverStrategy } from "../src/settings/schema";

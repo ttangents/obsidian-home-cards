@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { composeSections } from "../src/compose/compose";
 import { compilePageScope } from "../src/compose/scope";
 import { VaultSnapshot } from "../src/compose/vault";

@@ -4,7 +4,7 @@
  */
 
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { asPagewiseApi, notePageButton, PAGEWISE_CONTRACT } from "../src/compose/pagewise";
 
 const api = { version: PAGEWISE_CONTRACT, registerToolbarItem: () => () => undefined };

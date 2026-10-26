@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { cleanTitle, dekSignature, extractDek, splitSentences } from "../src/compose/text";
 import { defaultSettings } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";

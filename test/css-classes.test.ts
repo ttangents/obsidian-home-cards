@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { cssClassList, MAX_CSS_CLASSES, normalizeCssClass } from "../src/settings/css-classes";
 import { normalizeSettings } from "../src/settings/normalize";
 

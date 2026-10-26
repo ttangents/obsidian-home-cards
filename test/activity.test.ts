@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { ActivityLog, EVENT_LIMIT, parseStored, VISIT_GAP_MS, type OpenEvent } from "../src/compose/activity";
 import { continueWorking } from "../src/compose/continue";
 import { relatedToRecent } from "../src/compose/related";

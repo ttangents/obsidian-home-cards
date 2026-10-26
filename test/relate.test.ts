@@ -5,7 +5,7 @@
  */
 
 import assert from "node:assert/strict";
-import { test } from "./harness";
+import { test } from "vitest";
 import { composeSections } from "../src/compose/compose";
 import { neighbourCount, noteSections } from "../src/compose/note-page";
 import { rankSection } from "../src/compose/rank";

@@ -5,6 +5,7 @@
  */
 
 import assert from "node:assert/strict";
+import { setImmediate as settled } from "node:timers/promises";
 import { test } from "vitest";
 import { composeSections } from "../src/compose/compose";
 import { neighbourCount, noteSections } from "../src/compose/note-page";
@@ -208,8 +209,7 @@ test("a slow search shows empty for now, and its results wait in the cache", asy
   const first = await runSearches(slow, ["q"], { cache, waitMs: 10, onLate: () => late++, sleep });
   assert.deepEqual(first.get("q"), []);
   resolve(hits);
-  await Promise.resolve();
-  await Promise.resolve();
+  await settled();
   assert.equal(late, 1, "the page is told to redraw");
   let calls = 0;
   const counted = fakeRelate({ search: async () => (calls++, []) });
@@ -225,4 +225,56 @@ test("a note's page composes from one snapshot and counts the notes it covers", 
   assert.equal(page.notes, 5);
   const plain = await composePage(v.app, settings, { note: "Projects/Q3 Plan.md", now: NOW });
   assert.equal(plain.notes, 4);
+});
+
+test("Relate results of the wrong shape keep only their well-formed entries", async () => {
+  const odd = {
+    connections: () => "not a list",
+    similar: () => [{ path: "Notes/Echo.md", score: 0.8 }, { path: 3, score: 1 }, null],
+    meaningReady: () => "yes",
+  } as unknown as Partial<RelateApi>;
+  const view = relateView(fakeRelate(odd), new Map());
+  assert.deepEqual(view.connections("Projects/Q3 Plan.md"), []);
+  assert.deepEqual(view.similar("Projects/Q3 Plan.md", 4), [{ path: "Notes/Echo.md", score: 0.8 }]);
+  assert.equal(view.meaningReady(), false, "only true means ready");
+
+  const hostile = fakeRelate({
+    similar: () => [Object.defineProperty({}, "path", { get: () => { throw new Error("boom"); } })] as never,
+  });
+  assert.deepEqual(relateView(hostile, new Map()).similar("Projects/Q3 Plan.md", 4), []);
+
+  const sloppy = fakeRelate({ search: async () => [{ path: "Notes/Pricing.md" }, { reasons: ["no path"] }] as never });
+  const results = await runSearches(sloppy, ["q"]);
+  assert.deepEqual(results.get("q"), [{ path: "Notes/Pricing.md", reasons: [], paths: [] }]);
+});
+
+test("a Relate search that throws at once comes back empty", async () => {
+  const throwing = fakeRelate({
+    search: () => {
+      throw new Error("not ready");
+    },
+  });
+  const results = await runSearches(throwing, ["notes of Q3 Plan"]);
+  assert.deepEqual(results.get("notes of Q3 Plan"), []);
+  const [composed] = await composeSections(v.app, settings, {
+    sections: [section({ kind: "relate", query: "notes of Q3 Plan" })],
+    relate: throwing,
+    now: NOW,
+  });
+  assert.deepEqual(composed.cards, []);
+});
+
+test("a section that fails empties itself and leaves the rest of the page", async () => {
+  const broken = fakeVault([{ path: "A.md", mtime: T }, { path: "B.md", mtime: T - 1 }]);
+  Object.defineProperty(broken.app.metadataCache, "resolvedLinks", {
+    get: () => {
+      throw new Error("index not ready");
+    },
+  });
+  const [linked, modified] = await composeSections(broken.app, settings, {
+    sections: [section({ kind: "most-linked" }), section({ id: "m", kind: "recent-modified" })],
+    now: NOW,
+  });
+  assert.deepEqual(linked.cards, []);
+  assert.deepEqual(modified.cards.map((c) => c.file.path), ["A.md", "B.md"]);
 });

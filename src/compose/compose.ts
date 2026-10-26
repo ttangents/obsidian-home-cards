@@ -80,6 +80,20 @@ export interface ComposedPage {
   notes: number;
 }
 
+/**
+ * A section's ranked notes. A section that fails, such as one whose source
+ * calls into another plugin, comes back empty and leaves the rest of the
+ * page as it is.
+ */
+function rankSafely(vault: VaultSnapshot, cfg: SectionConfig, settings: HomeCardsSettings): Ranked[] {
+  try {
+    return rankSection(vault, cfg, settings);
+  } catch (err) {
+    console.error(`Home Cards: could not fill the section "${cfg.id}"`, err);
+    return [];
+  }
+}
+
 export async function composeSections(app: App, settings: HomeCardsSettings, options: ComposeOptions = {}): Promise<ComposedSection[]> {
   return (await composePage(app, settings, options)).sections;
 }
@@ -103,7 +117,7 @@ export async function composePage(
   // First pass: each section claims its visible cards, in order, so
   // section order sets precedence.
   const ranked = sections.map((cfg) => {
-    const all = rankSection(vault, cfg, settings);
+    const all = rankSafely(vault, cfg, settings);
     const picked: Ranked[] = [];
     let claimed = 0;
     let next = 0;

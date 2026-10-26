@@ -35,7 +35,7 @@ import { greetingFor, withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
 import { compilePageScope, type ScopeTest } from "../compose/scope";
 import { notesIn } from "../compose/vault";
-import { RELATE_INCOMPATIBLE, type RelateApi, type RelateStatus } from "../compose/relate";
+import { RELATE_INCOMPATIBLE, relateView, type RelateApi, type RelateStatus } from "../compose/relate";
 import { cssClassList } from "../settings/css-classes";
 import { reparent } from "../settings/folders";
 import {
@@ -762,18 +762,9 @@ function emptyFor(cfg: SectionConfig, relate: RelateApi | null, status: RelateSt
   }
   if (cfg.kind === "rediscover" && cfg.strategy === "unlinked") {
     if (!relate) return "This strategy uses search by meaning from the Relate plugin, which is not running.";
-    if (!safely(() => relate.meaningReady())) return "Turn on search by meaning in Relate's settings to fill this section.";
+    if (!relateView(relate, new Map()).meaningReady()) return "Turn on search by meaning in Relate's settings to fill this section.";
   }
   return undefined;
-}
-
-/** A call into another plugin that cannot break the page. */
-function safely(fn: () => boolean): boolean {
-  try {
-    return fn();
-  } catch {
-    return false;
-  }
 }
 
 /** "Set status" → "set status", leaving values as they are. */

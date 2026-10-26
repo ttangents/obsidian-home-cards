@@ -58,6 +58,8 @@ test("the plugin uses no private Obsidian API", () => {
     [/\btabHeader\w*/, "tab header elements"],
     [/\.titleEl\b/, "a view's private title element"],
     [/\bplugins\.plugins\b/, "another plugin's instance"],
+    [/\bplugins\.(getPlugin|enabledPlugins|manifests)\b/, "the private plugin registry"],
+    [/\bapp\.plugins\b/, "the private plugin registry"],
     [/\bapp\.(setting|commands|dom|dragManager|customCss)\b/, "a private App member"],
     [/\bactiveLeaf\b/, "the deprecated active leaf"],
     [/\brequire\(|["']electron["']|\bbasePath\b/, "Node, Electron or the vault's disk path"],

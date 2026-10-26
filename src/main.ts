@@ -37,8 +37,9 @@ import {
 import { blankScope, LIMITS, newPageId, type HomeCardsSettings, type NamedPage } from "./settings/schema";
 import { checkForUpdate, compareVersions, laterVersion, recentNotes, type ReleaseNote } from "./settings/release-notes";
 import { WhatsNewModal } from "./render/whats-new";
-import { asRelateApi, RELATE_EVENTS, type RelateApi, type SearchOptions } from "./compose/relate";
+import { asRelateApi, RELATE_EVENTS, type RelateApi, type RelateStatus, type SearchOptions } from "./compose/relate";
 import { asPagewiseApi, notePageButton, PAGEWISE_EVENTS } from "./compose/pagewise";
+import { connectPartner } from "./compose/partner";
 import { PageModal } from "./settings-tab/page-modal";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
 
@@ -117,6 +118,9 @@ export default class HomeCardsPlugin extends Plugin {
    * over through workspace events; see connectRelate.
    */
   relate: RelateApi | null = null;
+
+  /** Whether Relate runs, and whether this version of Home Cards can use it. */
+  relateStatus: RelateStatus = "absent";
 
   /**
    * Relate searches kept between redraws, so every open page shares one
@@ -515,42 +519,38 @@ export default class HomeCardsPlugin extends Plugin {
   // ------------------------------------------------------------------ Relate
 
   /**
-   * Listen for the Relate plugin, which is optional. Relate announces its
-   * API with a public workspace event when it is ready and answers a
-   * request from a plugin that loaded after it, so either load order works.
-   * Home Cards never reads Relate's plugin instance or files, and a Relate
-   * whose contract it does not know counts as absent.
+   * Listen for the Relate plugin, which is optional, through the public
+   * handshake in compose/partner.ts. Home Cards never reads Relate's plugin
+   * instance or files. A Relate whose contract Home Cards does not know is
+   * present but incompatible, and the sections that need it say so.
    */
   private connectRelate(): void {
-    const bus: Events = this.app.workspace;
-    const use = (api: RelateApi | null) => {
-      if (api === this.relate) return;
-      this.relate = api;
-      this.relateSearches.cache?.clear();
-      this.refreshViews();
-    };
-    this.registerEvent(bus.on(RELATE_EVENTS.ready, (api: unknown) => use(asRelateApi(api))));
-    this.registerEvent(bus.on(RELATE_EVENTS.unload, () => use(null)));
-    this.registerEvent(
-      bus.on(RELATE_EVENTS.changed, () => {
-        if (this.relate) this.settle();
-      })
-    );
-    bus.trigger(RELATE_EVENTS.request);
+    connectPartner(this.app.workspace, {
+      name: "Relate",
+      events: RELATE_EVENTS,
+      accept: asRelateApi,
+      register: (ref) => this.registerEvent(ref),
+      warn: (message) => console.warn(message),
+      onState: (state) => {
+        this.relate = state.kind === "present" ? state.api : null;
+        this.relateStatus = state.kind;
+        this.relateSearches.cache?.clear();
+        this.refreshViews();
+      },
+      onChanged: () => this.settle(),
+    });
   }
 
   // ---------------------------------------------------------------- Pagewise
 
   /**
-   * Offer a toolbar button to the Pagewise plugin, which is optional. Pagewise
-   * announces its toolbar API with a public workspace event when it is ready
-   * and answers a request from a plugin that loaded after it, so either load
-   * order works; it announces null when it unloads. Home Cards never reads
-   * Pagewise's plugin instance, and a Pagewise whose contract it does not know
-   * counts as absent.
+   * Offer a toolbar button to the Pagewise plugin, which is optional,
+   * through the public handshake in compose/partner.ts. Home Cards never
+   * reads Pagewise's plugin instance. The button goes when Pagewise
+   * unloads, when it announces a contract Home Cards does not know, and
+   * when Home Cards itself unloads.
    */
   private connectPagewise(): void {
-    const bus: Events = this.app.workspace;
     let remove: (() => void) | null = null;
     const detach = () => {
       try {
@@ -560,19 +560,23 @@ export default class HomeCardsPlugin extends Plugin {
       }
       remove = null;
     };
-    const attach = (value: unknown) => {
-      detach();
-      const api = asPagewiseApi(value);
-      if (!api) return;
-      try {
-        remove = api.registerToolbarItem(notePageButton((path) => void this.activateView({ note: path })));
-      } catch {
-        remove = null;
-      }
-    };
-    this.registerEvent(bus.on(PAGEWISE_EVENTS.api, attach));
     this.register(detach);
-    bus.trigger(PAGEWISE_EVENTS.request);
+    connectPartner(this.app.workspace, {
+      name: "Pagewise",
+      events: PAGEWISE_EVENTS,
+      accept: asPagewiseApi,
+      register: (ref) => this.registerEvent(ref),
+      warn: (message) => console.warn(message),
+      onState: (state) => {
+        detach();
+        if (state.kind !== "present") return;
+        try {
+          remove = state.api.registerToolbarItem(notePageButton((path) => void this.activateView({ note: path })));
+        } catch {
+          remove = null;
+        }
+      },
+    });
   }
 
   /** Subscribe to changes in the list of pages and to reloads; pass the result to `registerEvent`. */

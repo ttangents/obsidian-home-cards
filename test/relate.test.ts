@@ -80,7 +80,7 @@ const section = (over: Partial<SectionConfig>) => blankSection({ id: "s", ...ove
 test("only a Relate with a known contract and every method counts", () => {
   assert.ok(asRelateApi(fakeRelate()));
   assert.equal(asRelateApi(null), null);
-  assert.equal(asRelateApi({ ...fakeRelate(), version: 2 }), null, "a later contract is treated as absent");
+  assert.equal(asRelateApi({ ...fakeRelate(), version: 2 }), null, "a later contract is not one Home Cards can use");
   assert.equal(asRelateApi({ ...fakeRelate(), similar: undefined }), null);
   assert.equal(asRelateApi("relate"), null);
 });

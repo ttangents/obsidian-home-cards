@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { composeSections } from "../src/compose/compose";
+import { composePage } from "../src/compose/compose";
 import { compilePageScope } from "../src/compose/scope";
 import { VaultSnapshot } from "../src/compose/vault";
 import { cloneSections, folderName, isInside, normalizeFolderPath, reparent } from "../src/settings/folders";
@@ -27,6 +27,9 @@ import {
   type SectionConfig,
 } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";
+
+/** The sections of a composed page. */
+const sectionsOf = async (...args: Parameters<typeof composePage>) => (await composePage(...args)).sections;
 
 const section = (over: Partial<SectionConfig>): SectionConfig => blankSection({ id: "t", ...over });
 const scope = (over: Partial<PageScope>): PageScope => ({ ...blankScope(), ...over });
@@ -253,15 +256,15 @@ test("a scope with nothing to match admits every note", () => {
 test("a page composes its own sections over only the notes in its scope", async () => {
   const settings = { ...defaultSettings(), sections: [section({ id: "m", kind: "recent-modified" })] };
   const work = compilePageScope(scope({ kind: "folder", folder: "Work" }));
-  const inherited = await composeSections(v.app, settings, { scope: work });
+  const inherited = await sectionsOf(v.app, settings, { scope: work });
   assert.deepEqual(inherited[0].cards.map((c) => c.file.path), ["Work/a.md", "Work/Clients/b.md"]);
 
   const own = [section({ id: "c", kind: "recent-created", count: 1 })];
-  const custom = await composeSections(v.app, settings, { sections: own, scope: work });
+  const custom = await sectionsOf(v.app, settings, { sections: own, scope: work });
   assert.equal(custom.length, 1);
   assert.equal(custom[0].config.id, "c");
   assert.equal(custom[0].cards.length, 1);
 
-  const home = await composeSections(v.app, settings);
+  const home = await sectionsOf(v.app, settings);
   assert.equal(home[0].cards.length, 4);
 });

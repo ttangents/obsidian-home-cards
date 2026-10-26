@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TFile } from "obsidian";
-import { composeSections } from "../src/compose/compose";
+import { composePage } from "../src/compose/compose";
 import { rankSection } from "../src/compose/rank";
 import { VaultSnapshot } from "../src/compose/vault";
 import { blankSection, defaultSettings, type SectionConfig } from "../src/settings/schema";
 import { fakeVault } from "./fake-vault";
+
+/** The sections of a composed page. */
+const sectionsOf = async (...args: Parameters<typeof composePage>) => (await composePage(...args)).sections;
 
 const s = defaultSettings();
 const section = (over: Partial<SectionConfig>): SectionConfig => blankSection({ id: "t", ...over });
@@ -80,21 +83,21 @@ test("compose honors order, dedupe, the count cap, and disabled sections", async
       section({ id: "two", kind: "recent-modified", count: 3 }),
     ],
   };
-  const out = await composeSections(v.app, settings);
+  const out = await sectionsOf(v.app, settings);
   assert.deepEqual(out.map((x) => x.config.id), ["one", "two"]);
   assert.deepEqual(out[0].cards.map((c) => c.file.path), ["c.md"]);
   assert.deepEqual(out[1].cards.map((c) => c.file.path), ["d.md", "a.md", "e.md"]);
   assert.equal(out[1].claimed, 1);
 
-  const dupes = await composeSections(v.app, { ...settings, dedupe: false });
+  const dupes = await sectionsOf(v.app, { ...settings, dedupe: false });
   assert.deepEqual(dupes[1].cards.map((c) => c.file.path), ["c.md", "d.md", "a.md"]);
 });
 
 test("compose leaves deks null without a source and fills them with one", async () => {
   const settings = { ...s, sections: [section({ kind: "recent-opened", count: 1 })] };
-  const lazy = await composeSections(v.app, settings);
+  const lazy = await sectionsOf(v.app, settings);
   assert.equal(lazy[0].cards[0].dek, null);
-  const eager = await composeSections(v.app, settings, { deks: async (f) => `dek of ${f.path}` });
+  const eager = await sectionsOf(v.app, settings, { deks: async (f) => `dek of ${f.path}` });
   assert.equal(eager[0].cards[0].dek, "dek of c.md");
 });
 
@@ -122,7 +125,7 @@ test("one compose walks the vault once and sums the link table once", async () =
       section({ id: "c", kind: "recent-modified" }),
     ],
   };
-  await composeSections(counted, settings);
+  await sectionsOf(counted, settings);
   assert.equal(listings, 1);
   assert.equal(linkReads, 1);
 });
@@ -130,7 +133,7 @@ test("one compose walks the vault once and sums the link table once", async () =
 test("the type label reads the configured property", async () => {
   const w = fakeVault([{ path: "x.md", fm: { type: "Report", kind: "Memo" } }]);
   const settings = { ...s, typeProperty: "kind", sections: [section({ kind: "recent-modified" })] };
-  const [only] = await composeSections(w.app, settings);
+  const [only] = await sectionsOf(w.app, settings);
   assert.equal(only.cards[0].rubric, "Memo");
 });
 
@@ -142,7 +145,7 @@ test("See more holds back further matches without taking another section's notes
       section({ id: "b", kind: "recent-created", count: 1 }),
     ],
   };
-  const [a, b] = await composeSections(v.app, settings);
+  const [a, b] = await sectionsOf(v.app, settings);
   const shown = new Set([...a.cards, ...b.cards].map((c) => c.file.path));
   for (const card of [...a.more, ...b.more]) assert.ok(!shown.has(card.file.path), card.file.path);
   const held = [...a.more, ...b.more].map((c) => c.file.path);
@@ -157,9 +160,9 @@ test("Rediscover draws untouched notes in an order that holds for a day", async 
   const old = (i: number) => ({ path: `old${i}.md`, mtime: base - (200 + i) * day, ctime: base - 400 * day });
   const w = fakeVault([...Array.from({ length: 12 }, (_, i) => old(i)), { path: "fresh.md", mtime: base - day }]);
   const settings = { ...s, rediscoverMonths: 6, sections: [section({ id: "r", kind: "rediscover", count: 12 })] };
-  const morning = await composeSections(w.app, settings, { now: new Date(base) });
-  const evening = await composeSections(w.app, settings, { now: new Date(base + 10 * 3_600_000) });
-  const tomorrow = await composeSections(w.app, settings, { now: new Date(base + day) });
+  const morning = await sectionsOf(w.app, settings, { now: new Date(base) });
+  const evening = await sectionsOf(w.app, settings, { now: new Date(base + 10 * 3_600_000) });
+  const tomorrow = await sectionsOf(w.app, settings, { now: new Date(base + day) });
   const order = (x: typeof morning) => x[0].cards.map((c) => c.file.path).join();
   assert.equal(morning[0].cards.length, 12);
   assert.ok(!order(morning).includes("fresh.md"));
@@ -175,7 +178,7 @@ test("Pinned sections lead the page wherever the list puts them", async () => {
     section({ id: "off", kind: "pinned", enabled: false }),
     section({ id: "pins", kind: "pinned" }),
   ];
-  const composed = await composeSections(v.app, settings, { sections: list });
+  const composed = await sectionsOf(v.app, settings, { sections: list });
   assert.deepEqual(composed.map((c) => c.config.id), ["pins", "mod"]);
   // The pin claims c.md first, so Recently modified moves on to the next notes.
   assert.deepEqual(composed[0].cards.map((c) => c.file.path), ["c.md"]);

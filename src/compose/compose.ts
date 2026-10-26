@@ -94,10 +94,6 @@ function rankSafely(vault: VaultSnapshot, cfg: SectionConfig, settings: HomeCard
   }
 }
 
-export async function composeSections(app: App, settings: HomeCardsSettings, options: ComposeOptions = {}): Promise<ComposedSection[]> {
-  return (await composePage(app, settings, options)).sections;
-}
-
 export async function composePage(
   app: App,
   settings: HomeCardsSettings,

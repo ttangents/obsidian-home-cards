@@ -114,7 +114,6 @@ export const BACKGROUNDS = [
   { id: "petals", label: "Petals" },
   { id: "paws", label: "Paws" },
 ] as const satisfies readonly Choice[];
-export type Background = (typeof BACKGROUNDS)[number]["id"];
 
 /**
  * How an image the user adds fills the page. A pattern repeats, like the
@@ -438,11 +437,6 @@ export const BLANK_SECTION: Readonly<Omit<SectionConfig, "conditions" | "fields"
 });
 
 /**
- * The first-run page. Every section works in any vault, so a new user
- * sees cards before configuring anything; property and tag sections
- * need keys only the user knows.
- */
-/**
  * A fresh section: BLANK_SECTION with an id and any overrides, holding
  * arrays of its own. Spreading BLANK_SECTION directly would share its
  * condition list between every section made from it.
@@ -456,6 +450,11 @@ export function copySection(cfg: SectionConfig, id: string): SectionConfig {
   return { ...cfg, id, conditions: cfg.conditions.map((c) => ({ ...c })), fields: [...cfg.fields] };
 }
 
+/**
+ * The first-run page. Every section works in any vault, so a new user
+ * sees cards before configuring anything; property and tag sections
+ * need keys only the user knows.
+ */
 export function defaultSections(): SectionConfig[] {
   return [
     blankSection({ id: "opened", kind: "recent-opened" }),

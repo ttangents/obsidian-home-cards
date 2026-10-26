@@ -24,18 +24,20 @@ import {
   setTooltip,
   TFile,
   TFolder,
+  type EventRef,
   type HoverParent,
   type HoverPopover,
   type PaneType,
   type ViewStateResult,
   type WorkspaceLeaf,
 } from "obsidian";
+import type { ActivityFacts } from "../compose/activity";
 import { composePage, type ComposedPage } from "../compose/compose";
+import type { DekCache } from "../compose/dek-cache";
 import { greetingFor, withName } from "../compose/greeting";
-import type HomeCardsPlugin from "../main";
 import { compilePageScope, type ScopeTest } from "../compose/scope";
 import { pageGone, planPage, type PagePlan } from "../compose/plan";
-import { relateView } from "../compose/relate";
+import { relateView, type RelateConnection } from "../compose/relate";
 import { cssClassList } from "../settings/css-classes";
 import { reparent } from "../settings/folders";
 import {
@@ -48,8 +50,12 @@ import {
   type ResolvedPage,
 } from "../settings/pages";
 import { VIEW_MODES, type ViewMode } from "../settings/schema";
+import type { SettingsAccess } from "../settings/store";
 import { applyAppearance } from "./appearance";
-import { applyTemplate, createNote, cardActions, rediscoverNote } from "./actions";
+import { applyTemplate, createNote, cardActions, rediscoverNote, type MarkActions } from "./actions";
+import type { BackgroundStore } from "./backgrounds";
+import type { PageActions } from "./page-actions";
+import type { ReleaseNotices } from "./release-notices";
 import { paneFor, renderSection, settleDek, type CardActions, type SectionMove } from "./card";
 import { templateForScope, type NoteTemplate } from "../compose/templates";
 import { registerCardKeys } from "./keyboard";
@@ -58,6 +64,22 @@ import { renderBackgroundPicker, type BackgroundPicker } from "./swatches";
 import { renderUpdateNotice } from "./whats-new";
 
 export const VIEW_TYPE_HOME = "home-cards-view";
+
+/** What the home view uses from the rest of the plugin; main.ts supplies it. */
+export interface HomeServices {
+  store: SettingsAccess;
+  pages: PageActions;
+  marks: MarkActions;
+  backgrounds: BackgroundStore;
+  dekCache: DekCache;
+  /** The plugin's longer memory of opened notes; see compose/open-history.ts. */
+  openHistory: { list(): readonly string[] };
+  activity: ActivityFacts;
+  relate: RelateConnection;
+  releases: ReleaseNotices;
+  /** Subscribe to redraw requests; the view passes the result to `registerEvent`. */
+  onRefresh(callback: () => void): EventRef;
+}
 
 /** One turn of the Recompose icon; see .hc-reload.is-spinning. */
 const RECOMPOSE_SPIN_MS = 600;
@@ -116,11 +138,11 @@ export class HomeView extends ItemView implements HoverParent {
 
   constructor(
     leaf: WorkspaceLeaf,
-    private readonly plugin: HomeCardsPlugin
+    private readonly services: HomeServices
   ) {
     super(leaf);
-    this.mode = plugin.settings.defaultView;
-    this.actions = cardActions(this.app, this, this, VIEW_TYPE_HOME, plugin.markActions);
+    this.mode = services.store.settings.defaultView;
+    this.actions = cardActions(this.app, this, this, VIEW_TYPE_HOME, services.marks);
   }
 
   getViewType(): string {
@@ -129,7 +151,7 @@ export class HomeView extends ItemView implements HoverParent {
 
   /** The page this view shows now, or null when its named page was deleted. */
   private page(): ResolvedPage | null {
-    return resolvePage(this.plugin.settings, this.ref);
+    return resolvePage(this.services.store.settings, this.ref);
   }
 
   /**
@@ -172,7 +194,7 @@ export class HomeView extends ItemView implements HoverParent {
   async onOpen(): Promise<void> {
     this.greeting = this.pickGreeting();
     this.shell = this.buildShell(this.contentEl);
-    this.registerEvent(this.plugin.onRefresh(() => void this.refresh()));
+    this.registerEvent(this.services.onRefresh(() => void this.refresh()));
     // A folder page follows its folder, and a note's page its note.
     // Setting the state renames the tab.
     this.registerEvent(
@@ -213,7 +235,7 @@ export class HomeView extends ItemView implements HoverParent {
         const file = this.app.vault.getFileByPath(card.dataset.hcPath ?? "");
         if (file) this.actions.hover?.preview(file, card);
       },
-      togglePin: (path) => this.plugin.markActions.togglePin(path),
+      togglePin: (path) => this.services.marks.togglePin(path),
     });
 
     await this.refresh();
@@ -235,7 +257,7 @@ export class HomeView extends ItemView implements HoverParent {
   async refresh(): Promise<void> {
     const shell = this.shell;
     if (!shell) return;
-    applyAppearance(shell.root, this.plugin);
+    applyAppearance(shell.root, this.services.store.settings, this.services.backgrounds);
     // Resolved once, so the header and the body agree.
     const page = this.page();
     this.paintStyleHooks(shell.root, page);
@@ -354,10 +376,10 @@ export class HomeView extends ItemView implements HoverParent {
     });
     action("hc-rediscover", "Rediscover a note", "shuffle", (where) => {
       const page = this.page();
-      rediscoverNote(this.app, this.plugin.settings, where, page ? compilePageScope(page.scope) : null);
+      rediscoverNote(this.app, this.services.store.settings, where, page ? compilePageScope(page.scope) : null);
     });
     const pageSettings = action("hc-page-settings", "Page settings", "sliders-horizontal", () =>
-      this.plugin.editPage(this.ref)
+      this.services.pages.edit(this.ref)
     );
     const pickerToggle = button(tools, "Background", "swatch-book", "hc-picker-toggle clickable-icon");
     pickerToggle.setAttrs({ "aria-haspopup": "dialog", "aria-expanded": "false" });
@@ -382,7 +404,7 @@ export class HomeView extends ItemView implements HoverParent {
   }
 
   private paintHeader(shell: Shell, page: ResolvedPage | null, count: number | null): void {
-    const s = this.plugin.settings;
+    const s = this.services.store.settings;
     const home = page?.isHome ?? false;
     // A note's page has no settings: its sections follow the note.
     shell.pageSettings.toggle(page !== null && !home && !page.note);
@@ -419,22 +441,22 @@ export class HomeView extends ItemView implements HoverParent {
    * about their notes, and the home page is where a reader starts.
    */
   private paintNotice(shell: Shell, page: ResolvedPage | null): void {
-    const { plugin } = this;
-    const notes = page?.isHome && plugin.settings.showReleaseNotes ? plugin.releaseNotes : [];
+    const { store, releases } = this.services;
+    const notes = page?.isHome && store.settings.showReleaseNotes ? releases.notes : [];
     const key = notes.map((n) => n.version).join(" ");
     if (key === this.noticeFor) return;
     this.noticeFor = key;
     shell.notice.toggle(notes.length > 0);
     renderUpdateNotice(shell.notice, notes, {
-      open: () => plugin.showWhatsNew(),
-      dismiss: () => plugin.dismissReleaseNotes(),
+      open: () => releases.show(),
+      dismiss: () => releases.dismiss(),
     });
   }
 
   /**
    * Open the background picker under the header controls. A pick applies
    * to this page at once and stays open, so patterns can be compared;
-   * the plugin then saves it and redraws every other open view.
+   * the store then saves it and the plugin redraws every other open view.
    */
   private openPicker(controls: HTMLElement, toggle: HTMLElement): void {
     const root = this.shell?.root;
@@ -443,7 +465,8 @@ export class HomeView extends ItemView implements HoverParent {
       cls: "hc-picker",
       attr: { role: "dialog", "aria-label": "Background" },
     });
-    const grid = renderBackgroundPicker(panel, this.plugin, () => applyAppearance(root, this.plugin));
+    const { store, backgrounds } = this.services;
+    const grid = renderBackgroundPicker(panel, store, backgrounds, () => applyAppearance(root, store.settings, backgrounds));
     this.picker = { panel, grid };
     toggle.addClass("is-active");
     toggle.setAttr("aria-expanded", "true");
@@ -478,7 +501,7 @@ export class HomeView extends ItemView implements HoverParent {
 
   /** A greeting for this moment, drawn from the built-in list. */
   private pickGreeting(): string {
-    return greetingFor(new Date(), { occasions: this.plugin.settings.greetingOccasions });
+    return greetingFor(new Date(), { occasions: this.services.store.settings.greetingOccasions });
   }
 
   /** Layout switches are pure CSS: no recompose, no network of listeners. */
@@ -500,8 +523,8 @@ export class HomeView extends ItemView implements HoverParent {
 
   private async recompose(shell: Shell, page: ResolvedPage | null, test: ScopeTest | null): Promise<void> {
     const token = ++this.generation;
-    const { app, plugin } = this;
-    const settings = plugin.settings;
+    const { app, services } = this;
+    const settings = services.store.settings;
 
     // A deleted page, or a folder that was deleted or moved away, leaves
     // its tab behind with a line saying so.
@@ -516,17 +539,17 @@ export class HomeView extends ItemView implements HoverParent {
       return;
     }
 
-    const relate = plugin.relate;
+    const relate = services.relate.api;
     let composed: ComposedPage;
     try {
       composed = await composePage(app, settings, {
-        deks: (file) => plugin.dekCache.get(app, file, settings),
-        opened: plugin.openHistory.list(),
-        activity: plugin.activity,
+        deks: (file) => services.dekCache.get(app, file, settings),
+        opened: services.openHistory.list(),
+        activity: services.activity,
         sections: page.sections,
         scope: test,
         relate,
-        searches: plugin.relateSearches,
+        searches: services.relate.searches,
         note: page.note,
       });
     } catch (err) {
@@ -545,7 +568,7 @@ export class HomeView extends ItemView implements HoverParent {
       noteExists: (path) => !!app.vault.getFileByPath(path),
       folderExists: (path) => !!app.vault.getFolderByPath(path),
       relate: relate ? relateView(relate, new Map()) : null,
-      relateStatus: plugin.relateStatus,
+      relateStatus: services.relate.status,
       now: new Date(),
     });
     // Built detached, then swapped in whole: no intermediate empty state.
@@ -559,7 +582,7 @@ export class HomeView extends ItemView implements HoverParent {
     this.disposeDeks = observeDeks(shell.body, (path, el) => {
       const file = app.vault.getFileByPath(path);
       if (!file) return;
-      void plugin.dekCache.get(app, file, plugin.settings).then((dek) => settleDek(el, dek));
+      void services.dekCache.get(app, file, services.store.settings).then((dek) => settleDek(el, dek));
     });
   }
 
@@ -574,7 +597,7 @@ export class HomeView extends ItemView implements HoverParent {
   /** Draw the plan's sections into `parent`. */
   private drawSections(parent: HTMLElement, page: ResolvedPage, plan: Extract<PagePlan, { kind: "sections" }>): void {
     const { app } = this;
-    const settings = this.plugin.settings;
+    const settings = this.services.store.settings;
     const collapsed = new Set(this.collapsedIds());
     for (const planned of plan.sections) {
       const { config, cards, more } = planned.section;

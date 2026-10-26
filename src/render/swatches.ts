@@ -10,9 +10,9 @@
  * the page.
  */
 
-import type HomeCardsPlugin from "../main";
 import { BACKGROUNDS } from "../settings/schema";
-import { backgroundProps, backgroundUrl, patternProps } from "./backgrounds";
+import type { SettingsAccess } from "../settings/store";
+import { backgroundProps, patternProps, type BackgroundStore } from "./backgrounds";
 
 export interface BackgroundPicker {
   /** Move the selection mark to the stored background. */
@@ -26,7 +26,8 @@ export interface BackgroundPicker {
  */
 export function renderBackgroundPicker(
   parent: HTMLElement,
-  plugin: HomeCardsPlugin,
+  store: SettingsAccess,
+  backgrounds: BackgroundStore,
   onPick?: () => void
 ): BackgroundPicker {
   const grid = parent.createDiv({
@@ -36,7 +37,7 @@ export function renderBackgroundPicker(
 
   const choices = [
     ...BACKGROUNDS.map((bg) => ({ id: bg.id, label: bg.label, custom: null })),
-    ...plugin.settings.customBackgrounds.map((bg) => ({ id: bg.id, label: bg.label, custom: bg })),
+    ...store.settings.customBackgrounds.map((bg) => ({ id: bg.id, label: bg.label, custom: bg })),
   ];
   const items = choices.map((bg) => {
     const item = grid.createEl("button", { cls: "hc-swatch-item", attr: { role: "radio" } });
@@ -44,25 +45,25 @@ export function renderBackgroundPicker(
     if (bg.custom) {
       face.dataset.pattern = "custom";
       face.dataset.fit = bg.custom.fit;
-      face.setCssProps(backgroundProps(backgroundUrl(plugin, bg.custom), bg.custom));
+      face.setCssProps(backgroundProps(backgrounds.url(bg.custom), bg.custom));
     } else if (bg.id !== "plain") {
       face.dataset.pattern = bg.id;
       face.setCssProps(patternProps(bg.id));
     }
     item.createDiv({ cls: "hc-swatch-label", text: bg.label });
     item.addEventListener("click", () => {
-      if (plugin.settings.background === bg.id) return;
-      plugin.settings.background = bg.id;
+      if (store.settings.background === bg.id) return;
+      store.settings.background = bg.id;
       paint();
       onPick?.();
-      void plugin.commit();
+      void store.commit();
     });
     return { id: bg.id, item };
   });
 
   const paint = () => {
     for (const { id, item } of items) {
-      const on = plugin.settings.background === id;
+      const on = store.settings.background === id;
       item.toggleClass("is-selected", on);
       item.setAttr("aria-checked", String(on));
     }

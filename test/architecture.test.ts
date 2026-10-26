@@ -26,12 +26,11 @@ test("each layer imports only from the layers above it", () => {
   const order = ["settings", "compose", "render", "settings-tab"];
   for (const [rank, layer] of order.entries()) {
     for (const { file, text } of sources(join("src", layer))) {
-      for (const m of text.matchAll(/^import (type )?.*from "\.\.\/([\w-]+)/gm)) {
-        const target = m[2];
-        if (target === "main") {
-          assert.ok(m[1], `${file}: only a type import of main is allowed`);
-          continue;
-        }
+      for (const m of text.matchAll(/^import (?:type )?.*from "\.\.\/([\w-]+)/gm)) {
+        const target = m[1];
+        // main.ts is the composition root: it hands each module what it
+        // needs, so nothing imports the plugin class, not even its type.
+        assert.notEqual(target, "main", `${file} imports the plugin class`);
         assert.ok(order.indexOf(target) <= rank, `${file} imports from ${target}`);
       }
     }

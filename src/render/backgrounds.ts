@@ -13,8 +13,7 @@
  * no image sits in memory beyond what the browser itself caches.
  */
 
-import { normalizePath } from "obsidian";
-import type HomeCardsPlugin from "../main";
+import { normalizePath, type App, type DataAdapter, type PluginManifest } from "obsidian";
 import { CUSTOM_BACKGROUNDS, newBackgroundId, sniffImage, storedSize } from "../settings/custom-background";
 import type { BackgroundFit, CustomBackground } from "../settings/schema";
 import { TILES } from "./tiles.generated";
@@ -44,29 +43,6 @@ export function patternProps(id: string): Record<string, string> {
   const tiles = TILES[id];
   if (!tiles) return {};
   return { "--_hc-tile-light": `url("${tiles.light}")`, "--_hc-tile-dark": `url("${tiles.dark}")` };
-}
-
-/** The plugin's folder for stored images. It may not exist yet. */
-export function backgroundFolder(plugin: HomeCardsPlugin): string {
-  const base = plugin.manifest.dir ?? `${plugin.app.vault.configDir}/plugins/${plugin.manifest.id}`;
-  return normalizePath(`${base}/${CUSTOM_BACKGROUNDS.folder}`);
-}
-
-const storedPath = (plugin: HomeCardsPlugin, bg: Pick<CustomBackground, "file">): string =>
-  `${backgroundFolder(plugin)}/${bg.file}`;
-
-/** The URL a stylesheet can load a stored image from. */
-export function backgroundUrl(plugin: HomeCardsPlugin, bg: Pick<CustomBackground, "file">): string {
-  return plugin.app.vault.adapter.getResourcePath(storedPath(plugin, bg));
-}
-
-/** Whether the stored image is still on disk (a sync may not have brought it yet). */
-export async function backgroundExists(plugin: HomeCardsPlugin, bg: Pick<CustomBackground, "file">): Promise<boolean> {
-  try {
-    return await plugin.app.vault.adapter.exists(storedPath(plugin, bg));
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -136,56 +112,82 @@ async function encode(source: File, fit: BackgroundFit): Promise<StoredImage> {
 }
 
 /**
- * Store `source` in the plugin's folder and return its record. Throws a
- * `BackgroundError` for a file that cannot be used. The caller adds the
- * record to settings.
+ * The images a user added, in a `backgrounds` folder inside the plugin's
+ * own folder. The folder may not exist yet.
  */
-export async function addBackground(
-  plugin: HomeCardsPlugin,
-  source: File,
-  draft: BackgroundDraft
-): Promise<CustomBackground> {
-  if (plugin.settings.customBackgrounds.length >= CUSTOM_BACKGROUNDS.max) {
-    throw new BackgroundError(
-      `Home Cards keeps up to ${CUSTOM_BACKGROUNDS.max} backgrounds. Remove one to add another.`
-    );
-  }
-  const stored = await encode(source, draft.fit);
-  const id = newBackgroundId();
-  const bg: CustomBackground = {
-    id,
-    label: draft.label.trim().slice(0, CUSTOM_BACKGROUNDS.maxLabel) || "Background",
-    file: `${id}.${stored.extension}`,
-    fit: draft.fit,
-    width: stored.width,
-    fade: draft.fade,
-  };
-  const { adapter } = plugin.app.vault;
-  const dir = backgroundFolder(plugin);
-  try {
-    if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
-    await adapter.writeBinary(storedPath(plugin, bg), stored.data);
-  } catch (err) {
-    console.error("Home Cards: could not store the background", err);
-    throw new BackgroundError("The image could not be saved in the plugin folder.");
-  }
-  return bg;
-}
+export class BackgroundStore {
+  constructor(
+    private readonly adapter: DataAdapter,
+    /** The folder for stored images, from the vault's root. */
+    readonly folder: string
+  ) {}
 
-/**
- * Delete a stored image, and the folder once it is empty. A file that
- * will not go is logged and left; the record leaves settings either way.
- */
-export async function removeBackground(plugin: HomeCardsPlugin, bg: CustomBackground): Promise<void> {
-  const { adapter } = plugin.app.vault;
-  const dir = backgroundFolder(plugin);
-  try {
-    const path = storedPath(plugin, bg);
-    if (await adapter.exists(path)) await adapter.remove(path);
-    const left = await adapter.list(dir);
-    if (!left.files.length && !left.folders.length) await adapter.rmdir(dir, false);
-  } catch (err) {
-    console.error("Home Cards: could not remove the background file", err);
+  /** The store for this plugin's folder, wherever the vault keeps its configuration. */
+  static forPlugin(app: App, manifest: PluginManifest): BackgroundStore {
+    const base = manifest.dir ?? `${app.vault.configDir}/plugins/${manifest.id}`;
+    return new BackgroundStore(app.vault.adapter, normalizePath(`${base}/${CUSTOM_BACKGROUNDS.folder}`));
+  }
+
+  private path(bg: Pick<CustomBackground, "file">): string {
+    return `${this.folder}/${bg.file}`;
+  }
+
+  /** The URL a stylesheet can load a stored image from. */
+  url(bg: Pick<CustomBackground, "file">): string {
+    return this.adapter.getResourcePath(this.path(bg));
+  }
+
+  /** Whether the stored image is still on disk (a sync may not have brought it yet). */
+  async exists(bg: Pick<CustomBackground, "file">): Promise<boolean> {
+    try {
+      return await this.adapter.exists(this.path(bg));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Store `source` and return its record. `stored` is how many images the
+   * settings already hold. Throws a `BackgroundError` for a file that
+   * cannot be used. The caller adds the record to settings.
+   */
+  async add(source: File, draft: BackgroundDraft, stored: number): Promise<CustomBackground> {
+    if (stored >= CUSTOM_BACKGROUNDS.max) {
+      throw new BackgroundError(`Home Cards keeps up to ${CUSTOM_BACKGROUNDS.max} backgrounds. Remove one to add another.`);
+    }
+    const image = await encode(source, draft.fit);
+    const id = newBackgroundId();
+    const bg: CustomBackground = {
+      id,
+      label: draft.label.trim().slice(0, CUSTOM_BACKGROUNDS.maxLabel) || "Background",
+      file: `${id}.${image.extension}`,
+      fit: draft.fit,
+      width: image.width,
+      fade: draft.fade,
+    };
+    try {
+      if (!(await this.adapter.exists(this.folder))) await this.adapter.mkdir(this.folder);
+      await this.adapter.writeBinary(this.path(bg), image.data);
+    } catch (err) {
+      console.error("Home Cards: could not store the background", err);
+      throw new BackgroundError("The image could not be saved in the plugin folder.");
+    }
+    return bg;
+  }
+
+  /**
+   * Delete a stored image, and the folder once it is empty. A file that
+   * will not go is logged and left; the record leaves settings either way.
+   */
+  async remove(bg: CustomBackground): Promise<void> {
+    try {
+      const path = this.path(bg);
+      if (await this.adapter.exists(path)) await this.adapter.remove(path);
+      const left = await this.adapter.list(this.folder);
+      if (!left.files.length && !left.folders.length) await this.adapter.rmdir(this.folder, false);
+    } catch (err) {
+      console.error("Home Cards: could not remove the background file", err);
+    }
   }
 }
 

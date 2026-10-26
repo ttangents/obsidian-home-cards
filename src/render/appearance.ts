@@ -4,12 +4,12 @@
  * treatment off these; both views call this, so they cannot disagree.
  */
 
-import type HomeCardsPlugin from "../main";
 import { selectedCustom } from "../settings/custom-background";
-import { BACKGROUND_PROPS, backgroundProps, backgroundUrl, PATTERN_PROPS, patternProps } from "./backgrounds";
+import type { HomeCardsSettings } from "../settings/schema";
+import { BACKGROUND_PROPS, backgroundProps, PATTERN_PROPS, patternProps, type BackgroundStore } from "./backgrounds";
 
-export function applyAppearance(root: HTMLElement, plugin: HomeCardsPlugin): void {
-  const s = plugin.settings;
+/** Paint `root` for the settings `s`; `backgrounds` supplies an added image's URL. */
+export function applyAppearance(root: HTMLElement, s: HomeCardsSettings, backgrounds: BackgroundStore): void {
   root.addClass("home-cards");
   root.dataset.surface = s.cardSurface;
 
@@ -20,7 +20,7 @@ export function applyAppearance(root: HTMLElement, plugin: HomeCardsPlugin): voi
     for (const prop of PATTERN_PROPS) root.style.removeProperty(prop);
     root.dataset.pattern = "custom";
     root.dataset.fit = custom.fit;
-    root.setCssProps(backgroundProps(backgroundUrl(plugin, custom), custom));
+    root.setCssProps(backgroundProps(backgrounds.url(custom), custom));
   } else {
     delete root.dataset.fit;
     for (const prop of BACKGROUND_PROPS) root.style.removeProperty(prop);

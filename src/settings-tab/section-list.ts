@@ -2,20 +2,19 @@
  * An editable list of sections: toggle, reorder, edit and delete each,
  * and add another. Drawn into a modal for a page's own sections.
  *
- * Every edit calls `changed`, which the caller routes to the plugin's
+ * Every edit calls `changed`, which the caller routes to the store's
  * `touch()` or ignores while a draft is unsaved; structural edits then
  * call `redraw`, since the rows must be rebuilt.
  */
 
 import { Setting } from "obsidian";
-import type HomeCardsPlugin from "../main";
 import { blankSection, newSectionId, sectionTitle, type SectionConfig } from "../settings/schema";
-import { SectionModal } from "./section-modal";
+import { SectionModal, type EditorContext } from "./section-modal";
 import { sectionSummary } from "./widgets";
 
 export function renderSectionList(
   el: HTMLElement,
-  plugin: HomeCardsPlugin,
+  context: EditorContext,
   sections: SectionConfig[],
   changed: () => void,
   redraw: () => void
@@ -28,7 +27,7 @@ export function renderSectionList(
     redraw();
   };
   const edit = (cfg: SectionConfig): void => {
-    new SectionModal(plugin, cfg, redraw).open();
+    new SectionModal(context, cfg, redraw).open();
   };
 
   new Setting(el).setName("Sections").setHeading();

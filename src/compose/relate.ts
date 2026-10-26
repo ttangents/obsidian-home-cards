@@ -30,6 +30,15 @@ export const RELATE_EVENTS = {
 /** Whether Relate runs, and whether Home Cards can use it; see partner.ts. */
 export type RelateStatus = "absent" | "present" | "incompatible";
 
+/** Relate as the plugin knows it now; main.ts keeps it current. */
+export interface RelateConnection {
+  /** The API while Relate runs and Home Cards can use it, else null. */
+  readonly api: RelateApi | null;
+  readonly status: RelateStatus;
+  /** Searches every open page shares; see SearchOptions. */
+  readonly searches: SearchOptions;
+}
+
 /** What a place that would use Relate says when the installed Relate is one Home Cards cannot use. */
 export const RELATE_INCOMPATIBLE = "This version of Home Cards does not support the installed Relate. Update Home Cards.";
 

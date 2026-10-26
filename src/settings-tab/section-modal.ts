@@ -10,10 +10,9 @@
  * it is open, settings that sync brings wait (see SettingsStore.hold).
  */
 
-import { Modal, Setting } from "obsidian";
-import { RELATE_INCOMPATIBLE } from "../compose/relate";
+import { Modal, Setting, type App } from "obsidian";
+import { RELATE_INCOMPATIBLE, type RelateStatus } from "../compose/relate";
 import { discoverPropertyTypes } from "../compose/vault";
-import type HomeCardsPlugin from "../main";
 import {
   autoTitle,
   CARD_IMAGES,
@@ -29,6 +28,7 @@ import {
   type SectionKind,
   type ValueType,
 } from "../settings/schema";
+import type { SettingsAccess } from "../settings/store";
 import { renderConditionList } from "./condition-list";
 import { addChoices, cssClassSetting } from "./widgets";
 
@@ -44,6 +44,14 @@ const SOURCE_NOTES: Partial<Record<SectionKind, string>> = {
 /** Free-text section fields bound by the same kind of row. */
 type TextKey = "propertyValue" | "tag" | "filterTags" | "filterProps" | "filterFolders" | "query";
 
+/** What the section and page editors use from the rest of the plugin; main.ts supplies it. */
+export interface EditorContext {
+  app: App;
+  store: SettingsAccess;
+  /** Whether Relate runs, and whether Home Cards can use it. */
+  relateStatus(): RelateStatus;
+}
+
 export class SectionModal extends Modal {
   /** Frontmatter keys and their types, gathered once per opening: the walk is vault-wide. */
   private types: ReadonlyMap<string, ValueType> = new Map();
@@ -52,15 +60,15 @@ export class SectionModal extends Modal {
   private release: (() => void) | null = null;
 
   constructor(
-    private readonly plugin: HomeCardsPlugin,
+    private readonly context: EditorContext,
     private readonly cfg: SectionConfig,
     private readonly onDone: () => void
   ) {
-    super(plugin.app);
+    super(context.app);
   }
 
   onOpen(): void {
-    this.release = this.plugin.store.hold();
+    this.release = this.context.store.hold();
     this.types = discoverPropertyTypes(this.app);
     this.properties = [...this.types.keys()];
     this.modalEl.addClass("hc-section-modal");
@@ -86,10 +94,10 @@ export class SectionModal extends Modal {
     const touch = () => {
       this.setTitle(sectionTitle(cfg));
       heading?.setPlaceholder(autoTitle(cfg));
-      this.plugin.touch();
+      this.context.store.touch();
     };
     const redraw = () => {
-      this.plugin.touch();
+      this.context.store.touch();
       this.draw();
     };
     const row = (name: string, desc?: string) => {
@@ -120,7 +128,7 @@ export class SectionModal extends Modal {
 
     // Sources that need Relate appear while it runs, or when this section
     // already uses one; sources for a note's page never appear.
-    const relate = this.plugin.relate !== null;
+    const relate = this.context.relateStatus() === "present";
     const offered = <T extends { readonly id: string }>(list: readonly T[], current: string) =>
       list.filter((k) => (relate || k.id === current || !needsRelate(k)));
     const kinds = offered(SECTION_KINDS, cfg.kind).filter((k) => k.id === cfg.kind || !isGenerated(k.id));
@@ -173,7 +181,7 @@ export class SectionModal extends Modal {
     }
 
     if (cfg.kind === "relate") {
-      const status = this.plugin.relateStatus;
+      const status = this.context.relateStatus();
       text(
         "Search",
         status === "present"
@@ -196,7 +204,7 @@ export class SectionModal extends Modal {
           this.propertyOptions(d.addOption("", "File modified"), cfg.sortKey);
           d.setValue(cfg.sortKey).onChange((v) => {
             cfg.sortKey = v;
-            this.plugin.touch();
+            this.context.store.touch();
           });
         })
         .addDropdown((d) =>
@@ -206,7 +214,7 @@ export class SectionModal extends Modal {
             .setValue(cfg.sortDir)
             .onChange((v) => {
               cfg.sortDir = v === "asc" ? "asc" : "desc";
-              this.plugin.touch();
+              this.context.store.touch();
             })
         );
     }
@@ -220,7 +228,7 @@ export class SectionModal extends Modal {
       .setName("Conditions")
       .setDesc("A note must meet every condition. Dates count in days from today.")
       .setHeading();
-    renderConditionList(contentEl, cfg.conditions, this.types, () => this.plugin.touch(), () => this.draw());
+    renderConditionList(contentEl, cfg.conditions, this.types, () => this.context.store.touch(), () => this.draw());
 
     new Setting(contentEl).setName("Card display").setHeading();
     const fieldsRow = row("Fields", "Shown in each card's footer, in this order. Leave all empty for the page's usual footer.");
@@ -243,14 +251,14 @@ export class SectionModal extends Modal {
         .onChange((v) => {
           if (!isChoice(CARD_IMAGES, v)) return;
           cfg.image = v;
-          this.plugin.touch();
+          this.context.store.touch();
         })
     );
 
     new Setting(contentEl).setName("Advanced").setHeading();
     cssClassSetting(contentEl, "section", cfg.cssClass, (value) => {
       cfg.cssClass = value;
-      this.plugin.touch();
+      this.context.store.touch();
     });
   }
 

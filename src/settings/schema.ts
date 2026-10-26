@@ -93,9 +93,10 @@ export type Surface = (typeof SURFACES)[number]["id"];
  * 800px wide (drawn at 400 CSS px) and any height.
  *
  * Adding a pattern: drop `<id>-light.webp` and `<id>-dark.webp` into
- * assets/tiles/, add its tile and veil variables and one selector in
- * styles/10-backgrounds.css, and add the entry here. The test suite
- * refuses a registry entry whose tiles or selector are missing.
+ * assets/tiles/ (the build bundles them into main.js), add its two veil
+ * variables and one selector in styles/10-backgrounds.css, and add the
+ * entry here. The test suite refuses a registry entry whose tiles, veils
+ * or selector are missing.
  */
 export const BACKGROUNDS = [
   { id: "plain", label: "Plain" },

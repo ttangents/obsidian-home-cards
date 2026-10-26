@@ -8,12 +8,12 @@
   "license": "MIT",
   "scripts": {
     "css": "node scripts/build-css.mjs",
-    "typecheck": "tsc -p .",
-    "bundle": "node esbuild.config.mjs",
-    "build": "npm run css && npm run typecheck && npm run lint && npm run bundle",
+    "typecheck": "npm run css && tsc -p .",
+    "bundle": "npm run css && node esbuild.config.mjs",
+    "build": "npm run typecheck && npm run lint && npm run bundle",
     "dev": "npm run css && node esbuild.config.mjs watch",
-    "test": "tsc -p test && vitest run",
-    "lint": "eslint ."
+    "test": "npm run css && tsc -p test && vitest run",
+    "lint": "npm run css && eslint ."
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

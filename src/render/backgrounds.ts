@@ -1,6 +1,8 @@
 /**
- * Custom background images: where they are kept, how one is added or
- * removed, and the custom properties that paint it.
+ * Background images: the custom properties that paint a built-in pattern
+ * from the tiles bundled in main.js, and the images a user adds: where
+ * they are kept, how one is added or removed, and the properties that
+ * paint it.
  *
  * Home Cards writes nothing to the vault. An image goes into a
  * `backgrounds` folder inside the plugin's own folder, which the plugin
@@ -15,6 +17,7 @@ import { normalizePath } from "obsidian";
 import type HomeCardsPlugin from "../main";
 import { CUSTOM_BACKGROUNDS, newBackgroundId, sniffImage, storedSize } from "../settings/custom-background";
 import type { BackgroundFit, CustomBackground } from "../settings/schema";
+import { TILES } from "./tiles.generated";
 
 /** An error whose message is fit to show the user as it stands. */
 export class BackgroundError extends Error {}
@@ -28,6 +31,20 @@ export interface BackgroundDraft {
 
 /** The custom properties a custom background sets on the page or a swatch. */
 export const BACKGROUND_PROPS = ["--_hc-tile", "--_hc-veil", "--_hc-tile-w"] as const;
+
+/** The custom properties a built-in pattern sets: its light and dark tile. */
+export const PATTERN_PROPS = ["--_hc-tile-light", "--_hc-tile-dark"] as const;
+
+/**
+ * The properties that paint built-in pattern `id` on the page or a swatch.
+ * The stylesheet picks the tile for the theme's mode (styles/10-backgrounds.css),
+ * so a switch between light and dark needs no code. Empty for Plain.
+ */
+export function patternProps(id: string): Record<string, string> {
+  const tiles = TILES[id];
+  if (!tiles) return {};
+  return { "--_hc-tile-light": `url("${tiles.light}")`, "--_hc-tile-dark": `url("${tiles.dark}")` };
+}
 
 /** The plugin's folder for stored images. It may not exist yet. */
 export function backgroundFolder(plugin: HomeCardsPlugin): string {

@@ -185,7 +185,7 @@ When the Relate plugin is running, Home Cards asks it for searches, relationship
 
 ```sh
 npm install
-npm run build   # styles.css, type check, Obsidian's lint rules, main.js
+npm run build   # styles.css and the tile module, type check, Obsidian's lint rules, main.js
 npm test        # type-checks the tests, then runs them with Vitest
 npm run dev     # rebuilds main.js on save
 ```
@@ -209,9 +209,9 @@ The test suite enforces the layering: Vitest loads the tested code in Node, and 
 
 ### Styles
 
-`styles.css` is generated. Edit the partials in `styles/`, which `scripts/build-css.mjs` concatenates in filename order. Background tiles live in `assets/tiles/` as WebP files, each a seamless repeat 800px wide that the page draws at 400 CSS pixels under a per-tile veil of the theme background (the `--_hc-veil-<id>` variables in `styles/10-backgrounds.css`); the build inlines them as data URLs, because Obsidian loads a plugin's stylesheet with no asset path. The build refuses to write a stylesheet with unbalanced braces or a placeholder that names a missing tile.
+`styles.css` is generated, and so is `src/render/tiles.generated.ts`; neither is in the repository. Edit the partials in `styles/`, which `scripts/build-css.mjs` concatenates in filename order. Background tiles live in `assets/tiles/` as WebP files, each a seamless repeat 800px wide that the page draws at 400 CSS pixels under a per-tile veil of the theme background (the `--_hc-veil-<id>` variables in `styles/10-backgrounds.css`). Obsidian parses a plugin's stylesheet in every window at load, so the tiles stay out of it: the build writes them as data URLs into the tile module, esbuild bundles that into `main.js`, and the page sets only the chosen pattern's tiles as custom properties. The build refuses to write a stylesheet with unbalanced braces or an embedded image, and a pattern without both tiles. The tests hold `styles.css` to 150 KB.
 
-To add a background pattern, add `<id>-light.webp` and `<id>-dark.webp` to `assets/tiles/`, declare the two variables and one selector in `styles/10-backgrounds.css`, and add the entry to `BACKGROUNDS` in `src/settings/schema.ts`. The tests fail if any of the three is missing.
+To add a background pattern, add `<id>-light.webp` and `<id>-dark.webp` to `assets/tiles/`, declare its two veil variables and one selector in `styles/10-backgrounds.css`, and add the entry to `BACKGROUNDS` in `src/settings/schema.ts`. The tests fail if any of these is missing.
 
 Custom properties named `--hc-*` are the public styling contract in [docs/STYLING.md](docs/STYLING.md); Home Cards reads them and never declares them. Its own defaults and plumbing use `--_hc-*`. The tests fail if the styles read a public token the guide does not document, or declare one outside the Style Settings layer in `styles/95-style-settings.css`.
 

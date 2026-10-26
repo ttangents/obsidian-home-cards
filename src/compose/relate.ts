@@ -6,9 +6,10 @@
  * relationships, chains of links and closeness in meaning.
  *
  * Home Cards never reaches into Relate. Relate hands over its documented
- * API through public workspace events (see main.ts), and this module
- * checks the shape of what arrives before anything uses it. A Relate whose
- * contract version Home Cards does not know counts as absent.
+ * API through public workspace events (see partner.ts and main.ts), and
+ * this module checks the shape of what arrives before anything uses it. A
+ * Relate whose contract Home Cards does not know is present but
+ * incompatible, and the places that would use it say so.
  *
  * Pure: types and checks, no Obsidian runtime.
  */
@@ -22,9 +23,15 @@ export const RELATE_CONTRACT = 1;
 export const RELATE_EVENTS = {
   ready: "relate:ready",
   request: "relate:request",
-  changed: "relate:changed",
   unload: "relate:unload",
+  changed: "relate:changed",
 } as const;
+
+/** Whether Relate runs, and whether Home Cards can use it; see partner.ts. */
+export type RelateStatus = "absent" | "present" | "incompatible";
+
+/** What a place that would use Relate says when the installed Relate is one Home Cards cannot use. */
+export const RELATE_INCOMPATIBLE = "This version of Home Cards does not support the installed Relate. Update Home Cards.";
 
 /** One step of a chain of links: `from` lists `to` under `prop`. */
 export interface RelateStep {

@@ -35,7 +35,7 @@ import { greetingFor, withName } from "../compose/greeting";
 import type HomeCardsPlugin from "../main";
 import { compilePageScope, type ScopeTest } from "../compose/scope";
 import { notesIn } from "../compose/vault";
-import type { RelateApi } from "../compose/relate";
+import { RELATE_INCOMPATIBLE, type RelateApi, type RelateStatus } from "../compose/relate";
 import { cssClassList } from "../settings/css-classes";
 import { reparent } from "../settings/folders";
 import {
@@ -617,7 +617,7 @@ export class HomeView extends ItemView implements HoverParent {
         const moves = targets.filter((t) => t.config.id !== config.id).flatMap((t) => moveTo(t.config, config) ?? []);
         const emptyText = claimed
           ? "Every matching note already appears in a section above."
-          : (emptyFor(config, relate) ?? EMPTY_BY_KIND[config.kind] ?? "This section has no matching notes.");
+          : (emptyFor(config, relate, plugin.relateStatus) ?? EMPTY_BY_KIND[config.kind] ?? "This section has no matching notes.");
         const el = renderSection(next, sectionTitle(config), cards, settings, this.actions, {
           style: { kind: config.kind, classes: cssClassList(config.cssClass) },
           menuContext: { sectionKind: config.kind, moves },
@@ -752,7 +752,9 @@ const EMPTY_BY_KIND: Partial<Record<SectionConfig["kind"], string>> = {
 };
 
 /** What an empty section that needs Relate says, when Relate explains the emptiness. */
-function emptyFor(cfg: SectionConfig, relate: RelateApi | null): string | undefined {
+function emptyFor(cfg: SectionConfig, relate: RelateApi | null, status: RelateStatus): string | undefined {
+  const needs = cfg.kind === "relate" || (cfg.kind === "rediscover" && cfg.strategy === "unlinked");
+  if (needs && status === "incompatible") return RELATE_INCOMPATIBLE;
   if (cfg.kind === "relate") {
     if (!relate) return "This section shows a search from the Relate plugin, which is not running.";
     if (!cfg.query.trim()) return "Add a search in this section's settings.";

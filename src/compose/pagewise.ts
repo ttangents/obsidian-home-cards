@@ -5,9 +5,10 @@
  * can add to. Home Cards works without it in every respect.
  *
  * Home Cards never reaches into Pagewise. Pagewise hands over its documented
- * toolbar API through public workspace events (see main.ts), and this module
- * checks the shape of what arrives before anything uses it. A Pagewise whose
- * contract version Home Cards does not know counts as absent.
+ * toolbar API through public workspace events (see partner.ts and main.ts),
+ * and this module checks the shape of what arrives before anything uses it.
+ * A Pagewise whose contract Home Cards does not know is present but
+ * incompatible: Home Cards adds no button and logs the mismatch once.
  *
  * Pure: types and checks, no Obsidian runtime.
  */
@@ -15,10 +16,11 @@
 /** The contract version Home Cards was written against. */
 export const PAGEWISE_CONTRACT = 1;
 
-/** Workspace events in Pagewise's contract: the API (or null on unload), and a request for it. */
+/** Workspace events in Pagewise's contract. */
 export const PAGEWISE_EVENTS = {
-  api: "pagewise:api",
+  ready: "pagewise:ready",
   request: "pagewise:request",
+  unload: "pagewise:unload",
 } as const;
 
 /** What Pagewise passes to a toolbar item's callbacks; Home Cards reads only the file's path and extension. */

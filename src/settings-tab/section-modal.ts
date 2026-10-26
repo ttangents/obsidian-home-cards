@@ -11,6 +11,7 @@
  */
 
 import { Modal, Setting } from "obsidian";
+import { RELATE_INCOMPATIBLE } from "../compose/relate";
 import { discoverPropertyTypes } from "../compose/vault";
 import type HomeCardsPlugin from "../main";
 import {
@@ -172,9 +173,14 @@ export class SectionModal extends Modal {
     }
 
     if (cfg.kind === "relate") {
+      const status = this.plugin.relateStatus;
       text(
         "Search",
-        relate ? "Any search Relate understands." : "Relate is not running, so this section stays empty until it is.",
+        status === "present"
+          ? "Any search Relate understands."
+          : status === "incompatible"
+            ? RELATE_INCOMPATIBLE
+            : "Relate is not running, so this section stays empty until it is.",
         "notes of Q3 Plan this week",
         "query"
       );

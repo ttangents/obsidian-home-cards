@@ -9,14 +9,9 @@
  * a size that suits that kind.
  */
 
-import { Modal, Notice, Setting } from "obsidian";
-import type HomeCardsPlugin from "../main";
-import {
-  addBackground,
-  BackgroundError,
-  backgroundProps,
-  backgroundUrl,
-} from "../render/backgrounds";
+import { Modal, Notice, Setting, type App } from "obsidian";
+import { BackgroundError, backgroundProps, type BackgroundStore } from "../render/backgrounds";
+import type { SettingsAccess } from "../settings/store";
 import { CUSTOM_BACKGROUNDS, labelFromFileName } from "../settings/custom-background";
 import { BACKGROUND_FITS, LIMITS, type BackgroundFit, type CustomBackground } from "../settings/schema";
 import { addChoices } from "./widgets";
@@ -40,11 +35,13 @@ export class BackgroundModal extends Modal {
   private release: (() => void) | null = null;
 
   constructor(
-    private readonly plugin: HomeCardsPlugin,
+    app: App,
+    private readonly store: SettingsAccess,
+    private readonly backgrounds: BackgroundStore,
     private readonly target: BackgroundTarget,
     private readonly onDone: () => void
   ) {
-    super(plugin.app);
+    super(app);
     if (target.kind === "add") {
       this.label = labelFromFileName(target.file.name);
       this.fade = CUSTOM_BACKGROUNDS.defaultFade;
@@ -55,13 +52,13 @@ export class BackgroundModal extends Modal {
       this.fit = target.background.fit;
       this.fade = target.background.fade;
       this.width = target.background.width;
-      this.previewUrl = backgroundUrl(plugin, target.background);
+      this.previewUrl = backgrounds.url(target.background);
       this.ownsPreviewUrl = false;
     }
   }
 
   onOpen(): void {
-    this.release = this.plugin.store.hold();
+    this.release = this.store.hold();
     this.modalEl.addClass("hc-section-modal");
     this.setTitle(this.target.kind === "add" ? "Add background" : "Edit background");
     const { contentEl } = this;
@@ -76,7 +73,7 @@ export class BackgroundModal extends Modal {
         .onChange((v) => {
           this.label = v;
           if (this.target.kind === "edit") this.target.background.label = v.trim().slice(0, CUSTOM_BACKGROUNDS.maxLabel) || "Background";
-          this.store();
+          this.saveEdit();
         })
     );
 
@@ -105,7 +102,7 @@ export class BackgroundModal extends Modal {
             this.fade = v;
             if (this.target.kind === "edit") this.target.background.fade = v;
             this.paintPreview();
-            this.store();
+            this.saveEdit();
           })
       );
 
@@ -136,8 +133,8 @@ export class BackgroundModal extends Modal {
   }
 
   /** Save an edit of a stored image; redraws the open pages. */
-  private store(): void {
-    if (this.target.kind === "edit") this.plugin.touch();
+  private saveEdit(): void {
+    if (this.target.kind === "edit") this.store.touch();
   }
 
   private paintPreview(): void {
@@ -164,16 +161,16 @@ export class BackgroundModal extends Modal {
     if (this.target.kind !== "add" || this.busy) return;
     this.busy = true;
     try {
-      const bg = await addBackground(this.plugin, this.target.file, {
-        label: this.label,
-        fit: this.fit,
-        fade: this.fade,
-      });
-      const { settings } = this.plugin;
+      const bg = await this.backgrounds.add(
+        this.target.file,
+        { label: this.label, fit: this.fit, fade: this.fade },
+        this.store.settings.customBackgrounds.length
+      );
+      const { settings } = this.store;
       settings.customBackgrounds.push(bg);
       // The reader added it to use it.
       settings.background = bg.id;
-      await this.plugin.commit();
+      await this.store.commit();
       this.close();
     } catch (err) {
       new Notice(err instanceof BackgroundError ? err.message : "The image could not be added.");

@@ -3,9 +3,10 @@
  * command that opens one without a command of its own.
  */
 
-import { FuzzySuggestModal, type FuzzyMatch } from "obsidian";
-import type HomeCardsPlugin from "../main";
+import { FuzzySuggestModal, type App, type FuzzyMatch } from "obsidian";
 import { scopeSummary, type PageRef } from "../settings/pages";
+import type { SettingsAccess } from "../settings/store";
+import type { PageActions } from "./page-actions";
 
 interface PageChoice {
   ref: PageRef;
@@ -15,13 +16,17 @@ interface PageChoice {
 }
 
 class PagePicker extends FuzzySuggestModal<PageChoice> {
-  constructor(private readonly plugin: HomeCardsPlugin) {
-    super(plugin.app);
+  constructor(
+    app: App,
+    private readonly store: SettingsAccess,
+    private readonly pages: PageActions
+  ) {
+    super(app);
     this.setPlaceholder("Choose a page");
   }
 
   getItems(): PageChoice[] {
-    const pages = this.plugin.settings.pages.map((page) => ({
+    const pages = this.store.settings.pages.map((page) => ({
       ref: { page: page.id },
       title: page.name,
       note: scopeSummary(page.scope),
@@ -39,11 +44,11 @@ class PagePicker extends FuzzySuggestModal<PageChoice> {
   }
 
   onChooseItem(choice: PageChoice): void {
-    void this.plugin.activateView(choice.ref);
+    void this.pages.open(choice.ref);
   }
 }
 
 /** Open the picker; the chosen page opens in its tab. */
-export function pickPage(plugin: HomeCardsPlugin): void {
-  new PagePicker(plugin).open();
+export function pickPage(app: App, store: SettingsAccess, pages: PageActions): void {
+  new PagePicker(app, store, pages).open();
 }

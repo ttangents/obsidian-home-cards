@@ -5,7 +5,7 @@
  *
  * Controls bind to settings keys. `getControlValue` and `setControlValue`
  * route every read and write through this tab: writes go through the
- * plugin's `touch()`, which saves once a burst of edits stops and redraws
+ * store's `touch()`, which saves once a burst of edits stops and redraws
  * open views. One key is virtual: the glyph dropdown (`GLYPH`) stands
  * for two stored flags.
  *
@@ -16,9 +16,9 @@
  * are lists too.
  */
 
-import { PluginSettingTab, type Setting, type SettingDefinitionItem } from "obsidian";
-import type HomeCardsPlugin from "../main";
-import { backgroundExists, chooseImage, removeBackground } from "../render/backgrounds";
+import { PluginSettingTab, type EventRef, type Plugin, type Setting, type SettingDefinitionItem } from "obsidian";
+import { chooseImage, type BackgroundStore } from "../render/backgrounds";
+import type { PageActions } from "../render/page-actions";
 import { renderBackgroundPicker } from "../render/swatches";
 import { scopeSummary } from "../settings/pages";
 import {
@@ -35,9 +35,10 @@ import {
   type HomeCardsSettings,
   type SectionConfig,
 } from "../settings/schema";
+import type { SettingsAccess } from "../settings/store";
 import { BackgroundModal } from "./background-modal";
 import { PageModal } from "./page-modal";
-import { SectionModal } from "./section-modal";
+import { SectionModal, type EditorContext } from "./section-modal";
 import { choiceOptions, sectionSummary } from "./widgets";
 
 /** Settings no control binds to: lists and editors of their own, and records the plugin keeps. */
@@ -67,30 +68,50 @@ const TEXT_RULES: Partial<Record<ScalarKey, (typed: string) => string>> = {
 const GLYPH = "glyph";
 const GLYPH_OPTIONS = { off: "None", letter: "Initial letter", typify: "Icon from Typify" };
 
+/** What the settings tab uses from the rest of the plugin; main.ts supplies it. */
+export interface SettingsTabServices {
+  editor: EditorContext;
+  pages: PageActions;
+  backgrounds: BackgroundStore;
+  /** Opens the release notes. */
+  showWhatsNew(): void;
+  /** The installed version, from the manifest. */
+  version: string;
+  /** Subscribe to changes in the list of pages and to reloads from sync. */
+  onPagesChanged(callback: () => void): EventRef;
+}
+
 export class HomeCardsSettingTab extends PluginSettingTab {
-  constructor(private readonly plugin: HomeCardsPlugin) {
+  private readonly store: SettingsAccess;
+
+  constructor(
+    plugin: Plugin,
+    private readonly services: SettingsTabServices
+  ) {
     super(plugin.app, plugin);
+    this.store = services.editor.store;
     // Pages also change from the command palette and from a page's own
-    // header, while this tab is closed or open; its list follows.
-    plugin.registerEvent(plugin.onPagesChanged(() => this.update()));
+    // header, and settings arrive from other devices, while this tab is
+    // closed or open; its rows follow.
+    plugin.registerEvent(services.onPagesChanged(() => this.update()));
   }
 
   /** Obsidian calls this when the tab closes: write any pending edit. */
   hide(): void {
     super.hide();
-    void this.plugin.flush();
+    void this.store.flush();
   }
 
   // ------------------------------------------------------------ bindings
 
   getControlValue(key: string): unknown {
-    const s = this.plugin.settings;
+    const s = this.store.settings;
     if (key === GLYPH) return !s.showGlyph ? "off" : s.typifyIcons ? "typify" : "letter";
     return isScalarKey(key) ? s[key] : undefined;
   }
 
   setControlValue(key: string, value: unknown): void {
-    const s = this.plugin.settings;
+    const s = this.store.settings;
     if (key === GLYPH) {
       s.showGlyph = value !== "off";
       s.typifyIcons = value === "typify";
@@ -102,7 +123,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
     } else {
       return;
     }
-    this.plugin.touch();
+    this.store.touch();
     // Rows that show or hide with this value re-check their predicates.
     this.refreshDomState();
   }
@@ -115,7 +136,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
    * the section editor) waits until a row is drawn or a modal opens.
    */
   getSettingDefinitions(): SettingDefinitionItem[] {
-    const s = this.plugin.settings;
+    const s = this.store.settings;
     return [
       ...this.general(),
       this.sectionList(s),
@@ -162,7 +183,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         desc: "Cards you snoozed, or told Rediscover to pass over, from their menus. Clearing brings them back; pins stay.",
         aliases: ["snooze", "don't rediscover"],
         render: (setting) => {
-          const marks = this.plugin.settings.marks;
+          const marks = this.store.settings.marks;
           const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
           setting
             .addButton((b) =>
@@ -170,7 +191,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
                 .setButtonText(`Clear ${count(Object.keys(marks.snoozed).length, "snooze", "snoozes")}`)
                 .setDisabled(!Object.keys(marks.snoozed).length)
                 .onClick(() => {
-                  this.plugin.settings.marks.snoozed = {};
+                  this.store.settings.marks.snoozed = {};
                   void this.restructure();
                 })
             )
@@ -179,7 +200,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
                 .setButtonText(`Clear ${count(marks.quiet.length, "passed-over note", "passed-over notes")}`)
                 .setDisabled(!marks.quiet.length)
                 .onClick(() => {
-                  this.plugin.settings.marks.quiet = [];
+                  this.store.settings.marks.quiet = [];
                   void this.restructure();
                 })
             );
@@ -193,10 +214,10 @@ export class HomeCardsSettingTab extends PluginSettingTab {
       },
       {
         name: "What's new",
-        desc: `Release notes for Home Cards ${this.plugin.manifest.version} and the releases before it.`,
+        desc: `Release notes for Home Cards ${this.services.version} and the releases before it.`,
         aliases: ["release notes", "changelog"],
         render: (setting) => {
-          setting.addButton((b) => b.setButtonText("Show").onClick(() => this.plugin.showWhatsNew()));
+          setting.addButton((b) => b.setButtonText("Show").onClick(() => this.services.showWhatsNew()));
         },
       },
     ];
@@ -208,7 +229,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
    * look the section up by its id, which survives reordering.
    */
   private sectionList(s: HomeCardsSettings): SettingDefinitionItem {
-    const find = (id: string) => this.plugin.settings.sections.find((c) => c.id === id);
+    const find = (id: string) => this.store.settings.sections.find((c) => c.id === id);
     return {
       type: "list",
       heading: "Sections",
@@ -217,19 +238,19 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         name: "Add section",
         action: () => {
           const cfg: SectionConfig = blankSection({ id: newSectionId() });
-          this.plugin.settings.sections.push(cfg);
+          this.store.settings.sections.push(cfg);
           void this.restructure();
           this.editSection(cfg.id);
         },
       },
       onReorder: (from, to) => {
-        const list = this.plugin.settings.sections;
+        const list = this.store.settings.sections;
         const [moved] = list.splice(from, 1);
         if (moved) list.splice(to, 0, moved);
         void this.restructure();
       },
       onDelete: (index) => {
-        this.plugin.settings.sections.splice(index, 1);
+        this.store.settings.sections.splice(index, 1);
         void this.restructure();
       },
       items: s.sections.map((cfg) => ({
@@ -246,7 +267,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
                   const live = find(cfg.id);
                   if (!live) return;
                   live.enabled = on;
-                  this.plugin.touch();
+                  this.store.touch();
                 })
             )
             .addExtraButton((b) =>
@@ -266,7 +287,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
    * the user made or customized.
    */
   private pageList(s: HomeCardsSettings): SettingDefinitionItem {
-    const { app } = this.plugin;
+    const { app } = this;
     return {
       type: "list",
       heading: "Pages",
@@ -274,10 +295,10 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         "No pages yet. A page shows the notes of one folder, tag or property, with the home sections or sections of its own.",
       addItem: {
         name: "Add page",
-        action: () => this.plugin.createPage({ open: false, onCreated: () => void this.restructure() }),
+        action: () => this.services.pages.create({ open: false, onCreated: () => void this.restructure() }),
       },
       onDelete: (index) => {
-        this.plugin.settings.pages.splice(index, 1);
+        this.store.settings.pages.splice(index, 1);
         void this.restructure();
       },
       items: s.pages.map((page) => {
@@ -296,7 +317,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
                 b
                   .setIcon("layout-grid")
                   .setTooltip("Open page")
-                  .onClick(() => void this.plugin.activateView({ page: page.id }))
+                  .onClick(() => void this.services.pages.open({ page: page.id }))
               )
               .addExtraButton((b) =>
                 b.setIcon("pencil").setTooltip("Edit page").onClick(() => this.editPage(page.id))
@@ -428,7 +449,7 @@ export class HomeCardsSettingTab extends PluginSettingTab {
             // A redraw of the tab can render this row into the element it
             // already filled; clear the old grid so there is only ever one.
             setting.settingEl.findAll(".hc-swatches").forEach((grid) => grid.remove());
-            renderBackgroundPicker(setting.settingEl, this.plugin);
+            renderBackgroundPicker(setting.settingEl, this.store, this.services.backgrounds);
           },
         },
       ],
@@ -449,7 +470,9 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         name: "Add image",
         action: () =>
           chooseImage((file) =>
-            new BackgroundModal(this.plugin, { kind: "add", file }, () => void this.restructure()).open()
+            new BackgroundModal(this.app, this.store, this.services.backgrounds, { kind: "add", file }, () =>
+              void this.restructure()
+            ).open()
           ),
       },
       onDelete: (index) => void this.deleteBackground(index),
@@ -464,14 +487,16 @@ export class HomeCardsSettingTab extends PluginSettingTab {
               .setTooltip("Edit background")
               .onClick(() =>
                 new BackgroundModal(
-                  this.plugin,
+                  this.app,
+                  this.store,
+                  this.services.backgrounds,
                   { kind: "edit", background: bg },
                   () => void this.restructure()
                 ).open()
               )
           );
           // A sync may bring the settings before the image; say so rather than show a blank swatch.
-          void backgroundExists(this.plugin, bg).then((found) => {
+          void this.services.backgrounds.exists(bg).then((found) => {
             if (!found) setting.setDesc("The image file is missing. Remove this entry or add the image again.");
           });
         },
@@ -514,33 +539,33 @@ export class HomeCardsSettingTab extends PluginSettingTab {
 
   /** Write now and rebuild the rows, for changes to the section list. */
   private async restructure(): Promise<void> {
-    await this.plugin.commit();
+    await this.store.commit();
     this.update();
   }
 
   /** Remove an added background and its file. */
   private async deleteBackground(index: number): Promise<void> {
-    const settings = this.plugin.settings;
+    const settings = this.store.settings;
     const [bg] = settings.customBackgrounds.splice(index, 1);
     if (!bg) return;
     if (settings.background === bg.id) settings.background = "plain";
-    await this.plugin.commit();
-    await removeBackground(this.plugin, bg);
+    await this.store.commit();
+    await this.services.backgrounds.remove(bg);
     this.update();
   }
 
   /** Open the editor for one page; its row redraws when it closes. */
   private editPage(id: string): void {
-    const page = this.plugin.settings.pages.find((p) => p.id === id);
+    const page = this.store.settings.pages.find((p) => p.id === id);
     if (!page) return;
-    new PageModal(this.plugin, page, "edit", () => void this.restructure()).open();
+    new PageModal(this.services.editor, page, "edit", () => void this.restructure()).open();
   }
 
   /** Open the editor for one section; its row redraws when it closes. */
   private editSection(id: string): void {
-    const cfg = this.plugin.settings.sections.find((c) => c.id === id);
+    const cfg = this.store.settings.sections.find((c) => c.id === id);
     if (!cfg) return;
-    new SectionModal(this.plugin, cfg, () => void this.restructure()).open();
+    new SectionModal(this.services.editor, cfg, () => void this.restructure()).open();
   }
 }
 

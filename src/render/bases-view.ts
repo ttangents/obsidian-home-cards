@@ -7,16 +7,28 @@
  * viewport, through the plugin's shared dek cache.
  */
 
-import { BasesView, type HoverParent, type QueryController } from "obsidian";
+import { BasesView, type App, type EventRef, type HoverParent, type Plugin, type QueryController } from "obsidian";
 import { buildCard, type CardContext } from "../compose/card";
 import { iconsFor } from "../compose/compose";
-import type HomeCardsPlugin from "../main";
+import type { DekCache } from "../compose/dek-cache";
+import type { SettingsAccess } from "../settings/store";
 import { applyAppearance } from "./appearance";
-import { cardActions } from "./actions";
+import { cardActions, type MarkActions } from "./actions";
+import type { BackgroundStore } from "./backgrounds";
 import { renderSection, settleDek, type CardActions } from "./card";
 import { observeDeks } from "./lazy-deks";
 
 export const BASES_VIEW_ID = "home-cards";
+
+/** What the Bases view uses from the rest of the plugin; main.ts supplies it. */
+export interface BasesServices {
+  store: SettingsAccess;
+  marks: MarkActions;
+  backgrounds: BackgroundStore;
+  dekCache: DekCache;
+  /** Subscribe to redraw requests; the view passes the result to `registerEvent`. */
+  onRefresh(callback: () => void): EventRef;
+}
 
 class HomeCardsBasesView extends BasesView {
   readonly type = BASES_VIEW_ID;
@@ -32,16 +44,17 @@ class HomeCardsBasesView extends BasesView {
   constructor(
     controller: QueryController,
     containerEl: HTMLElement,
-    private readonly plugin: HomeCardsPlugin
+    private readonly services: BasesServices,
+    app: App
   ) {
     super(controller);
     this.root = containerEl.createDiv({ cls: "hc-in-bases" });
-    this.actions = cardActions(plugin.app, this, this.hover, BASES_VIEW_ID, plugin.markActions);
+    this.actions = cardActions(app, this, this.hover, BASES_VIEW_ID, services.marks);
     // Settings edits redraw the view; the Component releases the handler.
     // Bases fills `data` only once the query first runs, which for a base
     // in a background tab can come after a settings edit.
     this.registerEvent(
-      plugin.onRefresh(() => {
+      services.onRefresh(() => {
         if (this.hasData()) this.onDataUpdated();
       })
     );
@@ -82,9 +95,8 @@ class HomeCardsBasesView extends BasesView {
 
   private async render(token: number): Promise<void> {
     if (!this.hasData()) return;
-    const { app } = this;
-    const { plugin } = this;
-    const settings = plugin.settings;
+    const { app, services } = this;
+    const settings = services.store.settings;
     const groups = this.data.groupedData;
 
     // No dek source: deks stay null and fill in on scroll.
@@ -107,7 +119,7 @@ class HomeCardsBasesView extends BasesView {
 
     const root = this.root;
     root.empty();
-    applyAppearance(root, plugin);
+    applyAppearance(root, settings, services.backgrounds);
     root.dataset.view = "grid";
     for (const { title, cards } of sections) {
       renderSection(root, title, cards, settings, this.actions);
@@ -116,7 +128,7 @@ class HomeCardsBasesView extends BasesView {
     this.disposeObserver = observeDeks(root, (path, el) => {
       const file = app.vault.getFileByPath(path);
       if (!file) return;
-      void plugin.dekCache.get(app, file, plugin.settings).then((dek) => {
+      void services.dekCache.get(app, file, services.store.settings).then((dek) => {
         if (token === this.generation) settleDek(el, dek);
       });
     });
@@ -129,10 +141,10 @@ class HomeCardsBasesView extends BasesView {
 }
 
 /** Register the view type. Returns false if Obsidian declines the registration. */
-export function registerBasesView(plugin: HomeCardsPlugin): boolean {
+export function registerBasesView(plugin: Plugin, services: BasesServices): boolean {
   return plugin.registerBasesView(BASES_VIEW_ID, {
     name: "Home cards",
     icon: "layout-grid",
-    factory: (controller, containerEl) => new HomeCardsBasesView(controller, containerEl, plugin),
+    factory: (controller, containerEl) => new HomeCardsBasesView(controller, containerEl, services, plugin.app),
   });
 }

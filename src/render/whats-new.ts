@@ -1,8 +1,8 @@
 /**
  * What's new: the home page's notice after an update, and the window of
  * release notes it opens. When the notice appears, and what marks it
- * read, is decided in settings/release-notes.ts and main.ts; this module
- * only draws.
+ * read, is decided in settings/release-notes.ts and release-notices.ts;
+ * this module only draws.
  *
  * The notes are plain text set with `setText`, never parsed as HTML or
  * Markdown, and the window loads nothing from the web. Its links open the

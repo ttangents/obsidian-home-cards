@@ -3,7 +3,7 @@
  * it has sections of its own.
  *
  * In "edit" mode every change applies as it is made, as in the section
- * editor: each calls the plugin's `touch()`, which saves once the edits
+ * editor: each calls the store's `touch()`, which saves once the edits
  * stop and redraws open pages. In "create" mode the page is a draft that
  * joins the settings only when Create page is pressed; closing any other
  * way leaves no trace. A folder's page that has no record yet opens in
@@ -22,12 +22,12 @@
 
 import { cssClassSetting } from "./widgets";
 import { Modal, Notice, Setting } from "obsidian";
-import type HomeCardsPlugin from "../main";
 import { pickFolder } from "../render/folder-picker";
 import { cloneSections } from "../settings/folders";
 import { isScopeBlank, suggestPageName, uniquePageName } from "../settings/pages";
 import { PAGE_SCOPES, type NamedPage, type PageScopeKind, type SectionConfig } from "../settings/schema";
 import { renderSectionList } from "./section-list";
+import type { EditorContext } from "./section-modal";
 
 export class PageModal extends Modal {
   /** The page's own sections, set aside while the toggle is off. */
@@ -37,7 +37,7 @@ export class PageModal extends Modal {
   private release: (() => void) | null = null;
 
   constructor(
-    private readonly plugin: HomeCardsPlugin,
+    private readonly context: EditorContext,
     private readonly page: NamedPage,
     private readonly mode: "create" | "edit",
     /** Called when the modal closes, with the page; in create mode, only if it was created. */
@@ -45,11 +45,11 @@ export class PageModal extends Modal {
     /** For a page not yet in the settings: adds it there. Called once, at the first change. */
     private join: (() => void) | null = null
   ) {
-    super(plugin.app);
+    super(context.app);
   }
 
   onOpen(): void {
-    this.release = this.plugin.store.hold();
+    this.release = this.context.store.hold();
     this.modalEl.addClass("hc-section-modal");
     this.draw();
   }
@@ -62,19 +62,20 @@ export class PageModal extends Modal {
   }
 
   private finish(): void {
-    const { page, plugin } = this;
+    const { page } = this;
+    const { store } = this.context;
     if (this.mode === "create") {
       if (this.created) this.onDone(page);
       return;
     }
     // The record, looked up again: a page never joined, or deleted
     // meanwhile, has nothing to save.
-    if (!this.join && plugin.settings.pages.some((p) => p.id === page.id)) {
+    if (!this.join && store.settings.pages.some((p) => p.id === page.id)) {
       // A cleared name falls back to one derived from the scope.
-      const name = uniquePageName(plugin.settings.pages, page.name.trim() || suggestPageName(page.scope), page.id);
+      const name = uniquePageName(store.settings.pages, page.name.trim() || suggestPageName(page.scope), page.id);
       if (name !== page.name) {
         page.name = name;
-        plugin.touch();
+        store.touch();
       }
     }
     this.onDone(page);
@@ -85,7 +86,7 @@ export class PageModal extends Modal {
     if (this.mode !== "edit") return;
     this.join?.();
     this.join = null;
-    this.plugin.touch();
+    this.context.store.touch();
   }
 
   private draw(): void {
@@ -128,7 +129,7 @@ export class PageModal extends Modal {
       )
       .addToggle((t) => t.setValue(page.sections !== null).onChange((on) => this.setOwn(on)));
     if (page.sections) {
-      renderSectionList(contentEl, this.plugin, page.sections, () => this.changed(), () => this.draw());
+      renderSectionList(contentEl, this.context, page.sections, () => this.changed(), () => this.draw());
     }
 
     new Setting(contentEl).setName("Advanced").setHeading();
@@ -196,9 +197,9 @@ export class PageModal extends Modal {
 
   /** Give the page its own sections, or return it to the home page's. */
   private setOwn(on: boolean): void {
-    const { page, plugin } = this;
+    const { page } = this;
     if (on) {
-      page.sections = this.stash ?? cloneSections(plugin.settings.sections);
+      page.sections = this.stash ?? cloneSections(this.context.store.settings.sections);
     } else {
       this.stash = page.sections;
       page.sections = null;
@@ -208,14 +209,15 @@ export class PageModal extends Modal {
   }
 
   private create(): void {
-    const { page, plugin } = this;
+    const { page } = this;
+    const { settings } = this.context.store;
     // A kind that needs a folder, tag or property has nothing to show without one.
     if (page.scope.kind !== "all" && isScopeBlank(page.scope)) {
       new Notice("Choose what the page is about first.");
       return;
     }
-    page.name = uniquePageName(plugin.settings.pages, page.name.trim() || suggestPageName(page.scope));
-    plugin.settings.pages.push(page);
+    page.name = uniquePageName(settings.pages, page.name.trim() || suggestPageName(page.scope));
+    settings.pages.push(page);
     this.created = true;
     this.close();
   }

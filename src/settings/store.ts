@@ -7,7 +7,8 @@
  * pending, the stored settings win and replace the ones in memory.
  * Housekeeping, such as dropping ended snoozes, changes memory without
  * counting as an edit, so it can never hold back a reload; the next real
- * save carries it.
+ * save carries it. While an editor holds settings objects open, a reload
+ * waits until it closes (see `hold`).
  *
  * Pure apart from the injected storage and timer, so the tests drive it
  * directly. main.ts builds the one instance.
@@ -52,6 +53,11 @@ export interface SettingsAccess {
   commit(): Promise<void>;
   /** Write a pending edit, if any. */
   flush(): Promise<void>;
+  /**
+   * Keep the settings objects as they are while an editor changes them;
+   * see SettingsStore.hold. Call the returned function when it closes.
+   */
+  hold(): () => void;
 }
 
 export class SettingsStore implements SettingsAccess {
@@ -59,6 +65,10 @@ export class SettingsStore implements SettingsAccess {
   /** True while an edit sits in memory that data.json does not have. */
   private dirty = false;
   private readonly writeSoon: Debounced;
+  /** Editors open now that hold settings objects. */
+  private holds = 0;
+  /** A reload arrived while an editor was open. */
+  private reloadWaiting = false;
 
   constructor(private readonly options: SettingsStoreOptions) {
     this.writeSoon = options.debounce(() => void this.flush());
@@ -118,8 +128,34 @@ export class SettingsStore implements SettingsAccess {
    */
   async reload(): Promise<boolean> {
     if (this.dirty) return false;
+    if (this.holds > 0) {
+      this.reloadWaiting = true;
+      return false;
+    }
     await this.load();
     this.options.afterReload?.();
     return true;
+  }
+
+  /**
+   * An editor that holds settings objects is opening. A reload replaces
+   * every object, which would leave the editor changing one the settings
+   * no longer contain, so a reload that arrives meanwhile waits until the
+   * last editor closes. Then the usual rule applies: an edit the editor
+   * left pending wins, and otherwise the stored settings replace these.
+   * Call the returned function once, when the editor closes, after its
+   * last edit.
+   */
+  hold(): () => void {
+    this.holds++;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.holds--;
+      if (this.holds > 0 || !this.reloadWaiting) return;
+      this.reloadWaiting = false;
+      void this.reload();
+    };
   }
 }

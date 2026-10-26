@@ -6,7 +6,8 @@
  * plugin's `touch()`, which saves once the edits stop and redraws open
  * home pages, so the page behind the modal follows along. A change that
  * adds or removes fields (a new source or property) redraws the modal.
- * Closing it hands control back to the tab, which redraws the row.
+ * Closing it hands control back to the tab, which redraws the row. While
+ * it is open, settings that sync brings wait (see SettingsStore.hold).
  */
 
 import { Modal, Setting } from "obsidian";
@@ -46,6 +47,8 @@ export class SectionModal extends Modal {
   /** Frontmatter keys and their types, gathered once per opening: the walk is vault-wide. */
   private types: ReadonlyMap<string, ValueType> = new Map();
   private properties: readonly string[] = [];
+  /** Lets a reload from sync proceed once the modal closes; see SettingsStore.hold. */
+  private release: (() => void) | null = null;
 
   constructor(
     private readonly plugin: HomeCardsPlugin,
@@ -56,6 +59,7 @@ export class SectionModal extends Modal {
   }
 
   onOpen(): void {
+    this.release = this.plugin.store.hold();
     this.types = discoverPropertyTypes(this.app);
     this.properties = [...this.types.keys()];
     this.modalEl.addClass("hc-section-modal");
@@ -65,6 +69,8 @@ export class SectionModal extends Modal {
   onClose(): void {
     this.contentEl.empty();
     this.onDone();
+    this.release?.();
+    this.release = null;
   }
 
   /** Draw every field for the current source. */

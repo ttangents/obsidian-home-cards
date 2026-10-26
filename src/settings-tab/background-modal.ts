@@ -36,6 +36,8 @@ export class BackgroundModal extends Modal {
   private width = 400;
   private busy = false;
   private preview: HTMLElement | null = null;
+  /** Lets a reload from sync proceed once the modal closes; see SettingsStore.hold. */
+  private release: (() => void) | null = null;
 
   constructor(
     private readonly plugin: HomeCardsPlugin,
@@ -59,6 +61,7 @@ export class BackgroundModal extends Modal {
   }
 
   onOpen(): void {
+    this.release = this.plugin.store.hold();
     this.modalEl.addClass("hc-section-modal");
     this.setTitle(this.target.kind === "add" ? "Add background" : "Edit background");
     const { contentEl } = this;
@@ -128,6 +131,8 @@ export class BackgroundModal extends Modal {
     if (this.ownsPreviewUrl) URL.revokeObjectURL(this.previewUrl);
     this.contentEl.empty();
     this.onDone();
+    this.release?.();
+    this.release = null;
   }
 
   /** Save an edit of a stored image; redraws the open pages. */
@@ -159,12 +164,12 @@ export class BackgroundModal extends Modal {
     if (this.target.kind !== "add" || this.busy) return;
     this.busy = true;
     try {
-      const { settings } = this.plugin;
       const bg = await addBackground(this.plugin, this.target.file, {
         label: this.label,
         fit: this.fit,
         fade: this.fade,
       });
+      const { settings } = this.plugin;
       settings.customBackgrounds.push(bg);
       // The reader added it to use it.
       settings.background = bg.id;

@@ -6,7 +6,12 @@
  * editor: each calls the plugin's `touch()`, which saves once the edits
  * stop and redraws open pages. In "create" mode the page is a draft that
  * joins the settings only when Create page is pressed; closing any other
- * way leaves no trace.
+ * way leaves no trace. A folder's page that has no record yet opens in
+ * "edit" mode with a `join` callback: the record joins the settings at
+ * the first change, so an editor closed untouched leaves no trace either.
+ *
+ * While the modal is open, settings that sync brings wait (see
+ * SettingsStore.hold), so every edit lands on a record the settings hold.
  *
  * Without sections of its own, a page shows the home page's sections,
  * limited to its scope. The toggle gives it a copy of those to change
@@ -28,38 +33,59 @@ export class PageModal extends Modal {
   /** The page's own sections, set aside while the toggle is off. */
   private stash: SectionConfig[] | null = null;
   private created = false;
+  /** Lets a reload from sync proceed once the modal closes. */
+  private release: (() => void) | null = null;
 
   constructor(
     private readonly plugin: HomeCardsPlugin,
     private readonly page: NamedPage,
     private readonly mode: "create" | "edit",
     /** Called when the modal closes, with the page; in create mode, only if it was created. */
-    private readonly onDone: (page: NamedPage) => void
+    private readonly onDone: (page: NamedPage) => void,
+    /** For a page not yet in the settings: adds it there. Called once, at the first change. */
+    private join: (() => void) | null = null
   ) {
     super(plugin.app);
   }
 
   onOpen(): void {
+    this.release = this.plugin.store.hold();
     this.modalEl.addClass("hc-section-modal");
     this.draw();
   }
 
   onClose(): void {
-    const { page, plugin } = this;
     this.contentEl.empty();
+    this.finish();
+    this.release?.();
+    this.release = null;
+  }
+
+  private finish(): void {
+    const { page, plugin } = this;
     if (this.mode === "create") {
       if (this.created) this.onDone(page);
       return;
     }
-    // A cleared name falls back to one derived from the scope.
-    page.name = uniquePageName(plugin.settings.pages, page.name.trim() || suggestPageName(page.scope), page.id);
-    plugin.touch();
+    // The record, looked up again: a page never joined, or deleted
+    // meanwhile, has nothing to save.
+    if (!this.join && plugin.settings.pages.some((p) => p.id === page.id)) {
+      // A cleared name falls back to one derived from the scope.
+      const name = uniquePageName(plugin.settings.pages, page.name.trim() || suggestPageName(page.scope), page.id);
+      if (name !== page.name) {
+        page.name = name;
+        plugin.touch();
+      }
+    }
     this.onDone(page);
   }
 
   /** Record an edit. A draft is not in the settings yet, so it has nothing to save. */
   private changed(): void {
-    if (this.mode === "edit") this.plugin.touch();
+    if (this.mode !== "edit") return;
+    this.join?.();
+    this.join = null;
+    this.plugin.touch();
   }
 
   private draw(): void {

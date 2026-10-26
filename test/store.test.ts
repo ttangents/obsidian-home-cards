@@ -160,3 +160,56 @@ test("an editor that closes with an edit pending keeps its edit over a waiting r
   await Promise.resolve();
   assert.equal(h.saves[h.saves.length - 1]?.greetingName, "Les");
 });
+
+test("settings from a newer Home Cards load read-only and are never written", async () => {
+  const { SETTINGS_VERSION } = await import("../src/settings/schema");
+  const newer = { version: SETTINGS_VERSION + 1, greetingName: "Les", futureKey: { kept: true } };
+  const told: string[] = [];
+  const disk = { data: newer as unknown };
+  const saves: unknown[] = [];
+  const store = new SettingsStore({
+    storage: {
+      load: () => Promise.resolve(structuredClone(disk.data)),
+      save: (settings) => {
+        saves.push(settings);
+        return Promise.resolve();
+      },
+    },
+    debounce: () => Object.assign(() => undefined, { cancel: () => undefined }),
+    onNewer: () => told.push("newer"),
+  });
+  await store.load();
+  assert.equal(store.readOnly, true);
+  assert.equal(store.settings.greetingName, "Les");
+  assert.deepEqual(told, ["newer"]);
+
+  store.settings.greetingName = "Changed here";
+  await store.commit();
+  assert.equal(await store.write(), false);
+  assert.equal(saves.length, 0, "the newer build's settings stay on disk");
+
+  // Settings that sync brings replace these even with an edit in memory.
+  store.touch();
+  disk.data = { ...newer, greetingName: "Other device" };
+  assert.equal(await store.reload(), true);
+  assert.equal(store.settings.greetingName, "Other device");
+  assert.deepEqual(told, ["newer"], "the reader hears once");
+
+  // Once this device's Home Cards catches up, it writes again.
+  disk.data = { version: SETTINGS_VERSION };
+  await store.reload();
+  assert.equal(store.readOnly, false);
+  await store.commit();
+  assert.equal(saves.length, 1);
+});
+
+test("settings without a version, or with this build's, load for writing", async () => {
+  const { storedVersion } = await import("../src/settings/store");
+  assert.equal(storedVersion({}), 0);
+  assert.equal(storedVersion({ version: "9" }), 0);
+  assert.equal(storedVersion(null), 0);
+  assert.equal(storedVersion({ version: 2 }), 2);
+  const h = harness({ version: 2 });
+  await h.store.load();
+  assert.equal(h.store.readOnly, false);
+});

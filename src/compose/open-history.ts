@@ -11,6 +11,7 @@
  */
 
 import type { App } from "obsidian";
+import { isWithin, reparent } from "../settings/folders";
 
 export type LocalStore = Pick<App, "loadLocalStorage" | "saveLocalStorage">;
 
@@ -41,15 +42,21 @@ export class OpenHistory {
     this.save();
   }
 
-  /** Follow a rename, so a moved note keeps its place. */
+  /** Follow a rename of a note, or of a folder and every note in it, so each keeps its place. */
   rename(oldPath: string, newPath: string): void {
     const paths = this.load();
-    const at = paths.indexOf(oldPath);
-    if (at < 0) return;
-    paths[at] = newPath;
+    if (!paths.some((p) => isWithin(p, oldPath))) return;
     // A rename onto a path already listed leaves one entry, the newer.
-    const dupe = paths.indexOf(newPath, at + 1);
-    if (dupe >= 0) paths.splice(dupe, 1);
+    this.paths = [...new Set(paths.map((p) => reparent(p, oldPath, newPath)))];
+    this.save();
+  }
+
+  /** Forget a deleted note, or every note under a deleted folder. */
+  forget(path: string): void {
+    const paths = this.load();
+    const kept = paths.filter((p) => !isWithin(p, path));
+    if (kept.length === paths.length) return;
+    this.paths = kept;
     this.save();
   }
 

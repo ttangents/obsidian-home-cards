@@ -62,3 +62,15 @@ test("Obsidian's list leads, the history extends it", () => {
   assert.deepEqual(mergeOpened(["c.md", "a.md"], ["c.md", "a.md", "e.md", "b.md"]), ["c.md", "a.md", "e.md", "b.md"]);
   assert.deepEqual(mergeOpened([], ["e.md"]), ["e.md"]);
 });
+
+test("follows a folder's rename and forgets deleted notes and folders", () => {
+  const h = new OpenHistory(memoryStore(["Work/a.md", "b.md", "Work/Deep/c.md", "Workshop.md"]));
+  h.rename("Work", "Projects");
+  assert.deepEqual(h.list(), ["Projects/a.md", "b.md", "Projects/Deep/c.md", "Workshop.md"]);
+  h.forget("Projects/Deep");
+  assert.deepEqual(h.list(), ["Projects/a.md", "b.md", "Workshop.md"]);
+  h.forget("b.md");
+  assert.deepEqual(h.list(), ["Projects/a.md", "Workshop.md"]);
+  h.forget("Nowhere");
+  assert.deepEqual(h.list(), ["Projects/a.md", "Workshop.md"]);
+});

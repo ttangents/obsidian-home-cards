@@ -253,6 +253,7 @@ export default class HomeCardsPlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
         if (forgetMarks(this.settings.marks, file.path)) this.touch();
+        this.openHistory.forget(file.path);
         this.activity.forget(file.path);
         this.saveActivity();
       })

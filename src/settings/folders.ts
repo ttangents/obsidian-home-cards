@@ -35,8 +35,16 @@ export function isInside(path: string, folder: string): boolean {
 }
 
 /**
- * Where `path` goes when the folder `from` is renamed or moved to `to`.
- * A path outside `from` is returned unchanged.
+ * Whether `path` is `target` itself or lies under it: what a rename or a
+ * deletion of `target` reaches.
+ */
+export function isWithin(path: string, target: string): boolean {
+  return path === target || path.startsWith(`${target}/`);
+}
+
+/**
+ * Where `path` goes when `from`, a note or a folder, is renamed or moved
+ * to `to`. A path outside `from` is returned unchanged.
  */
 export function reparent(path: string, from: string, to: string): string {
   if (path === from) return to;

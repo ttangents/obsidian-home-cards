@@ -18,6 +18,7 @@
  * Pure apart from the injected store, so the tests drive it directly.
  */
 
+import { isWithin, reparent } from "../settings/folders";
 import type { LocalStore } from "./open-history";
 
 const STORE_KEY = "home-cards-activity";
@@ -99,7 +100,7 @@ export class ActivityLog implements ActivityFacts {
   /** Follow a rename of a note, or of a folder and everything in it. */
   rename(from: string, to: string): void {
     const { log, stats } = this.load();
-    const moved = (p: string) => (p === from ? to : p.startsWith(`${from}/`) ? to + p.slice(from.length) : p);
+    const moved = (p: string) => reparent(p, from, to);
     let changed = false;
     for (const e of log) {
       const next = moved(e.path);
@@ -122,7 +123,7 @@ export class ActivityLog implements ActivityFacts {
   /** Forget a deleted note, or everything under a deleted folder. */
   forget(path: string): void {
     const { log, stats } = this.load();
-    const gone = (p: string) => p === path || p.startsWith(`${path}/`);
+    const gone = (p: string) => isWithin(p, path);
     const before = log.length + stats.size;
     this.log = log.filter((e) => !gone(e.path));
     for (const p of [...stats.keys()]) if (gone(p)) stats.delete(p);

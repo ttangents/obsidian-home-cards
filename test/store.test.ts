@@ -213,3 +213,34 @@ test("settings without a version, or with this build's, load for writing", async
   await h.store.load();
   assert.equal(h.store.readOnly, false);
 });
+
+test("an editor that closes while its edit is being written keeps that edit", async () => {
+  let land: () => void = () => undefined;
+  const disk = { data: {} as unknown };
+  const store = new SettingsStore({
+    storage: {
+      load: () => Promise.resolve(structuredClone(disk.data)),
+      save: (settings) =>
+        new Promise<void>((resolve) => {
+          land = () => {
+            disk.data = structuredClone(settings);
+            resolve();
+          };
+        }),
+    },
+    debounce: () => Object.assign(() => undefined, { cancel: () => undefined }),
+  });
+  await store.load();
+  const release = store.hold();
+  disk.data = { greetingName: "Other device" };
+  await store.reload();
+  store.settings.greetingName = "Les";
+  store.touch();
+  const flushing = store.flush();
+  release();
+  await settled();
+  assert.equal(store.settings.greetingName, "Les", "the waiting reload gives way to the edit being written");
+  land();
+  await flushing;
+  assert.deepEqual((disk.data as { greetingName: string }).greetingName, "Les");
+});

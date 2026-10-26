@@ -82,6 +82,8 @@ export class SettingsStore implements SettingsAccess {
   settings: HomeCardsSettings = defaultSettings();
   /** True while an edit sits in memory that data.json does not have. */
   private dirty = false;
+  /** Writes under way; an edit being written counts as pending until it lands. */
+  private saving = 0;
   private readonly writeSoon: Debounced;
   /** Editors open now that hold settings objects. */
   private holds = 0;
@@ -141,12 +143,15 @@ export class SettingsStore implements SettingsAccess {
     this.dirty = false;
     // An edit to settings from a newer build stays in memory.
     if (this.newer) return true;
+    this.saving++;
     try {
       await this.options.storage.save(this.settings);
     } catch (err) {
       // Keep the edit pending, so the next touch, commit or close retries.
       this.dirty = true;
       this.options.onError?.("Home Cards: could not save settings", err);
+    } finally {
+      this.saving--;
     }
     return true;
   }
@@ -156,8 +161,9 @@ export class SettingsStore implements SettingsAccess {
    * Resolves true when the stored settings replaced the ones in memory.
    */
   async reload(): Promise<boolean> {
-    // Read-only settings are never saved, so an edit here cannot win.
-    if (this.dirty && !this.newer) return false;
+    // An edit here, pending or being written, wins. Read-only settings
+    // are never saved, so there an edit cannot win.
+    if ((this.dirty || this.saving > 0) && !this.newer) return false;
     if (this.holds > 0) {
       this.reloadWaiting = true;
       return false;

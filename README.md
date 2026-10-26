@@ -126,6 +126,14 @@ Home Cards works well with [Relate](https://community.obsidian.md/plugins/relate
 
 These options appear only while Relate is running. If you turn Relate off, a section that uses it keeps its settings and says it needs Relate, and the rest of the page works as before.
 
+### Pagewise
+
+Home Cards also works with Pagewise, my other plugin, which shows notes as paginated sheets with a document toolbar. Pagewise is not in Community plugins yet. You don't need it to use Home Cards. If you use both:
+
+- Pagewise's toolbar gains **Open Home Cards page**, which opens the page of the note you are reading, in either view mode.
+
+The button appears only while Pagewise is running, and Pagewise's own toolbar settings can hide it. If you turn either plugin off, the button goes, and the rest of each plugin works as before.
+
 ### Typify
 
 If you use the [Typify](https://community.obsidian.md/plugins/typify) plugin, set **Cards → Glyph** to **Icon from Typify**. Home Cards then reads Typify's icon settings and shows the icon for each note's type. Home Cards only reads Typify's settings file, and only while this option is on. Without Typify, the option falls back to each note's initial letter.
@@ -179,7 +187,7 @@ When you add a background image, Home Cards decodes it, scales it down, and save
 
 With **Icon from Typify** on, Home Cards also reads the Typify plugin's settings file in your vault's configuration folder.
 
-When the Relate plugin is running, Home Cards asks it for searches, relationships and similar notes through the interface Relate offers to other plugins. Home Cards itself sends nothing anywhere. If you set Relate to use your own embedding server, Relate sends the text of your searches and notes to that server.
+When the Relate plugin is running, Home Cards asks it for searches, relationships and similar notes through the interface Relate offers to other plugins. Home Cards itself sends nothing anywhere. When the Pagewise plugin is running, Home Cards adds one button to its toolbar through the interface Pagewise offers to other plugins. If you set Relate to use your own embedding server, Relate sends the text of your searches and notes to that server.
 
 ## Development
 
@@ -190,18 +198,18 @@ npm test        # type-checks the tests, then runs them with Vitest
 npm run dev     # rebuilds main.js on save
 ```
 
-`npm run lint` applies [Obsidian's review rules](https://github.com/obsidianmd/eslint-plugin), the checks the community directory runs on each release, to every file in the repository. See [RELEASING.md](RELEASING.md) for the release steps.
+`npm run lint` applies [Obsidian's review rules](https://github.com/obsidianmd/eslint-plugin), the checks the community directory runs on each release, to every file in the repository. Pushing a version tag runs `.github/workflows/release.yml`, which builds, tests and attests the release files and drafts the GitHub release.
 
-The code calls only Obsidian's public API, treats the vault's notes as the source of truth, and keeps Home Cards' own state, such as pins and the activity log, apart from facts about notes. The source divides into four layers. Each imports only from the layers above it; the views and settings tab also hold a type-only reference to the plugin class.
+The code calls only Obsidian's public API, treats the vault's notes as the source of truth, and keeps Home Cards' own state, such as pins and the activity log, apart from facts about notes. The source divides into four layers. Each imports only from the layers above it, and none imports the plugin class.
 
 | Layer | Directory | Responsibility |
 | --- | --- | --- |
-| Settings | `src/settings/` | The schema, defaults and choice registries (`schema.ts`), the normalizer that turns untrusted `data.json` into valid settings (`normalize.ts`), the folder path rules (`folders.ts`), the rules for named pages (`pages.ts`) and the custom-background rules (`custom-background.ts`). No imports from Obsidian. |
-| Compose | `src/compose/` | The domain: selection (filters and typed conditions), ranking, Rediscover strategies, sessions, related-note scoring, the card model and its fields and images, marks, note templates, the activity log, the dek cache and the open history. A compose can be limited to a page's scope: a folder, a tag or a property. Type-only imports from Obsidian; no DOM. |
-| Render | `src/render/` | The home page view (which also draws every other page), the Bases view, the card DOM they share, the card actions and note changes, the page and property pickers, keyboard navigation, and the storage of added background images. |
-| Settings tab | `src/settings-tab/` | The settings tab, declared through Obsidian's settings definitions, and the editors it opens: sections and their conditions, pages and backgrounds. |
+| Settings | `src/settings/` | The schema, defaults and choice registries (`schema.ts`), the normalizer that turns untrusted `data.json` into valid settings (`normalize.ts`), the settings store that decides when edits are written and when synced settings replace them (`store.ts`), the folder path rules (`folders.ts`), the rules for named pages (`pages.ts`) and the custom-background rules (`custom-background.ts`). No imports from Obsidian. |
+| Compose | `src/compose/` | The domain: selection (filters and typed conditions), ranking, Rediscover strategies, sessions, related-note scoring, the card model and its fields and images, what a page shows (`plan.ts`), marks, note templates, the activity log, the dek cache, the open history, and the handshake with Relate and Pagewise (`partner.ts`). A compose can be limited to a page's scope: a folder, a tag or a property. Type-only imports from Obsidian; no DOM. |
+| Render | `src/render/` | The home page view (which also draws every other page), the Bases view, the card DOM they share, the card actions and note changes, the page and property pickers, keyboard navigation, the release notice, the storage of added background images, and the legacy Typify icon reader. |
+| Settings tab | `src/settings-tab/` | The settings tab, declared through Obsidian's settings definitions, the editors it opens (sections and their conditions, pages and backgrounds), and the page service that opens, creates and edits pages. |
 
-`src/main.ts` wires the layers together and owns persistence. Settings edits go through two methods: `touch()` records an edit and writes once edits stop, for keystrokes and sliders; `commit()` writes at once, for structural changes. After a write, the plugin fires a refresh event; each open view subscribes to it and redraws.
+`src/main.ts` is the composition root: it builds the services and hands each view and editor the narrow part it needs. Settings edits go through the store's two methods: `touch()` records an edit and writes once edits stop, for keystrokes and sliders; `commit()` writes at once, for structural changes. After a write, the plugin fires a refresh event; each open view subscribes to it and redraws.
 
 Each compose takes one snapshot of the vault: one file listing and at most one pass over the link table, shared by every section.
 

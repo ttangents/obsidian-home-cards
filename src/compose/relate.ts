@@ -86,6 +86,33 @@ export interface RelateView {
   results(query: string): RelateHit[] | undefined;
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+const listOf = <T>(value: unknown, keep: (entry: unknown) => entry is T): T[] => (Array.isArray(value) ? value.filter(keep) : []);
+
+const isConnection = (v: unknown): v is { prop: string; path: string } =>
+  isRecord(v) && typeof v.prop === "string" && typeof v.path === "string";
+const isSimilar = (v: unknown): v is { path: string; score: number } =>
+  isRecord(v) && typeof v.path === "string" && typeof v.score === "number" && Number.isFinite(v.score);
+const isStep = (v: unknown): v is RelateStep =>
+  isRecord(v) && typeof v.from === "string" && typeof v.prop === "string" && typeof v.to === "string";
+
+/**
+ * Search results as Home Cards reads them: each hit needs a path; reasons
+ * and chains of links that are missing or malformed read as none.
+ */
+export function validHits(value: unknown): RelateHit[] {
+  const isHit = (v: unknown): v is Record<string, unknown> & { path: string } => isRecord(v) && typeof v.path === "string";
+  return listOf(value, isHit).map((hit) => ({
+    path: hit.path,
+    reasons: listOf(hit.reasons, (r): r is string => typeof r === "string"),
+    paths: listOf(hit.paths, Array.isArray).map((chain) => chain.filter(isStep)),
+  }));
+}
+
+/**
+ * Guard the API for one compose: a call that throws comes back empty, and
+ * a result of the wrong shape keeps only its well-formed entries.
+ */
 export function relateView(api: RelateApi, searches: ReadonlyMap<string, RelateHit[]>): RelateView {
   const guard = <T>(fn: () => T, fallback: T): T => {
     try {
@@ -96,9 +123,9 @@ export function relateView(api: RelateApi, searches: ReadonlyMap<string, RelateH
     }
   };
   return {
-    connections: (path) => guard(() => api.connections(path), []),
-    similar: (path, limit) => guard(() => api.similar(path, limit), []),
-    meaningReady: () => guard(() => api.meaningReady(), false),
+    connections: (path) => guard(() => listOf(api.connections(path), isConnection), []),
+    similar: (path, limit) => guard(() => listOf(api.similar(path, limit), isSimilar), []),
+    meaningReady: () => guard<unknown>(() => api.meaningReady(), false) === true,
     results: (query) => searches.get(query.trim()),
   };
 }
@@ -140,18 +167,21 @@ export async function runSearches(api: RelateApi, queries: readonly string[], op
         return;
       }
       let late = false;
-      const search = api.search(q).then(
-        (hits) => {
-          const list = Array.isArray(hits) ? hits : [];
-          cache?.set(q, list);
-          if (late) onLate?.();
-          return list;
-        },
-        (err: unknown) => {
-          console.error("Home Cards: Relate search failed", err);
-          return [] as RelateHit[];
-        }
-      );
+      // A search that throws before it returns a promise fails like one that rejects.
+      const search = Promise.resolve()
+        .then(() => api.search(q))
+        .then(validHits)
+        .then(
+          (list) => {
+            cache?.set(q, list);
+            if (late) onLate?.();
+            return list;
+          },
+          (err: unknown) => {
+            console.error("Home Cards: Relate search failed", err);
+            return [] as RelateHit[];
+          }
+        );
       const hits = sleep ? await Promise.race([search, sleep(waitMs).then(() => null)]) : await search;
       if (hits === null) late = true;
       out.set(q, hits ?? []);

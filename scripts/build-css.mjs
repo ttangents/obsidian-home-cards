@@ -17,6 +17,7 @@
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 /** The repository root: npm runs every script from there. */
 const root = process.cwd();
@@ -83,7 +84,7 @@ export function assembleTiles() {
   ].join("\n");
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const css = assembleCss();
   const tiles = assembleTiles();
   writeFileSync(join(root, "styles.css"), css);

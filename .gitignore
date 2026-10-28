@@ -1,8 +1,13 @@
+.DS_Store
 node_modules/
 main.js
 styles.css
-src/render/tiles.generated.ts
+dist/
+build/
 *.log
-.DS_Store
 CLAUDE.md
 AGENTS.md
+
+# Home Cards
+# Written by scripts/build-css.mjs from assets/tiles/ (D12)
+src/render/tiles.generated.ts

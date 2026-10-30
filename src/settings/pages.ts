@@ -126,12 +126,14 @@ export function resolvePage(
   if (ref.folder) {
     const page = findFolderPage(settings.pages, ref.folder);
     if (page) return fromRecord(settings, page);
+    const folder = folderName(ref.folder);
     const scope: PageScope = { ...blankScope(), kind: "folder", folder: ref.folder };
+    const hasNamesake = settings.pages.some((p) => p.name.toLowerCase() === folder.toLowerCase());
     return {
       key: `folder:${ref.folder}`,
       isHome: false,
       record: null,
-      title: folderName(ref.folder),
+      title: hasNamesake ? `${folder} (folder)` : folder,
       scope,
       sections: settings.sections,
       icon: scopeIcon(scope),

@@ -4,16 +4,9 @@
  */
 
 import { FuzzySuggestModal, type App, type FuzzyMatch } from "obsidian";
-import { scopeSummary, type PageRef } from "../settings/pages";
+import { pageChoices, type PageChoice } from "../settings/pages";
 import type { SettingsAccess } from "../settings/store";
 import type { PageActions } from "./page-actions";
-
-interface PageChoice {
-  ref: PageRef;
-  title: string;
-  /** A line under the title: what the page is about. */
-  note: string;
-}
 
 class PagePicker extends FuzzySuggestModal<PageChoice> {
   constructor(
@@ -26,12 +19,7 @@ class PagePicker extends FuzzySuggestModal<PageChoice> {
   }
 
   getItems(): PageChoice[] {
-    const pages = this.store.settings.pages.map((page) => ({
-      ref: { page: page.id },
-      title: page.name,
-      note: scopeSummary(page.scope),
-    }));
-    return [{ ref: {}, title: "Home", note: "The home page" }, ...pages];
+    return pageChoices(this.store.settings);
   }
 
   getItemText(choice: PageChoice): string {

@@ -59,6 +59,7 @@ import type { TypifyIcons } from "./legacy-typify";
 import type { PageActions } from "./page-actions";
 import type { ReleaseNotices } from "./release-notices";
 import { paneFor, renderSection, settleDek, type CardActions, type SectionMove } from "./card";
+import { pickPage } from "./page-picker";
 import { templateForScope, type NoteTemplate } from "../compose/templates";
 import { registerCardKeys } from "./keyboard";
 import { observeDeks } from "./lazy-deks";
@@ -395,6 +396,9 @@ export class HomeView extends ItemView implements HoverParent {
       btn.addEventListener("click", (evt) => run(paneFor(evt)));
       return btn;
     };
+    action("hc-pages", "Pages", "files", () => {
+      pickPage(this.app, this.services.store, this.services.pages);
+    });
     action("hc-new-note", "New note", "square-pen", (where) => {
       const page = this.page();
       void createNote(this.app, where, page ? templateForScope(page.scope) : undefined);

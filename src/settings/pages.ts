@@ -240,6 +240,26 @@ export function legacyFolderPageId(folder: string): string {
   return `page-f${hash.toString(36)}`;
 }
 
+// --------------------------------------------------------------- choices
+
+/** A page the picker shows: its reference, title, and scope summary. */
+export interface PageChoice {
+  ref: PageRef;
+  title: string;
+  /** A line under the title: what the page is about. */
+  note: string;
+}
+
+/** The home page and every named page in settings order. */
+export function pageChoices(settings: Pick<HomeCardsSettings, "pages">): PageChoice[] {
+  const pages = settings.pages.map((page) => ({
+    ref: { page: page.id },
+    title: page.name,
+    note: scopeSummary(page.scope),
+  }));
+  return [{ ref: {}, title: "Home", note: "The home page" }, ...pages];
+}
+
 // ------------------------------------------------------------------ renames
 
 /**

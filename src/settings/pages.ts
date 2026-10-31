@@ -266,15 +266,12 @@ export function pageChoices(settings: Pick<HomeCardsSettings, "pages">, folders:
     note: scopeSummary(page.scope),
   }));
 
-  if (folders.length === 0) return [{ ref: {}, title: "Home", note: "The home page" }, ...pages];
-
   const folderPaths = new Set(folders.filter((f) => f && f !== "/"));
-  // Named pages that have a folder scope — their folders are already listed as named pages.
-  const namedFolderPages = new Set(settings.pages.filter((p) => p.scope.kind === "folder").map((p) => (p.scope as { kind: "folder"; folder: string }).folder));
 
   const choices: PageChoice[] = [];
   for (const path of folderPaths) {
-    if (namedFolderPages.has(path)) continue;
+    // A folder with a named page of its own is already listed with the named pages.
+    if (findFolderPage(settings.pages, path)) continue;
     const title = folderPageTitle(settings.pages, path);
     choices.push({ ref: { folder: path }, title, note: path });
   }

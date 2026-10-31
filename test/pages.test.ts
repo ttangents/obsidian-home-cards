@@ -7,6 +7,7 @@ import { cloneSections, folderName, isInside, normalizeFolderPath, reparent } fr
 import { normalizePages, normalizeSettings } from "../src/settings/normalize";
 import {
   findPageByName,
+  folderPageTitle,
   legacyFolderPageId,
   refFromState,
   renamePageFolders,
@@ -267,4 +268,22 @@ test("a page composes its own sections over only the notes in its scope", async 
 
   const home = await sectionsOf(v.app, settings);
   assert.equal(home[0].cards.length, 4);
+});
+
+// ----------------------------------------------------------- folderPageTitle
+
+test("folderPageTitle uses the last path segment and adds (folder) when a namesake exists", () => {
+  const pages = [page({ id: "1", name: "Archive" })];
+  assert.equal(folderPageTitle(pages, "Notes/Archive"), "Archive (folder)");
+  assert.equal(folderPageTitle(pages, "archive"), "archive (folder)");
+  assert.equal(folderPageTitle([], "AnyFolder"), "AnyFolder");
+});
+
+// ----------------------------------------------------------- resolvePage plain folder page with namesake
+
+test("resolvePage for a plain folder page with a namesake named page gets (folder) suffix", () => {
+  const settings = { ...defaultSettings(), pages: [page({ id: "x", name: "Projects" })] };
+  const result = resolvePage(settings, { folder: "Work/Projects" });
+  assert.equal(result?.title, "Projects (folder)");
+  assert.equal(result?.record, null);
 });

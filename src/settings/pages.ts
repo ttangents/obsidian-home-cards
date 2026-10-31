@@ -126,14 +126,13 @@ export function resolvePage(
   if (ref.folder) {
     const page = findFolderPage(settings.pages, ref.folder);
     if (page) return fromRecord(settings, page);
-    const folder = folderName(ref.folder);
+    const title = folderPageTitle(settings.pages, ref.folder);
     const scope: PageScope = { ...blankScope(), kind: "folder", folder: ref.folder };
-    const hasNamesake = settings.pages.some((p) => p.name.toLowerCase() === folder.toLowerCase());
     return {
       key: `folder:${ref.folder}`,
       isHome: false,
       record: null,
-      title: hasNamesake ? `${folder} (folder)` : folder,
+      title,
       scope,
       sections: settings.sections,
       icon: scopeIcon(scope),
@@ -252,14 +251,38 @@ export interface PageChoice {
   note: string;
 }
 
-/** The home page and every named page in settings order. */
-export function pageChoices(settings: Pick<HomeCardsSettings, "pages">): PageChoice[] {
+/** The title of a plain folder page (no named page of its own). */
+export function folderPageTitle(pages: readonly NamedPage[], folder: string): string {
+  const name = folderName(folder);
+  const hasNamesake = pages.some((p) => p.name.toLowerCase() === name.toLowerCase());
+  return hasNamesake ? `${name} (folder)` : name;
+}
+
+/** The home page, every named page, and one entry per folder path in sorted order. */
+export function pageChoices(settings: Pick<HomeCardsSettings, "pages">, folders: readonly string[] = []): PageChoice[] {
   const pages = settings.pages.map((page) => ({
     ref: { page: page.id },
     title: page.name,
     note: scopeSummary(page.scope),
   }));
-  return [{ ref: {}, title: "Home", note: "The home page" }, ...pages];
+
+  if (folders.length === 0) return [{ ref: {}, title: "Home", note: "The home page" }, ...pages];
+
+  const folderPaths = new Set(folders.filter((f) => f && f !== "/"));
+  // Named pages that have a folder scope — their folders are already listed as named pages.
+  const namedFolderPages = new Set(settings.pages.filter((p) => p.scope.kind === "folder").map((p) => (p.scope as { kind: "folder"; folder: string }).folder));
+
+  const choices: PageChoice[] = [];
+  for (const path of folderPaths) {
+    if (namedFolderPages.has(path)) continue;
+    const title = folderPageTitle(settings.pages, path);
+    choices.push({ ref: { folder: path }, title, note: path });
+  }
+
+  // Sort by path with plain string comparison.
+  choices.sort((a, b) => (a.note < b.note ? -1 : a.note > b.note ? 1 : 0));
+
+  return [{ ref: {}, title: "Home", note: "The home page" }, ...pages, ...choices];
 }
 
 // ------------------------------------------------------------------ renames

@@ -19,7 +19,8 @@ class PagePicker extends FuzzySuggestModal<PageChoice> {
   }
 
   getItems(): PageChoice[] {
-    return pageChoices(this.store.settings);
+    const folders = this.app.vault.getAllFolders(false).map((f) => f.path);
+    return pageChoices(this.store.settings, folders);
   }
 
   getItemText(choice: PageChoice): string {

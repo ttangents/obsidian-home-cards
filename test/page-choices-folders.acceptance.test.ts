@@ -17,7 +17,7 @@ const page = (id: string, name: string, scope: Partial<PageScope>): NamedPage =>
 });
 
 const reading = page("page-reading", "Reading", { kind: "tag", tag: "book" });
-const projects = page("page-projects", "Projects", { kind: "property", property: "type", value: "project" });
+const projects = page("page-projects", "Projects", { kind: "property", propertyKey: "type", propertyValue: "project" });
 const work = page("page-work", "Client work", { kind: "folder", folder: "Work" });
 const settings = { ...defaultSettings(), pages: [reading, projects, work] };
 

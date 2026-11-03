@@ -68,6 +68,22 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.35.0",
+    date: "2026-11-03",
+    headline: "A Pages button on every page, and folder pages in the page picker.",
+    announce: true,
+    new: [
+      "Every page's header has a Pages button that opens the page picker, so you can reach any page from the one you are on.",
+      "The page picker lists your folder pages after your named pages.",
+    ],
+    changed: [
+      "A folder page that shares its name with a named page is titled with \"(folder)\" after the name, so you can tell the two apart.",
+    ],
+    fixed: [
+      "A note opened from outside the vault, with Obsidian's \"Open file from outside the vault\" command, no longer appears in Recently opened or Continue working, and its menus no longer offer Pin to Home or a Home Cards page.",
+    ],
+  },
+  {
     version: "1.34.2",
     date: "2026-10-26",
     headline: "Fixes for synced settings and for tags, and a much smaller stylesheet.",

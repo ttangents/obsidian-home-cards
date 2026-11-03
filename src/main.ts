@@ -12,7 +12,7 @@
  *   main.ts        wiring
  */
 
-import { debounce, Events, Notice, Plugin, TFile, TFolder, type ObsidianProtocolData } from "obsidian";
+import { debounce, Events, Notice, Plugin, TFolder, type ObsidianProtocolData } from "obsidian";
 import { ActivityLog } from "./compose/activity";
 import { DekCache } from "./compose/dek-cache";
 import { forgetMarks, isPinned, isQuiet, pruneSnoozes, renameMarks, snooze, togglePin, toggleQuiet } from "./compose/marks";
@@ -34,6 +34,7 @@ import { NEWER_SETTINGS_NOTICE, SettingsStore } from "./settings/store";
 import { PageService } from "./settings-tab/page-service";
 import type { EditorContext } from "./settings-tab/section-modal";
 import { HomeCardsSettingTab } from "./settings-tab/tab";
+import { isVaultNote } from "./vault-note";
 
 const REFRESH = "refresh";
 /** The list of named pages or a page's name changed, or settings arrived from another device. */
@@ -198,7 +199,8 @@ export default class HomeCardsPlugin extends Plugin {
       id: "open-current-folder",
       name: "Open page for current folder",
       checkCallback: (checking) => {
-        const folder = this.app.workspace.getActiveFile()?.parent;
+        const file = this.app.workspace.getActiveFile();
+        const folder = isVaultNote(this.app, file) ? file.parent : null;
         if (!folder || folder.isRoot()) return false;
         if (!checking) void this.pages.open({ folder: folder.path });
         return true;
@@ -214,7 +216,7 @@ export default class HomeCardsPlugin extends Plugin {
         const ref: PageRef | null =
           file instanceof TFolder && !file.isRoot()
             ? { folder: file.path }
-            : file instanceof TFile && file.extension === "md"
+            : isVaultNote(this.app, file)
               ? { note: file.path }
               : null;
         if (!ref) return;
@@ -240,7 +242,7 @@ export default class HomeCardsPlugin extends Plugin {
       name: "Open page for current note",
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
-        if (!file || file.extension !== "md") return false;
+        if (!isVaultNote(this.app, file)) return false;
         if (!checking) void this.pages.open({ note: file.path });
         return true;
       },
@@ -255,7 +257,8 @@ export default class HomeCardsPlugin extends Plugin {
     // Keep the open history as notes open and move.
     this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
-        if (file?.extension !== "md") return;
+        // A file opened from outside the vault has no place in the history.
+        if (!isVaultNote(this.app, file)) return;
         this.openHistory.record(file.path);
         this.activity.record(file.path);
         this.saveActivity();
@@ -287,7 +290,7 @@ export default class HomeCardsPlugin extends Plugin {
       this.app.workspace.on("file-menu", (menu, file, source) => {
         // A card's own menu already offers its marks; see render/actions.ts.
         if (source === VIEW_TYPE_HOME || source === BASES_VIEW_ID) return;
-        if (!(file instanceof TFile) || file.extension !== "md") return;
+        if (!isVaultNote(this.app, file)) return;
         const pinned = isPinned(this.store.settings.marks, file.path);
         menu.addItem((item) =>
           item
@@ -303,7 +306,7 @@ export default class HomeCardsPlugin extends Plugin {
       name: "Pin or unpin the current note",
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
-        if (!file || file.extension !== "md") return false;
+        if (!isVaultNote(this.app, file)) return false;
         if (!checking) this.marks.togglePin(file.path);
         return true;
       },

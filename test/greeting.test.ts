@@ -50,13 +50,13 @@ test("every list greeting is short, Latin script, and uses only the name slot", 
 });
 
 test("withName fills, appends, or drops the name", () => {
-  assert.equal(withName("Good morning", "Samuel"), "Good morning, Samuel");
+  assert.equal(withName("Good morning", "Sam"), "Good morning, Sam");
   assert.equal(withName("Good morning", ""), "Good morning");
-  assert.equal(withName("Still up, {name}?", "Samuel"), "Still up, Samuel?");
+  assert.equal(withName("Still up, {name}?", "Sam"), "Still up, Sam?");
   assert.equal(withName("Still up, {name}?", " "), "Still up?");
   assert.equal(withName("Morning, {name}. Coffee in hand?", ""), "Morning. Coffee in hand?");
   assert.equal(withName("{name}, welcome back", ""), "welcome back");
   // Sentences stand alone.
-  assert.equal(withName("Your notes missed you", "Samuel"), "Your notes missed you");
-  assert.equal(withName("Happy Monday. Mostly.", "Samuel"), "Happy Monday. Mostly.");
+  assert.equal(withName("Your notes missed you", "Sam"), "Your notes missed you");
+  assert.equal(withName("Happy Monday. Mostly.", "Sam"), "Happy Monday. Mostly.");
 });

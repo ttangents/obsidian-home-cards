@@ -23,7 +23,7 @@ test("days read in words from the reader's today", () => {
 
 test("fields read by the kind of value, not by the property's name", () => {
   assert.equal(formatField("status", "Active", NOW), "Active");
-  assert.equal(formatField("owner", "[[People/Samuel Rivera|Sam]]", NOW), "Sam");
+  assert.equal(formatField("owner", "[[People/Priya Raman|Priya]]", NOW), "Priya");
   assert.equal(formatField("owner", "[[People/Jane Smith]]", NOW), "Jane Smith");
   assert.equal(formatField("due", "2026-10-18", NOW), "Due tomorrow");
   assert.equal(formatField("rating", 5, NOW), "Rating 5");

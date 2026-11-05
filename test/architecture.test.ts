@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "vitest";
-import { BACKGROUNDS, SECTION_KINDS, SURFACES, VIEW_MODES } from "../src/settings/schema";
+import { BACKGROUNDS, PATTERN_VEILS, SECTION_KINDS, SURFACES, VIEW_MODES } from "../src/settings/schema";
 
 const read = (p: string) => readFileSync(p, "utf8");
 const cssPartials = () => readdirSync("styles").filter((f) => f.endsWith(".css")).map((f) => ({ file: join("styles", f), text: read(join("styles", f)) }));
@@ -107,6 +107,20 @@ test("every pattern has both tiles, bundled in main.js, a veil in each mode and 
     for (const block of veilBlocks) assert.match(block, new RegExp(`--_hc-veil-${id}: \\d+%;`), `${id} veil in every mode`);
     assert.ok(css.includes(`.home-cards[data-pattern="${id}"]`), `${id} selector`);
   }
+});
+
+test("the stylesheet's veils equal PATTERN_VEILS, which the API lends", () => {
+  const css = read("styles/10-backgrounds.css");
+  const blocks = css.split(/\n\}/).filter((b) => /--_hc-veil-[a-z]+: \d+%;/.test(b));
+  const [light, dark] = blocks.map((block) =>
+    Object.fromEntries([...block.matchAll(/--_hc-veil-([a-z]+): (\d+)%;/g)].map((m) => [m[1], Number(m[2])]))
+  );
+  assert.ok(blocks[1]?.includes(".theme-dark"), "the second block is for dark themes");
+  for (const [id, veil] of Object.entries(PATTERN_VEILS)) {
+    assert.equal(light?.[id], veil.light, `${id} light veil`);
+    assert.equal(dark?.[id], veil.dark, `${id} dark veil`);
+  }
+  assert.deepEqual(Object.keys(light ?? {}).sort(), Object.keys(PATTERN_VEILS).sort());
 });
 
 test("the tile module is current", async () => {

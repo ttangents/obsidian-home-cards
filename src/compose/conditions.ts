@@ -89,8 +89,8 @@ export function opsFor(type: ValueType): (typeof CONDITION_OPS)[number][] {
 
 /**
  * Text as a condition compares it: trimmed, lowercased, with a link's
- * brackets and alias and a tag's `#` removed, so `[[Samuel Rivera|Sam]]`
- * is "samuel rivera" and `#Active` is "active".
+ * brackets and alias and a tag's `#` removed, so `[[Priya Raman|Priya]]`
+ * is "priya raman" and `#Active` is "active".
  */
 export function normalText(value: unknown): string {
   let text = typeof value === "string" ? value : typeof value === "number" || typeof value === "boolean" ? String(value) : "";

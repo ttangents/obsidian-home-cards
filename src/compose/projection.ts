@@ -1,6 +1,6 @@
 /**
  * Card projection: how a section's chosen fields read on a card's footer,
- * e.g. "Active · Samuel · Due Friday" or "David Deutsch · Rating 5".
+ * e.g. "Active · Priya · Due Friday" or "David Deutsch · Rating 5".
  *
  * Each value reads by its kind. Text and lists show their values, with a
  * link shown by its alias or note name; a date shows its field's name and

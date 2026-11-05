@@ -67,15 +67,15 @@ test("an empty section list falls back to the defaults", () => {
   assert.deepEqual(normalizeSettings({ sections: [] }).sections, defaultSettings().sections);
 });
 
-test("the author's live data.json survives intact", () => {
+test("a long-lived data.json survives intact", () => {
   const live = {
-    greetingName: "Samuel", cardMinWidth: 260, cardSurface: "frosted", background: "regal",
+    greetingName: "Sam", cardMinWidth: 260, cardSurface: "frosted", background: "regal",
     showGlyph: false, typifyIcons: false, showWordCount: false, dedupe: false, defaultView: "grid",
     openOnStartup: true,
     sections: [{ id: "o", kind: "property", propertyKey: "type", propertyValue: "Organization", title: "Organizations" }],
   };
   const s = normalizeSettings(live);
-  assert.equal(s.greetingName, "Samuel");
+  assert.equal(s.greetingName, "Sam");
   assert.equal(s.cardMinWidth, 260);
   assert.equal(s.cardSurface, "frosted");
   assert.equal(s.background, "diamonds");

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "events": {
+    "ready": "home-cards:ready",
+    "request": "home-cards:request",
+    "unload": "home-cards:unload",
+    "changed": "home-cards:changed"
+  },
+  "methods": ["backgrounds"],
+  "background": ["id", "label", "light", "dark", "veil"]
+}

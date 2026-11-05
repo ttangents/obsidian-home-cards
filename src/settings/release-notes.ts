@@ -68,6 +68,15 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.36.0",
+    date: "2026-11-04",
+    headline: "Home Cards can lend its backgrounds to other plugins.",
+    announce: false,
+    improved: [
+      "Other plugins can use Home Cards' background patterns, and the images you added, through a documented interface. The home page does not change.",
+    ],
+  },
+  {
     version: "1.35.0",
     date: "2026-11-03",
     headline: "A Pages button on every page, and folder pages in the page picker.",

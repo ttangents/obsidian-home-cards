@@ -95,8 +95,9 @@ export type Surface = (typeof SURFACES)[number]["id"];
  * Adding a pattern: drop `<id>-light.webp` and `<id>-dark.webp` into
  * assets/tiles/ (the build bundles them into main.js), add its two veil
  * variables and one selector in styles/10-backgrounds.css, and add the
- * entry here. The test suite refuses a registry entry whose tiles, veils
- * or selector are missing.
+ * entry here and its veils to PATTERN_VEILS. The test suite refuses a
+ * registry entry whose tiles, veils or selector are missing, and veils
+ * that differ between PATTERN_VEILS and the stylesheet.
  */
 export const BACKGROUNDS = [
   { id: "plain", label: "Plain" },
@@ -114,6 +115,29 @@ export const BACKGROUNDS = [
   { id: "petals", label: "Petals" },
   { id: "paws", label: "Paws" },
 ] as const satisfies readonly Choice[];
+
+/**
+ * Each pattern's veil in percent, for light and for dark themes: the share
+ * of the theme background laid over its tile, so every pattern carries
+ * about the same weight behind the cards. styles/10-backgrounds.css paints
+ * with these numbers, and a test holds the two equal. Home Cards' API
+ * hands them to other plugins (compose/provider.ts).
+ */
+export const PATTERN_VEILS: Readonly<Record<string, { readonly light: number; readonly dark: number }>> = {
+  diamonds: { light: 86, dark: 85 },
+  leaves: { light: 89, dark: 88 },
+  stitches: { light: 82, dark: 90 },
+  suns: { light: 82, dark: 85 },
+  grid: { light: 64, dark: 58 },
+  rain: { light: 55, dark: 50 },
+  squares: { light: 55, dark: 50 },
+  polka: { light: 78, dark: 85 },
+  basket: { light: 78, dark: 88 },
+  pebbles: { light: 60, dark: 85 },
+  confetti: { light: 64, dark: 88 },
+  petals: { light: 84, dark: 88 },
+  paws: { light: 84, dark: 88 },
+};
 
 /**
  * How an image the user adds fills the page. A pattern repeats, like the

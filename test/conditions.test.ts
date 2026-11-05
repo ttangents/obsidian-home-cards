@@ -45,7 +45,7 @@ test("value types are read from the values", () => {
 });
 
 test("text compares without case, link brackets, aliases or a tag's #", () => {
-  assert.equal(normalText("[[Samuel Rivera|Sam]]"), "samuel rivera");
+  assert.equal(normalText("[[Priya Raman|Priya]]"), "priya raman");
   assert.equal(normalText("[[People/Jane#Role]]"), "people/jane");
   assert.equal(normalText(" #Active "), "active");
   assert.equal(normalText(4), "4");

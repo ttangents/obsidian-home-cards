@@ -19,6 +19,7 @@ import { forgetMarks, isPinned, isQuiet, pruneSnoozes, renameMarks, snooze, togg
 import { OpenHistory } from "./compose/open-history";
 import { asPagewiseApi, notePageButton, PAGEWISE_EVENTS } from "./compose/pagewise";
 import { connectPartner } from "./compose/partner";
+import { ApiProvider, imagesKey, listBackgrounds, type ApiBackground } from "./compose/provider";
 import { asRelateApi, RELATE_EVENTS, type RelateApi, type RelateStatus, type SearchOptions } from "./compose/relate";
 import type { MarkActions } from "./render/actions";
 import { BackgroundStore } from "./render/backgrounds";
@@ -28,7 +29,9 @@ import { pickFolder } from "./render/folder-picker";
 import { HomeView, VIEW_TYPE_HOME, type HomeServices } from "./render/home-view";
 import { pickPage } from "./render/page-picker";
 import { ReleaseNotices } from "./render/release-notices";
+import { TILES } from "./render/tiles.generated";
 import { normalizeFolderPath } from "./settings/folders";
+import { BACKGROUNDS, PATTERN_VEILS } from "./settings/schema";
 import { findPageByName, renamePageFolders, type PageRef } from "./settings/pages";
 import { NEWER_SETTINGS_NOTICE, SettingsStore } from "./settings/store";
 import { PageService } from "./settings-tab/page-service";
@@ -54,6 +57,7 @@ export default class HomeCardsPlugin extends Plugin {
     // Ended snoozes need no record; the next save drops them.
     tidy: (settings) => void pruneSnoozes(settings.marks, new Date()),
     afterWrite: (wrote) => {
+      this.noticeImages();
       if (this.syncPageCommands()) this.events.trigger(PAGES);
       if (!wrote) return;
       this.icons.clear();
@@ -127,6 +131,12 @@ export default class HomeCardsPlugin extends Plugin {
   private readonly releases = new ReleaseNotices(this.app, this.store, this.manifest.version, () => this.refreshViews());
   private readonly backgrounds = BackgroundStore.forPlugin(this.app, this.manifest);
 
+  /** Home Cards' own API: the backgrounds it lends to other plugins (compose/provider.ts). */
+  private readonly provider = new ApiProvider(this.app.workspace, () => this.lentBackgrounds());
+
+  /** The added images as last lent, so a change to them fires `home-cards:changed`. */
+  private lentImages = "";
+
   /** What the home and Bases views use. */
   private readonly services: HomeServices = {
     store: this.store,
@@ -161,6 +171,8 @@ export default class HomeCardsPlugin extends Plugin {
   async onload(): Promise<void> {
     const firstRun = !(await this.store.load());
     this.releases.review(firstRun);
+    this.lentImages = imagesKey(this.store.settings.customBackgrounds);
+    this.provider.listen((ref) => this.registerEvent(ref));
 
     this.registerView(VIEW_TYPE_HOME, (leaf) => new HomeView(leaf, this.services));
     // Lets Page Preview show notes on hover over cards; it lists this
@@ -312,6 +324,10 @@ export default class HomeCardsPlugin extends Plugin {
       },
     });
 
+    // Announce the API once the layout is ready, so a partner that asks
+    // sooner hears from Home Cards then.
+    this.app.workspace.onLayoutReady(() => this.provider.ready());
+
     if (this.store.settings.openOnStartup) {
       this.app.workspace.onLayoutReady(() => void this.pages.open());
     }
@@ -328,6 +344,7 @@ export default class HomeCardsPlugin extends Plugin {
 
   /** Settings from another device replaced the ones in memory. */
   private settingsReloaded(): void {
+    this.noticeImages();
     this.releases.reconcile();
     this.icons.clear();
     this.syncPageCommands();
@@ -337,6 +354,8 @@ export default class HomeCardsPlugin extends Plugin {
   }
 
   onunload(): void {
+    // First, so partners drop the API before anything else goes.
+    this.provider.unload();
     this.settle.cancel();
     // Views are closing; write the pending edit without redrawing them.
     void this.store.write();
@@ -451,6 +470,34 @@ export default class HomeCardsPlugin extends Plugin {
         }
       },
     });
+  }
+
+  // ------------------------------------------------------- the provider API
+
+  /** What `backgrounds()` returns: the built-in patterns, then the added images, in the picker's order. */
+  private lentBackgrounds(): ApiBackground[] {
+    return listBackgrounds(
+      BACKGROUNDS.filter((bg) => bg.id !== "plain").map((bg) => ({
+        id: bg.id,
+        label: bg.label,
+        tiles: TILES[bg.id],
+        veil: PATTERN_VEILS[bg.id],
+      })),
+      this.store.settings.customBackgrounds.map((bg) => ({
+        id: bg.id,
+        label: bg.label,
+        url: this.backgrounds.url(bg),
+        fade: bg.fade,
+      }))
+    );
+  }
+
+  /** Tell partners when the reader added, removed, renamed or refaded an image. */
+  private noticeImages(): void {
+    const key = imagesKey(this.store.settings.customBackgrounds);
+    if (key === this.lentImages) return;
+    this.lentImages = key;
+    this.provider.changed();
   }
 
   /** Ask every open Home and Bases view to redraw. */

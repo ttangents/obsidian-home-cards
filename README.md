@@ -46,7 +46,7 @@ Theme authors and snippet fans get a set of documented style tokens. [Styling Ho
 ## Plays well with others
 
 - [Relate](https://community.obsidian.md/plugins/relate), my plugin for two-way links between notes, adds sections for Relate searches, a section for each relationship on a note's page, and notes close in meaning to the ones you are working on.
-- Pagewise, my plugin that shows notes as pages, gains an "Open Home Cards page" button on its toolbar, and it can paint Home Cards' backgrounds around its pages. Pagewise is on its way to Community plugins.
+- [Pagewise](https://community.obsidian.md/plugins/pagewise), my plugin that shows notes as pages, gains an "Open Home Cards page" button on its toolbar, and it can paint Home Cards' backgrounds around its pages.
 - With [Typify](https://community.obsidian.md/plugins/typify), set Cards → Glyph to "Icon from Typify" and each card shows the icon for its note's type.
 
 You don't need any of these. Each one adds a little extra, and Home Cards works fully without them.

@@ -68,6 +68,17 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.37.0",
+    date: "2026-11-07",
+    headline: "Duplicate a section, match part of a name, and leave folders out.",
+    announce: true,
+    new: [
+      "A Duplicate section button, beside Edit section, adds a copy of a section right below it.",
+      "Conditions can test a note's file name and folder, and have three new operators for text: starts with, contains and ends with. \"File name starts with 2026-\" gathers dated journal notes.",
+      "A section's Folders filter leaves out any folder whose pattern starts with !, such as \"!archive\".",
+    ],
+  },
+  {
     version: "1.36.0",
     date: "2026-11-04",
     headline: "Home Cards can lend its backgrounds to other plugins.",

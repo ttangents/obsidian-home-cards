@@ -33,8 +33,13 @@ export function propertyValue(cache: CachedMetadata | null, key: string): unknow
   return match === undefined ? undefined : fm[match];
 }
 
-/** A field's value: a file field as a Date, a property as stored. */
+/**
+ * A field's value: a date field as a Date, the name and folder as text,
+ * a property as stored.
+ */
 export function fieldValue(file: TFile, cache: CachedMetadata | null, field: string): unknown {
+  if (field === "file.name") return file.basename;
+  if (field === "file.folder") return file.parent?.path === "/" ? "" : (file.parent?.path ?? "");
   if (field === "file.ctime") return new Date(file.stat.ctime);
   if (field === "file.mtime") return new Date(file.stat.mtime);
   return propertyValue(cache, field);
@@ -42,6 +47,11 @@ export function fieldValue(file: TFile, cache: CachedMetadata | null, field: str
 
 export function isFileField(field: string): boolean {
   return FILE_FIELDS.some((f) => f.id === field);
+}
+
+/** A file field's type; null for a property. */
+export function fileFieldType(field: string): ValueType | null {
+  return FILE_FIELDS.find((f) => f.id === field)?.type ?? null;
 }
 
 /** Null, "" and [] are no value. */
@@ -158,6 +168,16 @@ function equalsTest(raw: string): Test | null {
   };
 }
 
+/**
+ * A text match on part of a value, compared as `normalText` reads both
+ * sides, so case, a link's brackets and a tag's `#` do not count.
+ */
+function partTest(raw: string, match: (text: string, want: string) => boolean): Test | null {
+  const want = normalText(raw);
+  if (!want) return null;
+  return anyMember((v) => match(normalText(v), want));
+}
+
 function dayCount(raw: string): number | null {
   const n = asNumber(raw);
   return n !== null && n >= 0 && Number.isInteger(n) ? n : null;
@@ -196,6 +216,12 @@ export function compileCondition(cond: Condition, now: Date): Test | null {
       const eq = equalsTest(cond.value);
       return eq ? (v) => !anyMember(eq)(v) : null;
     }
+    case "starts-with":
+      return partTest(cond.value, (text, want) => text.startsWith(want));
+    case "contains":
+      return partTest(cond.value, (text, want) => text.includes(want));
+    case "ends-with":
+      return partTest(cond.value, (text, want) => text.endsWith(want));
     case "gt":
       return number((n, w) => n > w);
     case "gte":

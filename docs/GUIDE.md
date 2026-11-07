@@ -17,7 +17,7 @@ Each section has a source:
 
 ### Narrow it down
 
-Filters keep notes with certain tags, properties or folders. Conditions read a property's value, such as "due is today", "due is before today", "due is in the next 7 days", "rating is at least 4" or "modified is older than 90 days". A note has to meet every condition to appear.
+Filters keep notes with certain tags, properties or folders. In the Folders filter, a pattern that starts with ! leaves those folders out: "!archive" hides every folder named archive, and "/Projects, !/Projects/Done" keeps Projects without its Done folder. Conditions read a property's value, or a note's file name, folder, creation date or modification date, such as "due is today", "due is before today", "due is in the next 7 days", "rating is at least 4" or "modified is older than 90 days". Text has three more tests: starts with, contains and ends with, so "file name starts with 2026-" gathers dated journal notes and "file name starts with 12." gathers one Johnny Decimal category. A note has to meet every condition to appear.
 
 By default, a note shows up only in the first section that claims it, so your page never repeats itself. The order of your sections decides which one wins. You can turn this off in Settings → Home Cards → General.
 
@@ -151,7 +151,7 @@ With the [Typify](https://community.obsidian.md/plugins/typify) plugin, set Card
 You can find every setting with Obsidian's settings search.
 
 - General: whether the home page opens at startup, the layout it opens in, whether a note may appear in more than one section, and how long a note sits untouched before Rediscover offers it. This is also where you clear snoozes and passed-over notes, turn update announcements on or off, and open What's new.
-- Sections: your sections, in page order. Drag a row to move it, flip its toggle to show or hide it, and press its pencil to edit its source, card count, filters, conditions, sort order, card fields and image.
+- Sections: your sections, in page order. Drag a row to move it, flip its toggle to show or hide it, and press its pencil to edit its source, card count, filters, conditions, sort order, card fields and image. The copy button next to the pencil adds a duplicate of the section below it.
 - Pages: the pages you made. Each row opens its page, or edits its name, what it is about, and whether it has sections of its own. Every folder has a page already, and a folder gets a row here only after you customize its page.
 - Cards: the corner glyph, the type label and the property it reads, the image properties, tags, the opening sentence and its length, and file size.
 - Card text: the summary property, and the opening phrases and title prefixes Home Cards skips when it picks a card's first sentence.

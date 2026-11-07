@@ -15,7 +15,8 @@
 
 import { normalizeFolderPath } from "../settings/folders";
 import type { PageScope, SectionConfig, SectionKind } from "../settings/schema";
-import { compileCondition, isFileField, normalText, statedValue } from "./conditions";
+import { compileCondition, fileFieldType, normalText, statedValue } from "./conditions";
+import { isFolderExclusion } from "./scope";
 import { splitList } from "./values";
 
 export type TemplateValue = string | number | boolean;
@@ -153,7 +154,10 @@ export function sectionWrite(cfg: SectionConfig, now: Date): SectionWrite {
   if (rule && ruleKey) t.properties[ruleKey] = typedValue(rule[2]);
   else if (props.length) complete = false;
 
-  const folders = splitList(cfg.filterFolders);
+  // An excluded folder says where a note may not be, which no template can promise.
+  const allFolders = splitList(cfg.filterFolders);
+  if (allFolders.some(isFolderExclusion)) complete = false;
+  const folders = allFolders.filter((f) => !isFolderExclusion(f));
   if (folders.length === 1 && folders[0].includes("/") && !folders[0].includes("*")) {
     t.folder = normalizeFolderPath(folders[0]);
   } else if (folders.length) complete = false;
@@ -173,8 +177,10 @@ export function sectionWrite(cfg: SectionConfig, now: Date): SectionWrite {
     const test = compileCondition(cond, now);
     if (!test) continue;
     const field = cond.property.trim();
-    const value = isFileField(field) ? now : t.properties[field];
-    if (!test(value)) complete = false;
+    // A new note's dates are now; its name and folder are not known here.
+    const fileType = fileFieldType(field);
+    if (fileType === "text") complete = false;
+    else if (!test(fileType === "date" ? now : t.properties[field])) complete = false;
   }
   return { template: t, complete };
 }

@@ -188,3 +188,45 @@ test("stored conditions are cleaned and capped, and sections without them get an
   fresh[0].conditions.push(cond("exists"));
   assert.equal(fresh[1].conditions.length, 0, "fresh sections share no list");
 });
+
+test("text operators match part of a value, in any case, over lists too", () => {
+  assert.ok(passes(cond("starts-with", "2026-"), "2026-11-07 Standup"));
+  assert.ok(!passes(cond("starts-with", "2026-"), "Notes 2026-11-07"));
+  assert.ok(passes(cond("starts-with", "priya r"), "[[Priya Raman|Priya]]"), "a link compares by its target, not its alias");
+  assert.ok(passes(cond("contains", "plan"), "Q3 Planning"));
+  assert.ok(passes(cond("ends-with", "draft"), "Report DRAFT"));
+  assert.ok(passes(cond("starts-with", "proj"), ["area/home", "project/alpha"]), "a list matches when any member does");
+  assert.ok(!passes(cond("contains", "x"), undefined));
+  assert.equal(compileCondition(cond("starts-with", "  "), NOW), null, "a blank value tests nothing");
+  assert.ok(opsFor("text").some((o) => o.id === "starts-with"));
+  assert.ok(opsFor("list").some((o) => o.id === "contains"));
+  assert.ok(!opsFor("number").some((o) => o.id === "starts-with"));
+  assert.equal(describeCondition(cond("starts-with", "2026", "file.name")), "file name starts with 2026");
+});
+
+test("the file name and folder are text fields a condition can test", () => {
+  const notes = fakeVault([
+    { path: "Journal/2026-11-07 Standup.md" },
+    { path: "Evergreen/12.03 Agent memory.md" },
+    { path: "Journal/Archive/2025-01-02 Old.md" },
+    { path: "Inbox.md" },
+  ]);
+  const pick = (conditions: Condition[]) => {
+    const test = compileConditions(conditions, NOW);
+    return notes.app.vault
+      .getMarkdownFiles()
+      .filter((f) => !test || test(f, notes.app.metadataCache.getFileCache(f)))
+      .map((f) => f.path);
+  };
+  assert.deepEqual(pick([cond("starts-with", "2026-", "file.name")]), ["Journal/2026-11-07 Standup.md"]);
+  assert.deepEqual(pick([cond("starts-with", "12.", "file.name")]), ["Evergreen/12.03 Agent memory.md"]);
+  assert.deepEqual(pick([cond("ends-with", ".md", "file.name")]), [], "the name has no extension");
+  assert.deepEqual(pick([cond("starts-with", "journal", "file.folder")]), ["Journal/2026-11-07 Standup.md", "Journal/Archive/2025-01-02 Old.md"]);
+  assert.deepEqual(pick([cond("missing", "", "file.folder")]), ["Inbox.md"], "a note at the vault root has no folder");
+  assert.equal(statedValue(cond("is", "Inbox", "file.name")), null, "a file field states no value");
+});
+
+test("conditions with the text operators survive normalizing", () => {
+  const raw = [{ property: "file.name", op: "starts-with", value: "2026" }, { property: "tags", op: "contains", value: "work" }];
+  assert.deepEqual(normalizeConditions(raw), raw);
+});

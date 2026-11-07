@@ -52,3 +52,11 @@ test("tagsOf lists frontmatter tags then inline tags, without #", () => {
   assert.deepEqual(tagsOf(cacheOf("Stuff/Vendors/acme.md")), ["firm/vendor"]);
   assert.deepEqual(tagsOf(null), []);
 });
+
+test("folders: a pattern starting with ! leaves its folders out", () => {
+  assert.deepEqual(run({ filterFolders: "!interviews" }), ["Stuff/Vendors/acme.md", "root.md"]);
+  assert.deepEqual(run({ filterFolders: "/Stuff/*, !/Stuff/Vendors" }), ["Stuff/interviews/2026/q1.md"]);
+  assert.deepEqual(run({ filterFolders: "Stuff, !2026" }), ["Stuff/Vendors/acme.md"], "an exclusion wins over an inclusion");
+  assert.deepEqual(run({ filterFolders: "!vend*" }), ["Stuff/interviews/2026/q1.md", "root.md"]);
+  assert.equal(compileScope({ filterTags: "", filterProps: "", filterFolders: "!, ! " }), null, "a bare ! excludes nothing");
+});

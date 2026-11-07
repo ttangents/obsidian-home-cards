@@ -25,6 +25,7 @@ import {
   BACKGROUND_FITS,
   blankSection,
   defaultSettings,
+  duplicateSection,
   isChoice,
   labelOf,
   LIMITS,
@@ -275,6 +276,18 @@ export class HomeCardsSettingTab extends PluginSettingTab {
                 .setIcon("pencil")
                 .setTooltip("Edit section")
                 .onClick(() => this.editSection(cfg.id))
+            )
+            .addExtraButton((b) =>
+              b
+                .setIcon("copy")
+                .setTooltip("Duplicate section")
+                .onClick(() => {
+                  const list = this.store.settings.sections;
+                  const at = list.findIndex((section) => section.id === cfg.id);
+                  if (at === -1) return;
+                  list.splice(at + 1, 0, duplicateSection(list[at]));
+                  void this.restructure();
+                })
             );
         },
       })),

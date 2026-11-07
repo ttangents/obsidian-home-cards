@@ -188,6 +188,9 @@ export type ValueType = "text" | "number" | "date" | "boolean" | "list";
 export const CONDITION_OPS = [
   { id: "is", label: "is", types: ["text", "number", "date", "boolean", "list"], input: "value" },
   { id: "is-not", label: "is not", types: ["text", "number", "date", "boolean", "list"], input: "value" },
+  { id: "starts-with", label: "starts with", types: ["text", "list"], input: "value" },
+  { id: "contains", label: "contains", types: ["text", "list"], input: "value" },
+  { id: "ends-with", label: "ends with", types: ["text", "list"], input: "value" },
   { id: "gt", label: "is more than", types: ["number"], input: "number" },
   { id: "gte", label: "is at least", types: ["number"], input: "number" },
   { id: "lt", label: "is less than", types: ["number"], input: "number" },
@@ -205,9 +208,13 @@ export type ConditionOp = (typeof CONDITION_OPS)[number]["id"];
 
 /**
  * Fields every note has, named as Bases names them. A condition or a card
- * field may use one wherever it may use a property.
+ * field may use one wherever it may use a property. `file.name` is the
+ * name without its extension; `file.folder` is the folder's path, "" at
+ * the vault root.
  */
 export const FILE_FIELDS = [
+  { id: "file.name", label: "File name", type: "text" },
+  { id: "file.folder", label: "Folder", type: "text" },
   { id: "file.ctime", label: "Created", type: "date" },
   { id: "file.mtime", label: "Modified", type: "date" },
 ] as const satisfies readonly (Choice & { type: ValueType })[];
@@ -373,7 +380,7 @@ export function emptyMarks(): NoteMarks {
  * higher number loads the settings read-only rather than drop what it
  * does not know (see store.ts).
  */
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 export interface HomeCardsSettings {
   version: number;
@@ -472,6 +479,14 @@ export function blankSection(over: Partial<SectionConfig> & { id: string }): Sec
 /** A copy of a section that shares nothing with it, under a new id. */
 export function copySection(cfg: SectionConfig, id: string): SectionConfig {
   return { ...cfg, id, conditions: cfg.conditions.map((c) => ({ ...c })), fields: [...cfg.fields] };
+}
+
+/**
+ * The section a Duplicate button adds: a copy under a new id, titled
+ * "<title> copy" so the two read apart in the list and on the page.
+ */
+export function duplicateSection(cfg: SectionConfig): SectionConfig {
+  return { ...copySection(cfg, newSectionId()), title: `${sectionTitle(cfg)} copy` };
 }
 
 /**

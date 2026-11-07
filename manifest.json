@@ -1,7 +1,7 @@
 {
 	"id": "home-cards",
 	"name": "Home Cards",
-	"version": "1.36.0",
+	"version": "1.37.0",
 	"minAppVersion": "1.13.1",
 	"description": "Show a start page or dashboard of note cards, in sections drawn from recent activity, properties, tags, links and Bases, styled by your active theme.",
 	"author": "ttangents",

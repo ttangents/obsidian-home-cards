@@ -222,7 +222,7 @@ export class SectionModal extends Modal {
     new Setting(contentEl).setName("Filters").setHeading();
     text("Tags", "Comma separated. A tag includes the tags nested under it.", "project/active, reading", "filterTags");
     text("Properties", "A key requires the property; key=value matches its value.", "status=active, author", "filterProps");
-    text("Folders", "A pattern with a slash matches a path; anything else matches a folder name.", "/Projects/*, archive", "filterFolders");
+    text("Folders", "A pattern with a slash matches a path; anything else matches a folder name. Start a pattern with ! to leave those folders out.", "/Projects/*, !archive", "filterFolders");
 
     new Setting(contentEl)
       .setName("Conditions")

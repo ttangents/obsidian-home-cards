@@ -4,7 +4,8 @@
 # (Shared decisions SD8). Runner calls the three in order from the
 # repository root; a session can run them the same way.
 #
-#     scripts/build.sh build   generated files, type check and main.js
+#     scripts/build.sh build   generated files, type check and main.js,
+#                              copied to $RUNNER_RESULTS when Runner runs it
 #     scripts/build.sh test    the Vitest suites
 #     scripts/build.sh check   the project checks in Home Cards' STANDARDS
 #
@@ -45,8 +46,15 @@ check_versions() {
 
 lint() { npm run --silent css && npx eslint . --max-warnings 0; }
 
+# Under Runner, hand the installable files over in the job's artifacts,
+# so an install never reaches into Runner's working copy.
+deliver() {
+  [ -n "${RUNNER_RESULTS:-}" ] || return 0
+  cp main.js manifest.json styles.css "$RUNNER_RESULTS/"
+}
+
 case "${1:-}" in
-  build) npm run typecheck && npm run bundle ;;
+  build) npm run typecheck && npm run bundle && deliver ;;
   test)  npm test ;;
   check)
     run lint lint

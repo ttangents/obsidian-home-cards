@@ -22,7 +22,9 @@ import {
   blankScope,
   blankSection,
   defaultSettings,
+  duplicateSection,
   LIMITS,
+  sectionTitle,
   type NamedPage,
   type PageScope,
   type SectionConfig,
@@ -286,4 +288,16 @@ test("resolvePage for a plain folder page with a namesake named page gets (folde
   const result = resolvePage(settings, { folder: "Work/Projects" });
   assert.equal(result?.title, "Projects (folder)");
   assert.equal(result?.record, null);
+});
+
+test("a duplicated section is a titled copy under a new id that shares nothing", () => {
+  const source = section({ id: "a", count: 3, conditions: [{ property: "status", op: "is", value: "active" }], fields: ["due"] });
+  const copy = duplicateSection(source);
+  assert.notEqual(copy.id, source.id);
+  assert.equal(copy.count, 3);
+  assert.equal(copy.title, `${sectionTitle(source)} copy`);
+  copy.conditions[0].value = "done";
+  copy.fields.push("rating");
+  assert.equal(source.conditions[0].value, "active");
+  assert.deepEqual(source.fields, ["due"]);
 });

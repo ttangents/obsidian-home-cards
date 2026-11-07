@@ -52,21 +52,38 @@ function compileTags(raw: string): ((tag: string) => boolean) | null {
 }
 
 /** With a `/`: the folder path and its subtree. Bare: any path segment. */
+function folderTest(p: string): (folder: string) => boolean {
+  if (p.includes("/")) {
+    const clean = p.replace(/^\/+/, "").replace(/\/+$/, "").replace(/\/\*$/, "");
+    const exact = globToTest(clean);
+    const descend = globToTest(`${clean}/*`);
+    return (folder: string) => exact(folder) || descend(folder);
+  }
+  const segment = globToTest(p);
+  return (folder: string) => folder.split("/").some(segment);
+}
+
+/** A folder pattern that starts with `!` leaves its folders out. */
+export function isFolderExclusion(pattern: string): boolean {
+  return pattern.startsWith("!");
+}
+
+/**
+ * Included patterns OR; excluded ones (`!archive`) win over them. With
+ * only exclusions, every other folder is in.
+ */
 function compileFolders(raw: string): ((folder: string) => boolean) | null {
   const patterns = splitList(raw);
-  if (!patterns.length) return null;
-  return anyOf(
-    patterns.map((p) => {
-      if (p.includes("/")) {
-        const clean = p.replace(/^\/+/, "").replace(/\/+$/, "").replace(/\/\*$/, "");
-        const exact = globToTest(clean);
-        const descend = globToTest(`${clean}/*`);
-        return (folder: string) => exact(folder) || descend(folder);
-      }
-      const segment = globToTest(p);
-      return (folder: string) => folder.split("/").some(segment);
-    })
-  );
+  const include = patterns.filter((p) => !isFolderExclusion(p)).map(folderTest);
+  const exclude = patterns
+    .filter(isFolderExclusion)
+    .map((p) => p.slice(1).trim())
+    .filter(Boolean)
+    .map(folderTest);
+  if (!include.length && !exclude.length) return null;
+  const included = include.length ? anyOf(include) : () => true;
+  const excluded = anyOf(exclude);
+  return (folder: string) => included(folder) && !excluded(folder);
 }
 
 interface PropRule {

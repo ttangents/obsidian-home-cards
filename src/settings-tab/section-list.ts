@@ -1,5 +1,5 @@
 /**
- * An editable list of sections: toggle, reorder, edit and delete each,
+ * An editable list of sections: toggle, reorder, edit, duplicate and delete each,
  * and add another. Drawn into a modal for a page's own sections.
  *
  * Every edit calls `changed`, which the caller routes to the store's
@@ -8,7 +8,7 @@
  */
 
 import { Setting } from "obsidian";
-import { blankSection, newSectionId, sectionTitle, type SectionConfig } from "../settings/schema";
+import { blankSection, duplicateSection, newSectionId, sectionTitle, type SectionConfig } from "../settings/schema";
 import { SectionModal, type EditorContext } from "./section-modal";
 import { sectionSummary } from "./widgets";
 
@@ -55,6 +55,13 @@ export function renderSectionList(
           .onClick(() => move(i, 1))
       )
       .addExtraButton((b) => b.setIcon("pencil").setTooltip("Edit section").onClick(() => edit(cfg)))
+      .addExtraButton((b) =>
+        b.setIcon("copy").setTooltip("Duplicate section").onClick(() => {
+          sections.splice(i + 1, 0, duplicateSection(cfg));
+          changed();
+          redraw();
+        })
+      )
       .addExtraButton((b) =>
         b.setIcon("trash").setTooltip("Delete section").onClick(() => {
           sections.splice(i, 1);

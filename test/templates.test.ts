@@ -159,3 +159,12 @@ test("a frontmatter write leaves tags alone when the note has them", async () =>
   applyToFrontmatter(moved, { folder: "", tags: [], properties: { project: "[[C]]" } }, { folder: "", tags: [], properties: { project: "[[A]]" } });
   assert.deepEqual(moved.project, ["[[B]]", "[[C]]"]);
 });
+
+test("a section that tests the file name, the folder, or leaves a folder out takes no new notes", () => {
+  for (const conditions of [[c("file.name", "starts-with", "2026")], [c("file.folder", "is", "Journal")], [c("file.name", "missing")]]) {
+    assert.ok(!sectionWrite(blankSection({ id: "s", kind: "recent-modified", conditions }), NOW).complete, conditions[0].property);
+  }
+  const excluding = sectionWrite(blankSection({ id: "s", kind: "recent-modified", filterFolders: "/Projects, !archive" }), NOW);
+  assert.ok(!excluding.complete);
+  assert.equal(excluding.template.folder, "Projects", "the exclusion is not read as a folder to file in");
+});

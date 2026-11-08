@@ -155,6 +155,11 @@ export class HomeView extends ItemView implements HoverParent {
     return VIEW_TYPE_HOME;
   }
 
+  /** True on the home page, a named page or a folder page; false on a single note's page. */
+  isListingPage(): boolean {
+    return !this.ref.note;
+  }
+
   /** The page this view shows now, or null when its named page was deleted. */
   private page(): ResolvedPage | null {
     return resolvePage(this.services.store.settings, this.ref);

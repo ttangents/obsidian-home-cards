@@ -28,6 +28,7 @@ import { TypifyIcons } from "./render/legacy-typify";
 import { pickFolder } from "./render/folder-picker";
 import { HomeView, VIEW_TYPE_HOME, type HomeServices } from "./render/home-view";
 import { pickPage } from "./render/page-picker";
+import { SidebarFollower } from "./render/sidebar";
 import { ReleaseNotices } from "./render/release-notices";
 import { TILES } from "./render/tiles.generated";
 import { normalizeFolderPath } from "./settings/folders";
@@ -327,6 +328,15 @@ export default class HomeCardsPlugin extends Plugin {
     // Announce the API once the layout is ready, so a partner that asks
     // sooner hears from Home Cards then.
     this.app.workspace.onLayoutReady(() => this.provider.ready());
+
+    // The right sidebar describes the last note; on a page of cards it
+    // would describe a note that is not on screen.
+    const sidebar = new SidebarFollower(this.app, {
+      enabled: () => this.store.settings.closeSidebarOnPages,
+      isListingPage: (leaf) => leaf.view instanceof HomeView && leaf.view.isListingPage(),
+      register: (ref) => this.registerEvent(ref),
+    });
+    this.app.workspace.onLayoutReady(() => sidebar.start());
 
     if (this.store.settings.openOnStartup) {
       this.app.workspace.onLayoutReady(() => void this.pages.open());

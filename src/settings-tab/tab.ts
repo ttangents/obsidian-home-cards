@@ -158,6 +158,12 @@ export class HomeCardsSettingTab extends PluginSettingTab {
         control: { type: "toggle", key: "openOnStartup" },
       },
       {
+        name: "Close the right sidebar on pages",
+        desc: "The right sidebar shows the last note you opened, which is not on screen on the home page or a page of cards. Home Cards closes it there and opens it again when you go back to a note.",
+        aliases: ["hide sidebar", "properties panel"],
+        control: { type: "toggle", key: "closeSidebarOnPages" },
+      },
+      {
         name: "Default view",
         desc: "The layout the home page opens in. The header switches it for the current page.",
         control: { type: "dropdown", key: "defaultView", options: choiceOptions(VIEW_MODES) },

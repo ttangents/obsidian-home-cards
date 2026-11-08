@@ -397,6 +397,8 @@ export interface HomeCardsSettings {
   greetingName: string;
   showNoteCount: boolean;
   openOnStartup: boolean;
+  /** Close the right sidebar on pages that list notes; see compose/sidebar.ts. */
+  closeSidebarOnPages: boolean;
   /** Show a notice on the home page after an update; see release-notes.ts. */
   showReleaseNotes: boolean;
   /** The newest release the reader has seen announced; "" before the first. */
@@ -517,6 +519,7 @@ export function defaultSettings(): HomeCardsSettings {
     greetingName: "",
     showNoteCount: true,
     openOnStartup: false,
+    closeSidebarOnPages: true,
     showReleaseNotes: true,
     lastShownVersion: "",
 

@@ -337,6 +337,7 @@ export function normalizeSettings(stored: unknown): HomeCardsSettings {
     greetingName: str(r.greetingName, d.greetingName),
     showNoteCount: bool(r.showNoteCount, d.showNoteCount),
     openOnStartup: bool(r.openOnStartup, d.openOnStartup),
+    closeSidebarOnPages: bool(r.closeSidebarOnPages, d.closeSidebarOnPages),
     showReleaseNotes: bool(r.showReleaseNotes, d.showReleaseNotes),
     // Anything but a plain version reads as no marker.
     lastShownVersion: laterVersion(str(r.lastShownVersion, ""), d.lastShownVersion),

@@ -68,6 +68,15 @@ export const RECENT_RELEASES = 5;
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    version: "1.38.0",
+    date: "2026-11-08",
+    headline: "The right sidebar closes on the home page and opens again on your notes.",
+    announce: true,
+    changed: [
+      "The right sidebar shows the last note you opened, so on the home page or a page of cards it described a note that is not on screen. Home Cards now closes it on those pages and opens it again when you go back to a note. A note's own page keeps it. Settings → Home Cards → Close the right sidebar on pages turns this off.",
+    ],
+  },
+  {
     version: "1.37.0",
     date: "2026-11-07",
     headline: "Duplicate a section, match part of a name, and leave folders out.",
